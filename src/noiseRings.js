@@ -60,7 +60,7 @@ export class NoiseRings {
     // quiet creep = a lone faint ring; loud dash = a bright, thick, fast band
     const lines = 1 + Math.round(loud * 3);
     const speed = 3.5 + loud * 6.0;
-    const peak = 0.18 + loud * 0.42;   // subtle — a hint of how loud you were
+    const peak = 0.1 + loud * 0.28;    // subtle — a hint of how loud you were
     const reach = Math.max(0.5, radius);
     for (let i = 0; i < lines; i++) {
       const r = this._free();

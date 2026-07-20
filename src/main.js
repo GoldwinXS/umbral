@@ -298,6 +298,12 @@ class Game {
     this.player = new Player(this.scene, this.overlayScene);
     this.player.spawnAt(bag.spawn);
     this.player.vialCount = bag.startVials || 0;
+    // progression: later levels grant stronger base abilities
+    const up = bag.upgrades || {};
+    if (up.blinkRange) this.player.blinkRange = up.blinkRange;
+    if (up.growthCap) this.player.growthCap = up.growthCap;
+    if (up.maxHealthCap) this.player.maxHealthCap = up.maxHealthCap;
+    if (up.maxHealth) { this.player.maxHealth = up.maxHealth; this.player.health = up.maxHealth; }
 
     this.wardens = bag.guards.map((spec) => new Warden(this.scene, spec));
     this.eyes = (bag.eyes || []).map((spec) => new GreatEye(this.scene, spec));

@@ -120,6 +120,9 @@ export class Player {
     this.vialCount = 0;
     this.blinkCd = 0;
     this.blinkCdMax = BLINK_CD; // actual cooldown of the last blink (for HUD + per-level buffs)
+    this.blinkRange = BLINK_RANGE; // per-level upgradable (progression)
+    this.growthCap = 0.42;      // how large devouring can make the blob
+    this.maxHealthCap = 5;      // ceiling that devouring can raise maxHealth to
     this.carrySpeedMul = 1;     // >1 while carrying the beacon — the outrun finale
     this.strideAcc = 0;
     this.speedFrac = 0;   // smoothed 0..1 of run speed — drives morph + noise
@@ -176,12 +179,12 @@ export class Player {
   /** Swallow a warden: consume a maw charge, engulf it, gulp, and grow. */
   beginDevour(gx, gz) {
     this.mawCharges = Math.max(0, this.mawCharges - 1);
-    this.growth = Math.min(0.42, this.growth + 0.08); // cap the bloat
+    this.growth = Math.min(this.growthCap, this.growth + 0.08); // cap the bloat
     this.devourAnim = 1;
     this.eyeFlash = 1;
     if (gx != null) this.engulfTarget = { x: gx, z: gz };
     // every third feast thickens the hide — one more hit to spare
-    if (this.growth > 0 && Math.round(this.growth / 0.08) % 3 === 0 && this.maxHealth < 5) {
+    if (this.growth > 0 && Math.round(this.growth / 0.08) % 3 === 0 && this.maxHealth < this.maxHealthCap) {
       this.maxHealth++;
       this.health = Math.min(this.maxHealth, this.health + 1);
     }
@@ -279,7 +282,7 @@ export class Player {
 
     // march outward; keep the farthest valid landing (clear of walls + not void)
     let best = 0;
-    for (let d = 1.2; d <= BLINK_RANGE; d += 0.25) {
+    for (let d = 1.2; d <= this.blinkRange; d += 0.25) {
       const x = this.pos.x + dx * d, z = this.pos.z + dz * d;
       if (circleHits(x, z, this.radius * 0.9, ctx.level.boxes, ctx.level.cylinders)) break;
       if (pointInHole(x, z, ctx.level.holes)) continue; // may cross, not land
@@ -442,7 +445,7 @@ export class Player {
     // when you hold vials; a touch clearer when you slow to aim.
     const wantReticle = this.vialCount > 0 && this.falling <= 0 && !this.frozen;
     const aimClarity = 1 - Math.min(1, this.speedFrac * 1.3); // still = clear
-    const targetOp = wantReticle ? 0.12 + aimClarity * 0.28 : 0; // subtle
+    const targetOp = wantReticle ? 0.08 + aimClarity * 0.17 : 0; // subtle
     this._reticleOp += (targetOp - this._reticleOp) * Math.min(1, dt * 8);
     if (this._reticleOp > 0.01) {
       this.reticle.visible = true;
