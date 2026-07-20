@@ -28,6 +28,7 @@ const EVENT_COLOR = {
 export class NoiseRings {
   constructor(scene, pool = 40) {
     this.scene = scene;
+    this.opacity = 1;   // global multiplier from the Effects-opacity setting
     this.rings = [];
     // a thin unit annulus (radius ~1); scaling grows the ring, band stays
     // proportional so a loud/large ring reads as a slightly thicker band
@@ -88,7 +89,7 @@ export class NoiseRings {
       const s = Math.max(0.02, f * r.maxR);
       r.mesh.scale.set(s, s, s);
       // hold brightness through the first half, then fade — visible but clean
-      r.mesh.material.opacity = r.peak * (1 - f * f) * r.gain;
+      r.mesh.material.opacity = r.peak * (1 - f * f) * r.gain * this.opacity;
     }
   }
 

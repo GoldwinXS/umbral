@@ -11,6 +11,7 @@ import { pointInHole, surfaceAt } from "./physics.js";
 import { SURFACES } from "./levelKit.js";
 import { NoiseRings } from "./noiseRings.js";
 import { buildTutorial } from "./levels/tutorial.js";
+import { buildDousing } from "./levels/dousing.js";
 import { buildMission1 } from "./levels/mission1.js";
 import { buildLanternWays } from "./levels/lanternways.js";
 import { buildVault } from "./levels/vault.js";
@@ -19,6 +20,7 @@ import { buildChandlery } from "./levels/chandlery.js";
 
 const LEVELS = [
   { name: "THE ASHWAY", build: buildTutorial },
+  { name: "THE LAMPWAY", build: buildDousing },
   { name: "BRIGHTWARD", build: buildMission1 },
   { name: "THE LANTERN-WAYS", build: buildLanternWays },
   { name: "THE CHANDLERY", build: buildChandlery },
@@ -42,11 +44,12 @@ const VIS_NORM = 9.0;
 // later level can never silently regress an earlier grant.
 const POWER = [
   {},                                                                  // 0 Ashway
-  {},                                                                  // 1 Brightward
-  { blinkRange: 6.5 },                                                 // 2 Lantern-Ways
-  { blinkRange: 6.5, growthCap: 0.55 },                                // 3 Chandlery
-  { blinkRange: 7, growthCap: 0.55, maxHealthCap: 7, maxHealth: 4 },   // 4 Spire Ascent
-  { blinkRange: 7, growthCap: 0.6, maxHealthCap: 7, maxHealth: 4 },    // 5 Reliquary (finale)
+  {},                                                                  // 1 Lampway (dousing)
+  {},                                                                  // 2 Brightward
+  { blinkRange: 6.5 },                                                 // 3 Lantern-Ways
+  { blinkRange: 6.5, growthCap: 0.55 },                                // 4 Chandlery
+  { blinkRange: 7, growthCap: 0.55, maxHealthCap: 7, maxHealth: 4 },   // 5 Spire Ascent
+  { blinkRange: 7, growthCap: 0.6, maxHealthCap: 7, maxHealth: 4 },    // 6 Reliquary (finale)
 ];
 
 const boot = document.getElementById("boot");
@@ -332,6 +335,17 @@ class Game {
 
     // a plain-rendered overlay scene for transparent in-world HUD effects
     this.overlayScene = new THREE.Scene();
+
+    // depth-proxy of the solid geometry: rendered depth-only before the overlay
+    // pass so overlay effects (sound rings, fog barriers…) are OCCLUDED by walls
+    // instead of showing through them.
+    this._depthScene = new THREE.Scene();
+    const depthMat = new THREE.MeshBasicMaterial({ colorWrite: false });
+    for (const o of bag.occluders) {
+      const m = new THREE.Mesh(o.geometry, depthMat);
+      m.position.copy(o.position); m.quaternion.copy(o.quaternion); m.scale.copy(o.scale);
+      this._depthScene.add(m);
+    }
 
     // Fog-wall barriers are transparent haze — the tracer's raster pass DROPS
     // transparent meshes from the main scene, so they'd be invisible there. Move
@@ -864,6 +878,11 @@ class Game {
       this._occludedT = 0;
     }
 
+    // live effects-opacity setting → in-world overlays
+    const fxo = this.settings.overlayOpacity ?? 1;
+    if (this.noise) this.noise.opacity = fxo;
+    this.player.fxOpacity = fxo;
+
     this.hud.update(dt, this);
   }
 
@@ -889,11 +908,14 @@ class Game {
       this.rt.render(this.scene, this.camera);
       // The ray tracer's raster pass drops transparent overlays (GBufferPass
       // hides opacity < 0.5). So draw the in-world HUD effects — sound rings,
-      // reticles, aura, trails — in a plain forward pass ON TOP of the traced
-      // image, where normal alpha blending works.
+      // reticles, fog barriers, trails — in a plain forward pass over the traced
+      // image, where normal alpha blending works. First lay down the solid
+      // geometry's DEPTH (colour-less) so those effects are hidden BEHIND walls
+      // instead of showing through them.
       if (this.overlayScene) {
         this.renderer.autoClear = false;
         this.renderer.clearDepth();
+        if (this._depthScene) this.renderer.render(this._depthScene, this.camera);
         this.renderer.render(this.overlayScene, this.camera);
         this.renderer.autoClear = true;
       }

@@ -38,6 +38,7 @@ export class Player {
   constructor(scene, overlay) {
     this.scene = scene;
     this.fx = overlay || scene; // transparent HUD-in-world effects go here (plain forward pass)
+    this.fxOpacity = 1;         // global multiplier from the Effects-opacity setting
     const geo = new THREE.IcosahedronGeometry(PLAYER_R, 2);
     this.base = geo.getAttribute("position").array.slice();
     this.mesh = new THREE.Mesh(
@@ -470,7 +471,7 @@ export class Player {
       const rx = this.pos.x + this.facing.x * THROW_DIST;
       const rz = this.pos.z + this.facing.y * THROW_DIST;
       this.reticle.position.set(rx, 0.06, rz);
-      this.reticle.material.opacity = this._reticleOp;
+      this.reticle.material.opacity = this._reticleOp * this.fxOpacity;
     } else {
       this.reticle.visible = false;
     }
@@ -481,7 +482,7 @@ export class Player {
     if (this._mawOp > 0.01) {
       this.mawRing.visible = true;
       this.mawRing.position.set(this.pos.x, 0.06, this.pos.z);
-      this.mawRing.material.opacity = this._mawOp * 0.8; // steady, no pulse
+      this.mawRing.material.opacity = this._mawOp * 0.8 * this.fxOpacity; // steady, no pulse
     } else {
       this.mawRing.visible = false;
     }
@@ -492,7 +493,7 @@ export class Player {
       a.t = Math.min(1, a.t + dt / 0.5);
       if (a.t < 0) continue; // still waiting for its slot in the trail
       a.mesh.visible = true;
-      a.mesh.material.opacity = 0.5 * (1 - a.t);
+      a.mesh.material.opacity = 0.5 * (1 - a.t) * this.fxOpacity;
       const s = this.scale * (1 + a.t * 0.9);
       a.mesh.scale.set(s, s * (1 - a.t * 0.6), s);
     }
