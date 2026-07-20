@@ -267,7 +267,7 @@ export function makeKit(scene) {
         const m = new THREE.Mesh(
           new THREE.PlaneGeometry(w * (1.04 + (i % 3) * 0.06), h),
           new THREE.MeshBasicMaterial({
-            map: tex, color, transparent: true, opacity: 0.34,
+            map: tex, color, transparent: true, opacity: 0.5,
             depthWrite: false, side: THREE.DoubleSide, blending: THREE.NormalBlending,
           })
         );

@@ -333,6 +333,15 @@ class Game {
     // a plain-rendered overlay scene for transparent in-world HUD effects
     this.overlayScene = new THREE.Scene();
 
+    // Fog-wall barriers are transparent haze — the tracer's raster pass DROPS
+    // transparent meshes from the main scene, so they'd be invisible there. Move
+    // their visuals into the overlay pass (where alpha composites) so the barrier
+    // actually shows. The collider stays in bag.boxes and still blocks passage.
+    for (const fw of bag.fogWalls || []) {
+      if (fw.group.parent) fw.group.parent.remove(fw.group);
+      this.overlayScene.add(fw.group);
+    }
+
     this.player = new Player(this.scene, this.overlayScene);
     this.player.spawnAt(bag.spawn);
     this.player.vialCount = bag.startVials || 0;
