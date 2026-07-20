@@ -21,23 +21,23 @@ export function buildTutorial() {
   const bag = kit.bag;
   bag.id = "ashway";
   bag.name = "THE ASHWAY";
-  bag.spawn.set(-28, 0.42, -8);
+  bag.spawn.set(-28, 0.42, 10);
 
   const W = (w, d, x, z) => kit.wall(w, 3.2, d, x, z); // wall helper, h = 3.2
 
   // ================= FLOORS (one per cell, exactly abutting — no overlap) =====
-  kit.floor(8, 8, -28, -8);      // START      x[-32,-24] z[-12,-4]
-  kit.floor(2, 4, -28, -2);      // start corr x[-29,-27] z[-4,0]
-  kit.floor(28, 3, -22, 1.5);    // PATH       x[-36,-8]  z[0,3]
+  kit.floor(8, 8, -28, 10);      // START      x[-32,-24] z[6,14]  (now SOUTH of path)
+  kit.floor(2, 3, -28, 4.5);     // start corr x[-29,-27] z[3,6]
+  kit.floor(40, 3, -28, 1.5);    // PATH       x[-48,-8]  z[0,3]   (extends W past the fog)
   kit.floor(18, 21, 1, 1.5);     // SOUND      x[-8,10]   z[-9,12]
   kit.floor(6, 3, 13, 1.5);      // sound corr x[10,16]   z[0,3]
   kit.floor(18, 21, 25, 1.5);    // BLINK      x[16,34]   z[-9,12]
   kit.floor(4, 3, 36, 1.5);      // exit alcove x[34,38]  z[0,3]
 
   // ================= SURFACE PLATES (tiled, non-overlapping) ==================
-  kit.surface(-32, -12, -24, -4, "moss");   // start room
-  kit.surface(-29, -4, -27, 0, "moss");      // start corridor
-  kit.surface(-36, 0, -8, 3, "moss");        // path
+  kit.surface(-32, 6, -24, 14, "moss");      // start room (south of path)
+  kit.surface(-29, 3, -27, 6, "moss");       // start corridor
+  kit.surface(-48, 0, -8, 3, "moss");        // path (continues west past the fog)
   // SOUND room: a LARGE loud crystal floor filling the centre (lit by the
   // towers) with only a thin MOSS border. Cross the middle and you must creep to
   // stay quiet — or hug the silent, dark edges the long way round.
@@ -56,18 +56,19 @@ export function buildTutorial() {
   kit.surface(34, 0, 38, 3, "moss");          // exit alcove
 
   // ================= WALLS ====================================================
-  // START room x[-32,-24] z[-12,-4], south gap x[-29,-27]
-  W(8.4, 0.4, -28, -12.2);
-  W(0.4, 8.4, -32.2, -8); W(0.4, 8.4, -23.8, -8);
-  W(3, 0.4, -30.5, -4); W(3, 0.4, -25.5, -4);       // south, gap x[-29,-27]
-  // start corridor sides
-  W(0.4, 4.4, -29.2, -2); W(0.4, 4.4, -26.8, -2);
-  // PATH x[-36,-8] z[0,3]: north gap for corridor x[-29,-27]; south solid
-  W(7, 0.4, -32.5, 0); W(19, 0.4, -17.5, 0);        // north, gap x[-29,-27]
-  W(28.4, 0.4, -22, 3.2);                            // south
-  // fog-wall dead-end at the far-left of the path
-  W(0.4, 3.4, -36.2, 1.5);                           // solid cap behind
-  const fogA = kit.fogWall(-35.6, 1.5, 2.6, { rot: Math.PI / 2, h: 3.0 });
+  // START room x[-32,-24] z[6,14] (south of path), NORTH gap x[-29,-27]
+  W(8.4, 0.4, -28, 14.2);                            // south
+  W(0.4, 8.4, -32.2, 10); W(0.4, 8.4, -23.8, 10);   // sides
+  W(3, 0.4, -30.5, 6); W(3, 0.4, -25.5, 6);          // north, gap x[-29,-27]
+  // start corridor sides (z 3..6)
+  W(0.4, 3.4, -29.2, 4.5); W(0.4, 3.4, -26.8, 4.5);
+  // PATH x[-48,-8] z[0,3]: north solid; SOUTH gap for the corridor x[-29,-27]
+  W(40.4, 0.4, -28, -0.2);                            // north (solid)
+  W(19, 0.4, -38.5, 3.2); W(19, 0.4, -17.5, 3.2);    // south, gap x[-29,-27]
+  // the hallway CONTINUES west into the mist — a world beyond reach. The fog
+  // wall bars it; the corridor and its far wall are visible past the barrier.
+  W(0.4, 3.4, -48.2, 1.5);                            // far west cap (dim, distant)
+  const fogA = kit.fogWall(-34, 1.5, 2.6, { rot: Math.PI / 2, h: 3.0 });
   // SOUND room x[-8,10] z[-9,12], W gap z[0,3] (path), E gap z[0,3] (corridor)
   W(18.4, 0.4, 1, -9.2); W(18.4, 0.4, 1, 12.2);
   W(0.4, 9, -8.2, -4.5); W(0.4, 9, -8.2, 7.5);       // west, gap z[0,3]
@@ -84,8 +85,8 @@ export function buildTutorial() {
   kit.trim(2.6, 0.2, 36, 2.4, 0.05, 0, 0x39f0c0, 2.2);
 
   // ================= light towers (SOUND) =====================================
-  const towerN = kit.torch(1, 7, { intensity: 7, range: 8 });
-  const towerS = kit.torch(1, -2, { intensity: 7, range: 8 });
+  const towerN = kit.torch(1, 7, { intensity: 10, range: 9, scale: 1.7 }); // a great lantern
+  const towerS = kit.torch(1, -2, { intensity: 6, range: 7 });             // a lesser one
 
   // ================= guards ===================================================
   // SOUND: one slow Vesper sweeping the loud centre — so the safe line is the
@@ -108,12 +109,13 @@ export function buildTutorial() {
   }
 
   // ================= checkpoints ==============================================
-  kit.checkpoint(-28, -8, 3);
+  kit.checkpoint(-28, 10, 3);
   kit.checkpoint(-10, 1.5, 2);
   kit.checkpoint(13, 1.5, 2, 13, 1.5);
 
   // ================= triggers / gentle teaching ===============================
-  kit.trigger("moved", -28, -5, 2.2);
+  kit.trigger("moved", -28, 6, 2.4);
+  kit.trigger("fogWall", -32, 1.5, 2.6);
   kit.trigger("soundRoom", -6, 1.5, 2.6);
   kit.trigger("blinkRoom", 17, 1.5, 2.6);
   kit.trigger("exitRoom", 33, 1.5, 2.2);
@@ -126,8 +128,11 @@ export function buildTutorial() {
       case "moved":
         if (bag.stage === 0) {
           bag.stage = 1;
-          p.prompt("In <b>shadow</b> you are unseen — swift and silent. Follow the pathway east. (The wall of <b>mist</b> to the far west bars the way — a barrier you cannot pass shows as fog.)");
+          p.prompt("In <b>shadow</b> you are unseen — swift and silent. Head up into the hall, then follow it east.");
         }
+        break;
+      case "fogWall":
+        p.prompt("West, the hall runs on into <b>mist</b> — the rest of the Ashway, a world not yet yours to walk. Wherever fog stands like this, the way is shut. Turn back east.", 4);
         break;
       case "soundRoom":
         if (bag.stage === 1) {

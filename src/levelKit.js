@@ -161,23 +161,26 @@ export function makeKit(scene) {
       return m;
     },
 
-    /** Douseable torch/lamp: PointLight + pole + rtExclude flame. */
-    torch(x, z, { color = 0xffb36b, intensity = 6, range = 9, h = 2.2 } = {}) {
-      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.09, h, 8), mats.dark);
-      pole.position.set(x, h / 2, z);
+    /** Douseable torch/lamp: PointLight + pole + rtExclude flame. `scale` makes
+     *  a bigger, taller lantern (pass higher intensity/range for a brighter one)
+     *  so the map can carry a mix of small and great lanterns. */
+    torch(x, z, { color = 0xffb36b, intensity = 6, range = 9, h = 2.2, scale = 1 } = {}) {
+      const ph = h * scale;
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06 * scale, 0.09 * scale, ph, 8), mats.dark);
+      pole.position.set(x, ph / 2, z);
       scene.add(pole);
-      // NOTE: the pole is NOT an occluder — a 6cm stick shouldn't block sight or
+      // NOTE: the pole is NOT an occluder — a thin stick shouldn't block sight or
       // (crucially) the torch's own light. Adding it made a torch directly
       // overhead self-occlude, so standing on a torch read as unlit.
       const light = new THREE.PointLight(color, intensity, range);
-      light.position.set(x, h + 0.15, z);
-      light.userData.rtRadius = 0.12;
+      light.position.set(x, ph + 0.15, z);
+      light.userData.rtRadius = 0.12 * scale;
       scene.add(light);
       const flame = new THREE.Mesh(
-        new THREE.OctahedronGeometry(0.16),
+        new THREE.OctahedronGeometry(0.16 * scale),
         new THREE.MeshStandardMaterial({ color: 0x000000, emissive: color, emissiveIntensity: 5 })
       );
-      flame.position.set(x, h + 0.15, z);
+      flame.position.set(x, ph + 0.15, z);
       flame.userData.rtExclude = true; // rasterized glow, stays out of the BVH/NEE
       scene.add(flame);
       const t = { x, z, light, flame, baseIntensity: intensity, doused: false };
