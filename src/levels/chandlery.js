@@ -176,7 +176,7 @@ export function buildChandlery() {
   // ================= mission logic (NO route hints) =================
   bag.stage = 0;
   bag.objective = "Reach the Light-Heart";
-  bag.onStart = (game) => game.hud.prompt("They call this place the Chandlery. I remember the heat.", 4.5);
+  bag.onStart = (game) => game.hud.prompt("They call this place the Chandlery. You remember the heat.", 4.5);
   bag.onTrigger = (id, game) => {
     if (id === "hall" && !bag._hallSeen) {
       bag._hallSeen = true;

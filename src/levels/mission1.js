@@ -177,15 +177,15 @@ export function buildMission1() {
   // ================= mission logic =================
   bag.stage = 0;
   bag.alarmT = 0;
-  bag.objective = "Find a way into the citadel";
+  bag.objective = "Take the Noonstaff";
+  bag.onStart = (game) => game.hud.prompt("You have been here. You have never been here.", 4.5);
   bag.onTrigger = (id, game) => {
     if (id === "village" && bag.stage === 0) {
-      game.hud.prompt("Three ways in: the bright <b>gate</b>, the loud <b>postern</b>, the unwatched <b>moat</b>. Slip through the <b>mist</b> to cross unseen.");
+      game.hud.prompt("So many little fires. Each one a piece of something that was taken.");
     }
     if (id === "inside" && bag.stage === 0) {
       bag.stage = 1;
-      game.setObjective("Reach the reliquary hall");
-      game.hud.prompt("The reliquary waits north. Its floor is pure crystal — <b>creep</b>, or douse its braziers.");
+      game.hud.prompt("Inside the light now. It does not know you are the dark it fears.");
     }
     if (id === "hall" && bag.stage === 1) {
       bag.stage = 2;
@@ -195,7 +195,7 @@ export function buildMission1() {
         : "The Noonstaff. Drift close and press <span class='keycap'>E</span> to take it.");
     }
     if (id === "gate" && bag.stage === 0) {
-      game.hud.prompt("The gate blazes with light. Douse the torches — or find another way.");
+      game.hud.prompt("KEEP THE FIRES FED, the stones say. You mean to.");
     }
   };
 

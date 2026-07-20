@@ -180,7 +180,7 @@ export function buildVault() {
   kit.trigger("cellar", -18, 27, 2.6);
   kit.trigger("sanctum", 0, -13, 2.4);
 
-  bag.startVials = 3;
+  bag.startVials = 4;
 
   // ================= mission logic (NO route hints) =================
   bag.stage = 0;

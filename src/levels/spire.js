@@ -172,7 +172,7 @@ export function buildSpire() {
 
   // ================= mission logic =================
   bag.objective = "Climb to the summit";
-  bag.onStart = (game) => game.hud.prompt("The spire again. I always end up climbing.", 4.5);
+  bag.onStart = (game) => game.hud.prompt("The spire again. You always end up climbing.", 4.5);
   bag.onTrigger = (id, game) => {
     if (id === "courtyard" && !bag._courtyardSeen) {
       bag._courtyardSeen = true;

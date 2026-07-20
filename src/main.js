@@ -27,6 +27,17 @@ const LEVELS = [
 ];
 const CAM_OFFSET = new THREE.Vector3(0, 12.5, 6.3);
 const PROGRESS_KEY = "umbral.progress";
+// CUMULATIVE progression by level index — Hush only ever gets stronger. This
+// is the single source of truth (per-level bag.upgrades are ignored), so a
+// later level can never silently regress an earlier grant.
+const POWER = [
+  {},                                                                  // 0 Ashway
+  {},                                                                  // 1 Brightward
+  { blinkRange: 6.5 },                                                 // 2 Lantern-Ways
+  { blinkRange: 6.5, growthCap: 0.55 },                                // 3 Chandlery
+  { blinkRange: 7, growthCap: 0.55, maxHealthCap: 7, maxHealth: 4 },   // 4 Spire Ascent
+  { blinkRange: 7, growthCap: 0.6, maxHealthCap: 7, maxHealth: 4 },    // 5 Reliquary (finale)
+];
 
 const boot = document.getElementById("boot");
 const bootMsg = document.getElementById("boot-msg");
@@ -304,8 +315,8 @@ class Game {
     this.player = new Player(this.scene, this.overlayScene);
     this.player.spawnAt(bag.spawn);
     this.player.vialCount = bag.startVials || 0;
-    // progression: later levels grant stronger base abilities
-    const up = bag.upgrades || {};
+    // progression: cumulative by level index (never regresses)
+    const up = POWER[index] || {};
     if (up.blinkRange) this.player.blinkRange = up.blinkRange;
     if (up.growthCap) this.player.growthCap = up.growthCap;
     if (up.maxHealthCap) this.player.maxHealthCap = up.maxHealthCap;
