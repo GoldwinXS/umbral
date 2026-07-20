@@ -2,15 +2,17 @@ import * as THREE from "three";
 import { makeKit } from "../levelKit.js";
 
 /**
- * LEVEL 0 — THE ASHWAY (tutorial). A single winding PATHWAY that introduces the
- * fundamentals one at a time, gently:
- *   Start (moss) → a fog-wall dead-end teaches "fog = a wall you can't pass"
- *   → SOUND room: hard crystal rings loud & draws a lone Vesper; soft moss is
- *     silent; two light towers show that light exposes you — keep to shadow
- *   → BLINK room: shadowstep across two bands of resonant floor, in silence
+ * LEVEL 0 — THE ASHWAY (tutorial). One winding PATHWAY, left → right, matching
+ * the hand-drawn plan:
+ *   Start (moss, pokes up off the path) → drop to the path; a FOG-WALL dead-end
+ *   to the far left teaches "fog = a wall you can't pass"
+ *   → SOUND room: two light towers to skirt, a loud CRYSTAL shortcut straight
+ *     ahead vs silent MOSS detours, one slow Vesper looping the room
+ *   → BLINK room: shadowstep across two bands of resonant floor while TWO
+ *     Vespers sweep past each other in opposite directions
  *   → the rift.
- * No vials, no devouring here — those come later. Light, sound, and the
- * shadowstep are all this level asks the player to learn.
+ * Floors and surface plates are tiled with NO overlap (overlapping coplanar
+ * plates z-fight). Light, sound, and the shadowstep are all this level teaches.
  */
 export function buildTutorial() {
   const scene = new THREE.Scene();
@@ -19,84 +21,99 @@ export function buildTutorial() {
   const bag = kit.bag;
   bag.id = "ashway";
   bag.name = "THE ASHWAY";
-  bag.spawn.set(0, 0.42, 24);
+  bag.spawn.set(-28, 0.42, -8);
 
   const W = (w, d, x, z) => kit.wall(w, 3.2, d, x, z); // wall helper, h = 3.2
 
-  // ---------- Start room — x -5..5, z 20..28 (moss) ----------
-  kit.floor(10.4, 8.4, 0, 24);
-  kit.surface(-5, 20, 5, 28, "moss");
-  W(10.4, 0.4, 0, 28.2);                 // north
-  W(0.4, 8.4, 5.2, 24); W(0.4, 8.4, -5.2, 24); // sides
-  W(3.5, 0.4, -3.25, 20); W(3.5, 0.4, 3.25, 20); // south, gap x -1.5..1.5
-  kit.trim(3, 0.15, 0, 2.9, 20.05, 0, 0x8a5cff, 2.0);
+  // ================= FLOORS (one per cell, exactly abutting — no overlap) =====
+  kit.floor(8, 8, -28, -8);      // START      x[-32,-24] z[-12,-4]
+  kit.floor(2, 4, -28, -2);      // start corr x[-29,-27] z[-4,0]
+  kit.floor(28, 3, -22, 1.5);    // PATH       x[-36,-8]  z[0,3]
+  kit.floor(18, 21, 1, 1.5);     // SOUND      x[-8,10]   z[-9,12]
+  kit.floor(6, 3, 13, 1.5);      // sound corr x[10,16]   z[0,3]
+  kit.floor(18, 21, 25, 1.5);    // BLINK      x[16,34]   z[-9,12]
+  kit.floor(4, 3, 36, 1.5);      // exit alcove x[34,38]  z[0,3]
 
-  // ---------- Entry corridor — x -1.5..1.5, z 14..20 (moss) ----------
-  kit.floor(3.8, 6.4, 0, 17);
-  kit.surface(-1.5, 14, 1.5, 20, "moss");
-  W(0.4, 6.4, 1.7, 17);                  // east
-  W(0.4, 2.4, -1.7, 19); W(0.4, 1.4, -1.7, 14.5); // west, gap z 15..18 for the stub
+  // ================= SURFACE PLATES (tiled, non-overlapping) ==================
+  kit.surface(-32, -12, -24, -4, "moss");   // start room
+  kit.surface(-29, -4, -27, 0, "moss");      // start corridor
+  kit.surface(-36, 0, -8, 3, "moss");        // path
+  // SOUND room: crystal shortcut down the entry line, moss framed around it
+  kit.surface(-8, -9, -1, 12, "moss");        // moss W
+  kit.surface(3, -9, 10, 12, "moss");         // moss E
+  kit.surface(-1, 6, 3, 12, "moss");          // moss N
+  kit.surface(-1, -9, 3, 0, "moss");          // moss S
+  kit.surface(-1, 0, 3, 6, "crystal");        // the loud shortcut
+  kit.surface(10, 0, 16, 3, "moss");          // sound corridor
+  // BLINK room: two vertical resonant bands with moss strips between
+  kit.surface(16, -9, 21, 12, "moss");
+  kit.surface(21, -9, 24, 12, "crystal");     // band 1
+  kit.surface(24, -9, 27, 12, "moss");        // island
+  kit.surface(27, -9, 30, 12, "crystal");     // band 2
+  kit.surface(30, -9, 34, 12, "moss");
+  kit.surface(34, 0, 38, 3, "moss");          // exit alcove
 
-  // ---------- Fog-wall dead-end (west stub) — teaches the barrier ----------
-  kit.floor(7.9, 3.4, -5.25, 16.5);
-  kit.surface(-9, 15, -1.5, 18, "moss");
-  W(7.9, 0.4, -5.25, 18.2); W(7.9, 0.4, -5.25, 14.8); // stub N & S
-  W(0.4, 3.4, -9.2, 16.5);               // solid cap behind the fog
-  const fogA = kit.fogWall(-8.8, 16.5, 2.6, { rot: Math.PI / 2, h: 3.0 });
+  // ================= WALLS ====================================================
+  // START room x[-32,-24] z[-12,-4], south gap x[-29,-27]
+  W(8.4, 0.4, -28, -12.2);
+  W(0.4, 8.4, -32.2, -8); W(0.4, 8.4, -23.8, -8);
+  W(3, 0.4, -30.5, -4); W(3, 0.4, -25.5, -4);       // south, gap x[-29,-27]
+  // start corridor sides
+  W(0.4, 4.4, -29.2, -2); W(0.4, 4.4, -26.8, -2);
+  // PATH x[-36,-8] z[0,3]: north gap for corridor x[-29,-27]; south solid
+  W(7, 0.4, -32.5, 0); W(19, 0.4, -17.5, 0);        // north, gap x[-29,-27]
+  W(28.4, 0.4, -22, 3.2);                            // south
+  // fog-wall dead-end at the far-left of the path
+  W(0.4, 3.4, -36.2, 1.5);                           // solid cap behind
+  const fogA = kit.fogWall(-35.6, 1.5, 2.6, { rot: Math.PI / 2, h: 3.0 });
+  // SOUND room x[-8,10] z[-9,12], W gap z[0,3] (path), E gap z[0,3] (corridor)
+  W(18.4, 0.4, 1, -9.2); W(18.4, 0.4, 1, 12.2);
+  W(0.4, 9, -8.2, -4.5); W(0.4, 9, -8.2, 7.5);       // west, gap z[0,3]
+  W(0.4, 9, 10.2, -4.5); W(0.4, 9, 10.2, 7.5);       // east, gap z[0,3]
+  // sound corridor N/S
+  W(6, 0.4, 13, 0); W(6, 0.4, 13, 3);
+  // BLINK room x[16,34] z[-9,12], W gap z[0,3], E gap z[0,3]
+  W(18.4, 0.4, 25, -9.2); W(18.4, 0.4, 25, 12.2);
+  W(0.4, 9, 15.8, -4.5); W(0.4, 9, 15.8, 7.5);       // west, gap z[0,3]
+  W(0.4, 9, 34.2, -4.5); W(0.4, 9, 34.2, 7.5);       // east, gap z[0,3]
+  // exit alcove
+  W(4, 0.4, 36, 0); W(4, 0.4, 36, 3); W(0.4, 3.4, 38.2, 1.5);
+  kit.extraction(36, 1.5);
+  kit.trim(2.6, 0.2, 36, 2.4, 0.05, 0, 0x39f0c0, 2.2);
 
-  // ---------- SOUND room — x -8..8, z 0..14 ----------
-  kit.floor(16.4, 14.4, 0, 7);
-  kit.surface(-8, 0, 8, 14, "moss");          // quiet moss all around
-  kit.surface(-2, 4, 2, 10, "crystal");       // a loud shortcut straight down the middle
-  W(6.5, 0.4, -4.75, 14.2); W(6.5, 0.4, 4.75, 14.2); // north, gap
-  W(6.5, 0.4, -4.75, -0.2); W(6.5, 0.4, 4.75, -0.2); // south, gap
-  W(0.4, 14.4, 8.2, 7); W(0.4, 14.4, -8.2, 7);       // sides
-  // two light towers — pools to skirt around
-  const towerHi = kit.torch(-4, 10, { intensity: 7, range: 8 });
-  const towerLo = kit.torch(4, 4, { intensity: 7, range: 8 });
-  // a single slow Vesper sweeping the middle — cross when it's turned away
-  kit.guard([[-6, 7], [6, 7]], { speed: 1.0, pause: 2.0, range: 8 });
+  // ================= light towers (SOUND) =====================================
+  const towerN = kit.torch(1, 8, { intensity: 7, range: 8 });
+  const towerS = kit.torch(1, -3, { intensity: 7, range: 8 });
 
-  // ---------- BLINK room — x -8..8, z -16..0 ----------
-  kit.floor(16.4, 16.4, 0, -8);
-  kit.surface(-8, -16, 8, 0, "moss");
-  kit.surface(-8, -6, 8, -4, "crystal");      // resonant band 1  (z -6..-4)
-  kit.surface(-8, -11, 8, -9, "crystal");     // resonant band 2  (z -11..-9)
-  W(6.5, 0.4, -4.75, -16.2); W(6.5, 0.4, 4.75, -16.2); // south, gap
-  W(0.4, 16.4, 8.2, -8); W(0.4, 16.4, -8.2, -8);       // sides
-  kit.trim(3, 0.14, 0, 2.6, 0.05, 0, 0x39f0c0, 1.6);
+  // ================= guards ===================================================
+  // SOUND: one slow Vesper looping the room
+  kit.guard([[-5, -5], [7, -5], [7, 10], [-5, 10]], { speed: 1.0, pause: 1.6, range: 8 });
+  // BLINK (final room): TWO Vespers sweeping in OPPOSITE directions
+  kit.guard([[19, -7], [19, 10]], { speed: 1.1, pause: 1.0, range: 8 });   // starts heading +z
+  kit.guard([[31, 10], [31, -7]], { speed: 1.1, pause: 1.0, range: 8 });   // starts heading -z
 
-  // ---------- Exit corridor + rift — x -1.5..1.5, z -20..-16 ----------
-  kit.floor(3.8, 4.4, 0, -18);
-  kit.surface(-1.5, -20, 1.5, -16, "moss");
-  W(3.8, 0.4, 0, -20.2);
-  W(0.4, 4.4, 1.7, -18); W(0.4, 4.4, -1.7, -18);
-  kit.extraction(0, -18);
-  kit.trim(3, 0.2, 0, 2.4, -20.0, 0, 0x39f0c0, 2.2);
-
-  // ---------- ambient (low — torch pools & shadow must read) ----------
+  // ================= ambient (low — pools & shadow must read) =================
   const moon = new THREE.DirectionalLight(0x8ea0cc, 0.55);
   moon.position.set(-12, 22, 8);
   moon.userData.rtRadius = 0.05;
   scene.add(moon, moon.target);
-  for (const [x, y, z] of [[0, 6, 22], [0, 6, -9]]) {
-    const f = new THREE.PointLight(0x8098c0, 4, 15);
+  for (const [x, y, z] of [[-18, 7, 1.5], [25, 7, 1.5]]) {
+    const f = new THREE.PointLight(0x8098c0, 3.2, 13);
     f.position.set(x, y, z);
     f.userData.rtRadius = 0.85;
     scene.add(f);
   }
 
-  // ---------- checkpoints ----------
-  kit.checkpoint(0, 24, 3);
-  kit.checkpoint(0, 12, 2);
-  kit.checkpoint(0, -2, 2.4, 0, -1.5);
+  // ================= checkpoints ==============================================
+  kit.checkpoint(-28, -8, 3);
+  kit.checkpoint(-10, 1.5, 2);
+  kit.checkpoint(13, 1.5, 2, 13, 1.5);
 
-  // ---------- triggers / gentle teaching ----------
-  kit.trigger("moved", 0, 18, 2.2);
-  kit.trigger("stub", -6, 16.5, 2.4);
-  kit.trigger("soundRoom", 0, 12, 2.6);
-  kit.trigger("blinkRoom", 0, -2, 2.6);
-  kit.trigger("exitRoom", 0, -15, 2.2);
+  // ================= triggers / gentle teaching ===============================
+  kit.trigger("moved", -28, -5, 2.2);
+  kit.trigger("soundRoom", -6, 1.5, 2.6);
+  kit.trigger("blinkRoom", 17, 1.5, 2.6);
+  kit.trigger("exitRoom", 33, 1.5, 2.2);
 
   bag.stage = 0;
   bag.objective = "Follow the path";
@@ -106,28 +123,23 @@ export function buildTutorial() {
       case "moved":
         if (bag.stage === 0) {
           bag.stage = 1;
-          p.prompt(game.isTouch
-            ? "In <b>shadow</b> you are unseen — swift and silent. Follow the pathway. (A wall of <b>mist</b> to the west bars the way — barriers you cannot pass show as fog.)"
-            : "In <b>shadow</b> you are unseen — swift and silent. Follow the pathway. (A wall of <b>mist</b> to the west bars the way — barriers you cannot pass show as fog.)");
+          p.prompt("In <b>shadow</b> you are unseen — swift and silent. Follow the pathway east. (The wall of <b>mist</b> to the far west bars the way — a barrier you cannot pass shows as fog.)");
         }
-        break;
-      case "stub":
-        p.prompt("A <b>fog wall</b> — solid to you. Wherever mist stands like this, the way is shut. Turn back east.", 4);
         break;
       case "soundRoom":
         if (bag.stage === 1) {
           bag.stage = 2;
           game.setObjective("Slip past the Vesper");
-          p.prompt("Hard <b>crystal</b> floor RINGS loud — watch the sound ripple out and draw the Vesper. Soft <b>moss</b> is silent. And the <b>light towers</b> expose you: keep to the dark, move on moss, cross when its gaze turns away.");
+          p.prompt("Hard <b>crystal</b> floor RINGS loud — watch the sound ripple out and draw the Vesper. Soft <b>moss</b> is silent. The <b>light towers</b> expose you: skirt the dark edges, on moss, and cross when its gaze turns away.");
         }
         break;
       case "blinkRoom":
         if (bag.stage === 2) {
           bag.stage = 3;
-          game.setObjective("Shadowstep the resonant floor");
+          game.setObjective("Shadowstep past the wardens");
           p.prompt(game.isTouch
-            ? "Two bands of <b>resonant floor</b> ahead — loud to walk. <b>Shadowstep</b> over them: aim and tap <b>⤞</b>. Two leaps to the rift."
-            : "Two bands of <b>resonant floor</b> ahead — loud to walk. <b>Shadowstep</b> over them: aim and press <span class='keycap'>SPACE</span>. Two leaps to the rift.");
+            ? "Two <b>resonant bands</b>, and two Vespers passing each other. <b>Shadowstep</b> over the loud floor in silence — aim and tap <b>⤞</b>, timing each leap between them."
+            : "Two <b>resonant bands</b>, and two Vespers passing each other. <b>Shadowstep</b> over the loud floor in silence — aim and press <span class='keycap'>SPACE</span>, timing each leap between them.");
         }
         break;
       case "exitRoom":
@@ -147,7 +159,6 @@ export function buildTutorial() {
   };
 
   bag.startVials = 0;
-  // keep the fog-wall barrier permanent (it's a "you can't pass" demo)
-  void fogA; void towerHi; void towerLo;
+  void fogA; void towerN; void towerS;
   return bag;
 }
