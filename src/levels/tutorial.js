@@ -123,9 +123,7 @@ export function buildTutorial() {
   kit.trigger("strikeRoom", 0, -38, 3);
   kit.trigger("exitRoom", 0, -48, 3);
 
-  // a light atmospheric drift in the vial room (gentle cover — full fog is
-  // taught for real in later missions)
-  kit.fogPatch(-6, -35, 6, -27, { conceal: 0.35, density: 0.04, puffs: 5 });
+  // (no fog in the tutorial — mechanics are introduced later)
 
   // ---------- stage machine ----------
   bag.stage = 0;

@@ -4,7 +4,7 @@ import { Input } from "./input.js";
 import { Settings } from "./settings.js";
 import { Sfx } from "./audio.js";
 import { Hud } from "./hud.js";
-import { Player, PLAYER_R, BLINK_CD, DOUSE_RADIUS } from "./player.js";
+import { Player, PLAYER_R, BLINK_CD, DOUSE_RADIUS, SWALLOW_RANGE } from "./player.js";
 import { Warden } from "./guards.js";
 import { GreatEye } from "./greatEye.js";
 import { pointInHole, surfaceAt } from "./physics.js";
@@ -61,6 +61,9 @@ class Game {
     this._tmpV = new THREE.Vector3();
     this.noise = null; // NoiseRings, rebuilt per level
     this._camPos = new THREE.Vector3();
+    this._camOff = new THREE.Vector3();
+    this.camDist = 1;   // zoom (0.5 close … 2.0 far)
+    this.camYaw = 0;    // orbit rotation about the player
 
     this._initRenderer();
     this._initUI();
@@ -72,6 +75,7 @@ class Game {
     window.addEventListener("keydown", unlock, { once: true });
 
     window.addEventListener("resize", () => this._onResize());
+    this._initCameraControls();
 
     this._lastT = performance.now();
     this._loop = this._loop.bind(this);
@@ -120,6 +124,62 @@ class Game {
       this.camera.updateProjectionMatrix();
     }
     if (this.rt) this.rt.setSize(w, h);
+  }
+
+  // ---------------- camera zoom + orbit ----------------
+
+  _clampZoom() { this.camDist = Math.max(0.5, Math.min(2.0, this.camDist)); }
+
+  /** The follow offset for the current zoom + yaw (base is a high 3/4 view). */
+  _camOffset() {
+    const d = this.camDist, s = Math.sin(this.camYaw), c = Math.cos(this.camYaw);
+    // base offset (0, 12.5, 6.3) rotated about Y and scaled by zoom
+    return this._camOff.set(-6.3 * d * s, 12.5 * d, 6.3 * d * c);
+  }
+
+  _initCameraControls() {
+    const playing = () => this.state === "playing";
+    // desktop: wheel = zoom
+    window.addEventListener("wheel", (e) => {
+      if (!playing()) return;
+      this.camDist += (e.deltaY > 0 ? 0.12 : -0.12);
+      this._clampZoom();
+      e.preventDefault();
+    }, { passive: false });
+    // desktop: right-drag = orbit
+    let rx = null;
+    window.addEventListener("pointerdown", (e) => { if (e.pointerType === "mouse" && e.button === 2 && playing()) rx = e.clientX; });
+    window.addEventListener("pointermove", (e) => { if (rx != null) { this.camYaw += (e.clientX - rx) * 0.008; rx = e.clientX; } });
+    window.addEventListener("pointerup", () => { rx = null; });
+    window.addEventListener("contextmenu", (e) => { if (playing()) e.preventDefault(); });
+    // touch: two-finger pinch = zoom, twist = orbit
+    const pts = new Map();
+    let pd = 0, pa = 0;
+    const two = () => { const it = [...pts.values()]; return [it[0], it[1]]; };
+    window.addEventListener("pointerdown", (e) => {
+      if (e.pointerType !== "touch") return;
+      pts.set(e.pointerId, e);
+      if (pts.size === 2) { const [a, b] = two(); pd = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); pa = Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX); }
+    });
+    window.addEventListener("pointermove", (e) => {
+      if (e.pointerType !== "touch" || !pts.has(e.pointerId)) return;
+      pts.set(e.pointerId, e);
+      if (pts.size >= 2 && playing()) {
+        const [a, b] = two();
+        const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+        const ang = Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX);
+        if (pd > 0) {
+          this.camDist *= pd / Math.max(1, dist); this._clampZoom();
+          let da = ang - pa; while (da > Math.PI) da -= Math.PI * 2; while (da < -Math.PI) da += Math.PI * 2;
+          this.camYaw += da;
+        }
+        pd = dist; pa = ang;
+        e.preventDefault();
+      }
+    }, { passive: false });
+    const drop = (e) => { pts.delete(e.pointerId); if (pts.size < 2) pd = 0; };
+    window.addEventListener("pointerup", drop);
+    window.addEventListener("pointercancel", drop);
   }
 
   _initUI() {
@@ -223,6 +283,7 @@ class Game {
   loadLevel(index) {
     bootMsg.textContent = "shaping the dark…";
     boot.classList.remove("hidden");
+    this.isTouch = document.body.classList.contains("coarse"); // reflects the control-mode setting
     this.levelIndex = index;
     this._disposeScene();
     this._makeRT(); // fresh raytracer for the fresh scene (no stale GPU state)
@@ -241,8 +302,9 @@ class Game {
     // wardens have bodies / are devourable, so they stay a separate list too.
     this.threats = [...this.wardens, ...this.eyes];
 
+    this.camDist = 1; this.camYaw = 0; // reset view each level
     this.camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.1, 160);
-    this.camera.position.copy(bag.spawn).add(CAM_OFFSET);
+    this.camera.position.copy(bag.spawn).add(this._camOffset());
     this.camera.lookAt(bag.spawn);
 
     bootMsg.textContent = "tracing light…";
@@ -320,7 +382,7 @@ class Game {
     for (const w of this.threats) w.reset();
     this.maxDanger = 0;
     this.rt.resetAccumulation();
-    this.camera.position.copy(this.checkpoint).add(CAM_OFFSET);
+    this.camera.position.copy(this.checkpoint).add(this._camOffset());
   }
 
   pause() {
@@ -477,6 +539,22 @@ class Game {
     if (input.consume("pause")) { this.pause(); return; }
     if (input.consume("mute")) { this.settings.sound = !this.settings.sound; this.settings.apply(); }
 
+    // keyboard camera: , / . orbit, - / = zoom
+    const k = input.keys;
+    if (k.has(",")) this.camYaw -= dt * 1.7;
+    if (k.has(".")) this.camYaw += dt * 1.7;
+    if (k.has("-")) { this.camDist += dt * 1.1; this._clampZoom(); }
+    if (k.has("=") || k.has("+")) { this.camDist -= dt * 1.1; this._clampZoom(); }
+
+    // movement is camera-relative: rotate the input by the orbit so "up" is
+    // always away from the camera, whatever the yaw
+    if (this.camYaw) {
+      const cs = Math.cos(this.camYaw), sn = Math.sin(this.camYaw);
+      const mx = input.move.x * cs - input.move.z * sn;
+      const mz = input.move.x * sn + input.move.z * cs;
+      input.move.x = mx; input.move.z = mz;
+    }
+
     this.elapsed += dt;
     this.playerSneaking = input.sneak;
 
@@ -519,7 +597,7 @@ class Game {
         const d = Math.hypot(w.pos.x - player.pos.x, w.pos.z - player.pos.z);
         if (d < bestD) { bestD = d; bestW = w; }
       }
-      if (bestW && bestD < 1.8) {
+      if (bestW && bestD < SWALLOW_RANGE) {
         const behind = bestW.isBehind(player.pos.x, player.pos.z);
         if (behind && player.mawCharges > 0) {
           // FEAST — swallow the warden from behind, grow, flash red
@@ -665,12 +743,13 @@ class Game {
     this.rt.updateLights(this.scene);
     this.rt.updateDynamic();
 
-    // camera follows with a little velocity lead
+    // camera follows with a little velocity lead, at the current zoom + orbit
+    const off = this._camOffset();
     const lead = 0.4;
     this._camPos.set(
-      player.pos.x + CAM_OFFSET.x + player.vel.x * lead * 0.2,
-      CAM_OFFSET.y,
-      player.pos.z + CAM_OFFSET.z + player.vel.z * lead * 0.2
+      player.pos.x + off.x + player.vel.x * lead * 0.2,
+      off.y,
+      player.pos.z + off.z + player.vel.z * lead * 0.2
     );
     this.camera.position.lerp(this._camPos, 1 - Math.pow(0.001, dt));
     this.camera.lookAt(player.pos.x + player.vel.x * lead * 0.15, 0.4, player.pos.z + player.vel.z * lead * 0.15);

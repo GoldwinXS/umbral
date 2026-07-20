@@ -27,6 +27,7 @@ export const BLINK_RANGE = 5.0;
 export const BLINK_CD = 4.0;   // shorter than before — the step is your lifeline now
 export const THROW_DIST = 4.6;   // how far a lobbed vial travels
 export const DOUSE_RADIUS = 2.1; // world radius a vial douses / its splash reach
+export const SWALLOW_RANGE = 2.7; // reach of the maw (buffed) — a warden inside this, from behind, can be devoured
 
 export class Player {
   constructor(scene) {
@@ -112,6 +113,19 @@ export class Player {
     this.reticle.visible = false;
     scene.add(this.reticle);
     this._reticleOp = 0;
+
+    // maw range ring — a thin red circle (crosshair-style) shown while hungry,
+    // marking how close a warden must be to be swallowed
+    const mawPts = [];
+    for (let i = 0; i <= 64; i++) { const a = (i / 64) * Math.PI * 2; mawPts.push(Math.cos(a) * SWALLOW_RANGE, 0, Math.sin(a) * SWALLOW_RANGE); }
+    const mawGeo = new THREE.BufferGeometry();
+    mawGeo.setAttribute("position", new THREE.Float32BufferAttribute(mawPts, 3));
+    this.mawRing = new THREE.LineLoop(mawGeo, new THREE.LineBasicMaterial({ color: 0xff3a44, transparent: true, opacity: 0, depthWrite: false }));
+    this.mawRing.userData.rtExclude = true;
+    this.mawRing.renderOrder = 4;
+    this.mawRing.visible = false;
+    scene.add(this.mawRing);
+    this._mawOp = 0;
 
     // afterimage pool for the blink trail
     this.afterimages = [];
@@ -475,6 +489,17 @@ export class Player {
       });
     } else {
       this.reticle.visible = false;
+    }
+
+    // maw range ring — subtle red circle while a devour is charged
+    const wantMaw = this.mawCharges > 0 && this.falling <= 0 && !this.frozen;
+    this._mawOp += ((wantMaw ? 0.5 : 0) - this._mawOp) * Math.min(1, dt * 8);
+    if (this._mawOp > 0.01) {
+      this.mawRing.visible = true;
+      this.mawRing.position.set(this.pos.x, 0.06, this.pos.z);
+      this.mawRing.material.opacity = this._mawOp * (0.85 + Math.sin(t * 4) * 0.15); // gentle pulse
+    } else {
+      this.mawRing.visible = false;
     }
 
     // afterimages fade (staggered starts via negative t)

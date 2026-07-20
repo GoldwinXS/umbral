@@ -15,6 +15,7 @@ export const DEFAULTS = {
   adaptive: true,     // governor steers quality toward targetFps
   targetFps: 55,
   sound: true,
+  touch: null,        // null = auto-detect; true = on-screen controls, false = desktop
 };
 
 const PRESETS = {
@@ -30,6 +31,10 @@ export class Settings {
     let saved = {};
     try { saved = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (_) {}
     Object.assign(this, DEFAULTS, saved);
+    // resolve auto → detected touch capability (only if never chosen)
+    if (this.touch === null || this.touch === undefined) {
+      this.touch = !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+    }
     this.governorScale = 1; // adaptive governor's deepest lever (canvas scale)
     this._rt = null;
     this._renderer = null;
@@ -44,6 +49,7 @@ export class Settings {
         taa: this.taa, denoise: this.denoise, volumetric: this.volumetric,
         reflections: this.reflections, stochastic: this.stochastic,
         adaptive: this.adaptive, targetFps: this.targetFps, sound: this.sound,
+        touch: this.touch,
       }));
     } catch (_) {}
   }
@@ -76,6 +82,7 @@ export class Settings {
     }
     this._applyResolution();
     if (this._onSound) this._onSound(this.sound);
+    document.body.classList.toggle("coarse", !!this.touch); // show only the right control UI
     this.save();
     this._syncUI();
   }
@@ -84,7 +91,7 @@ export class Settings {
     this[key] = value;
     // The governor owns these three while it runs — touching them turns it off.
     if (["renderScale", "denoise", "stochastic"].includes(key)) this.adaptive = false;
-    this.preset = "custom";
+    if (key !== "touch") this.preset = "custom"; // control mode isn't a graphics preset
     this.apply();
   }
 
@@ -132,6 +139,7 @@ export class Settings {
     toggle("Reflections", "reflections", "Traced gloss on crystal floors — costly");
     toggle("Stochastic shadows", "stochastic", "1 shadow ray/px — faster, noisier");
     toggle("Adaptive quality", "adaptive", "Auto-tunes quality to hold target FPS");
+    toggle("Touch controls", "touch", "On-screen stick + buttons (mobile). Off = desktop keys.");
 
     // preset buttons
     const pres = { prePerf: "perf", preBal: "bal", preBeauty: "beauty" };
@@ -152,7 +160,7 @@ export class Settings {
       if (input) input.value = this[key];
       if (val) val.textContent = this._fmt[key](this[key]);
     }
-    for (const key of ["taa", "volumetric", "reflections", "stochastic", "adaptive"]) {
+    for (const key of ["taa", "volumetric", "reflections", "stochastic", "adaptive", "touch"]) {
       const t = document.getElementById("set_" + key);
       if (t) t.classList.toggle("on", !!this[key]);
     }

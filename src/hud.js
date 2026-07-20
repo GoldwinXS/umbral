@@ -13,7 +13,6 @@ export class Hud {
       gemFill: document.getElementById("gemFill"),
       gemCore: document.getElementById("gemCore"),
       gemState: document.getElementById("gemState"),
-      gemNoise: document.getElementById("gemNoise"),
       lifePips: document.getElementById("lifePips"),
       vialCount: document.getElementById("vialCount"),
       vialCountT: document.getElementById("vialCountT"),
@@ -30,7 +29,6 @@ export class Hud {
     };
     this._promptT = 0;
     this._gem = 0;
-    this._noise = 0;     // decaying HUD noise-ping level
   }
 
   show(on) { this.el.hud.classList.toggle("hidden", !on); }
@@ -43,10 +41,9 @@ export class Hud {
     this._promptT = dur;
   }
 
-  /** A noise was emitted; intensity ~0..1 drives a ping around the light gem. */
-  noisePulse(intensity) {
-    this._noise = Math.max(this._noise, Math.min(1, intensity));
-  }
+  /** Sound is shown in the WORLD (expanding rings), not the HUD. No-op kept
+   *  so the game loop can call it unconditionally. */
+  noisePulse() {}
 
   caughtFlash() {
     this.el.flash.style.opacity = "1";
@@ -60,14 +57,6 @@ export class Hud {
     this.el.gemFill.style.strokeDashoffset = String(C * (1 - this._gem));
     this.el.gemFill.style.stroke = this._gem > 0.55 ? "#ffd9a0" : this._gem > 0.25 ? "#c8a86a" : "#5a5470";
     this.el.gemCore.style.opacity = String(0.35 + this._gem * 0.65);
-
-    // noise ping ring — grows + fades each footstep, echoing the world rings
-    this._noise = Math.max(0, this._noise - dt * 1.6);
-    if (this.el.gemNoise) {
-      const n = this._noise;
-      this.el.gemNoise.style.opacity = String(n * 0.85);
-      this.el.gemNoise.style.transform = `translate(-50%,-50%) scale(${1 + (1 - n) * 0.9})`;
-    }
 
     // what the gem MEANS: how lit you are (not how seen)
     const gs = this.el.gemState;

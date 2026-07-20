@@ -17,6 +17,11 @@ const SUSPECT = new THREE.Color(0xff9440);
 const CHASE = new THREE.Color(0xff4a4a);
 const OUT = new THREE.Color(0x1a1c22);
 
+// Below this effective exposure the blob is IN SHADOW and simply cannot be
+// seen — the whole point of being a creature of darkness. Matches the "in
+// shadow" band on the HUD light gem.
+const SHADOW_THRESHOLD = 0.16;
+
 export class Warden {
   constructor(scene, spec) {
     this.scene = scene;
@@ -243,11 +248,14 @@ export class Warden {
     let reflMul = 1;
     if (!sees && !game.playerHidden) sees = this._seesReflection(game, spec) && (reflMul = 0.8, true);
 
+    // THE SHADOW GATE: how exposed is the blob right now? Light (torches, the
+    // warden's own cone, the beacon) reveals it; fog and sneaking hide it.
+    const fog = 1 - (game.fogCover || 0);
+    const exposure = game.playerVis * (game.playerSneaking ? 0.7 : 1) * fog * reflMul;
+    if (exposure < SHADOW_THRESHOLD) sees = false; // in shadow → truly invisible
+
     if (sees) {
-      // fog cover blunts recognition sharply; sneaking helps too
-      const fog = 1 - (game.fogCover || 0);
-      const effVis = game.playerVis * (game.playerSneaking ? 0.65 : 1) * fog * reflMul;
-      const gain = effVis * (1.3 - dist / spec.range) * 1.9;
+      const gain = exposure * (1.3 - dist / spec.range) * 2.1;
       this.alertness = Math.min(1, this.alertness + Math.max(0, gain) * dt);
       this.lastKnown.set(p.x, p.z);
       this.lostT = 0;
@@ -258,12 +266,12 @@ export class Warden {
         game.sfx.suspicious();
       }
     } else if (this.state !== "chase" && this.state !== "search") {
-      this.alertness = Math.max(0, this.alertness - 0.13 * dt);
+      this.alertness = Math.max(0, this.alertness - 0.22 * dt); // calm down quicker
     }
 
-    // close proximity: they sense the blob even unlit
-    if (dist < 1.9 && this.state !== "chase") {
-      this.alertness = Math.min(1, this.alertness + 0.85 * dt);
+    // they only physically sense the blob if it's all but touching them
+    if (dist < 0.8 && this.state !== "chase") {
+      this.alertness = Math.min(1, this.alertness + 0.7 * dt);
       this.investigate.set(p.x, p.z);
       if (this.alertness >= 0.92) this._toChase(game);
       else if (this.state === "patrol") this._toSuspect(game);

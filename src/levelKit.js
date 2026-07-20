@@ -16,7 +16,11 @@ import * as THREE from "three";
 export const SURFACES = {
   moss:     { mult: 0.3,  color: 0x10302a, rough: 1.0,  metal: 0.0 },
   obsidian: { mult: 0.65, color: 0x1b1e26, rough: 0.85, metal: 0.05 },
-  crystal:  { mult: 1.5,  color: 0x46607c, rough: 0.24, metal: 0.8 },
+  // crystal was glossy-metallic (rough .24 / metal .8), which threw shifting
+  // white specular hotspots off every torch as you moved. Matte it: still a
+  // cool bluish "singing" floor, but no mirror-glare. (Reflective POOLS are a
+  // separate, deliberate mechanic.)
+  crystal:  { mult: 1.5,  color: 0x46607c, rough: 0.7,  metal: 0.1 },
 };
 
 export function makeKit(scene) {
@@ -238,7 +242,7 @@ export function makeKit(scene) {
         const m = new THREE.Mesh(
           new THREE.PlaneGeometry(s, s),
           new THREE.MeshBasicMaterial({
-            map: tex, color, transparent: true, opacity: 0.1 + Math.random() * 0.08,
+            map: tex, color, transparent: true, opacity: 0.045 + Math.random() * 0.04,
             depthWrite: false, blending: THREE.NormalBlending,
           })
         );

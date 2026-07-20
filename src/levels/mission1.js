@@ -166,11 +166,7 @@ export function buildMission1() {
   kit.trigger("village", 0, 16, 6);
   kit.trigger("gate", 0, 4, 3.5);
 
-  // Fog is COVER now, not atmosphere — a few banks you can route through to
-  // cross open ground unseen. The lit hall stays clear (creep it).
-  kit.fogPatch(-20, 3, -9, 12, { conceal: 0.72, density: 0.06 });   // west approach → the moat
-  kit.fogPatch(-6, -15, 7, -6, { conceal: 0.6, density: 0.05 });     // courtyard covered lane
-  kit.fogPatch(9, -2, 18, 7, { conceal: 0.5, density: 0.045 });      // postern gravel screen
+  // (no fog in Brightward — fog cover is introduced in the Reliquary cellar)
 
   // ================= mission logic =================
   bag.stage = 0;
