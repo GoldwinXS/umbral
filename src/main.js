@@ -12,11 +12,17 @@ import { SURFACES } from "./levelKit.js";
 import { NoiseRings } from "./noiseRings.js";
 import { buildTutorial } from "./levels/tutorial.js";
 import { buildMission1 } from "./levels/mission1.js";
+import { buildLanternWays } from "./levels/lanternways.js";
 import { buildVault } from "./levels/vault.js";
+import { buildSpire } from "./levels/spire.js";
+import { buildChandlery } from "./levels/chandlery.js";
 
 const LEVELS = [
   { name: "THE ASHWAY", build: buildTutorial },
   { name: "BRIGHTWARD", build: buildMission1 },
+  { name: "THE LANTERN-WAYS", build: buildLanternWays },
+  { name: "THE CHANDLERY", build: buildChandlery },
+  { name: "THE SPIRE ASCENT", build: buildSpire },
   { name: "THE RELIQUARY", build: buildVault },
 ];
 const CAM_OFFSET = new THREE.Vector3(0, 12.5, 6.3);
