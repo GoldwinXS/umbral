@@ -238,6 +238,14 @@ export class Player {
     if (input.joy && input.joy.active) maxSpeed = Math.max(SPEEDS.sneak, SPEEDS.run * input.joy.mag);
     maxSpeed *= this.carrySpeedMul; // beacon surge
 
+    // LIGHT DRAG: darkness is the blob's element. In full shadow it slips along
+    // fast and near-silent; out in the light it turns sluggish and loud. `lit`
+    // is 0 (pitch dark) → 1 (fully exposed), supplied from the light gem.
+    const lit = ctx.litness || 0;
+    this.litness = lit;
+    const shadowSpeedMul = 1.16 - lit * 0.42;   // ~1.16× dark → ~0.74× lit
+    maxSpeed *= shadowSpeedMul;
+
     if (moving) {
       this.vel.x += ix * ACCEL * dt;
       this.vel.z += iz * ACCEL * dt;
@@ -264,7 +272,9 @@ export class Player {
         this.strideAcc = 0;
         const surf = ctx.surfaceAt(this.pos.x, this.pos.z);
         const stance = input.sneak ? 0.45 : 1;
-        const radius = 8.5 * (speedNow / SPEEDS.run) * ctx.surfaceMult(surf) * stance;
+        // shadow muffles your steps, light makes every footfall carry
+        const lightNoise = 0.55 + lit * 0.95; // ~0.55× dark → ~1.5× lit
+        const radius = 8.5 * (speedNow / SPEEDS.run) * ctx.surfaceMult(surf) * stance * lightNoise;
         if (radius > 0.25) ctx.onNoise(this.pos.x, this.pos.z, radius, surf);
       }
     } else {

@@ -33,6 +33,15 @@ export class Hud {
 
   show(on) { this.el.hud.classList.toggle("hidden", !on); }
 
+  /** Blend two #rrggbb colors, w=0 → a, w=1 → b. */
+  _mix(a, b, w) {
+    const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
+    const r = Math.round(((pa >> 16) & 255) * (1 - w) + ((pb >> 16) & 255) * w);
+    const g = Math.round(((pa >> 8) & 255) * (1 - w) + ((pb >> 8) & 255) * w);
+    const bl = Math.round((pa & 255) * (1 - w) + (pb & 255) * w);
+    return `rgb(${r},${g},${bl})`;
+  }
+
   setObjective(text) { this.el.objText.textContent = text; }
 
   prompt(html, dur = 6.5) {
@@ -53,18 +62,31 @@ export class Hud {
   update(dt, game) {
     // light gem (smoothed)
     this._gem += (game.playerVis - this._gem) * Math.min(1, dt * 10);
+    const seenAt = game.SEEN_THRESHOLD ?? 0.18; // the real "can be seen" line
     const C = 201;
     this.el.gemFill.style.strokeDashoffset = String(C * (1 - this._gem));
-    this.el.gemFill.style.stroke = this._gem > 0.55 ? "#ffd9a0" : this._gem > 0.25 ? "#c8a86a" : "#5a5470";
-    this.el.gemCore.style.opacity = String(0.35 + this._gem * 0.65);
 
-    // what the gem MEANS: how lit you are (not how seen)
+    // a warden closing in on a spot whitens the gem so the danger is unmissable
+    const spot = game.spotting || 0;
+    let stroke = this._gem > 0.55 ? "#ffd9a0" : this._gem > seenAt ? "#c8a86a" : "#4d6a63";
+    if (spot > 0.02) {
+      // amber → hot white as awareness fills; a fast flash near a full spot
+      const flash = spot > 0.8 ? 0.5 + 0.5 * Math.abs(Math.sin(performance.now() / 90)) : 1;
+      const w = Math.min(1, spot) * flash;
+      stroke = this._mix("#ffcf8a", "#ffffff", w);
+    }
+    this.el.gemFill.style.stroke = stroke;
+    this.el.gemCore.style.opacity = String(0.35 + Math.max(this._gem, spot) * 0.65);
+
+    // what the gem MEANS: how lit you are, and whether something's onto you
     const gs = this.el.gemState;
-    if (game.playerConcealed) { gs.textContent = "veiled — in mist"; gs.style.color = "#7fe0d0"; }
+    if (spot > 0.55) { gs.textContent = "SPOTTED — being seen!"; gs.style.color = "#ff5a5a"; }
+    else if (spot > 0.12) { gs.textContent = "a warden stirs…"; gs.style.color = "#ffb056"; }
+    else if (game.playerConcealed) { gs.textContent = "veiled — in mist"; gs.style.color = "#7fe0d0"; }
     else if (game.playerHidden) { gs.textContent = "hidden"; gs.style.color = "#39f0c0"; }
     else if (this._gem > 0.55) { gs.textContent = "lit — exposed"; gs.style.color = "#ffd9a0"; }
-    else if (this._gem > 0.25) { gs.textContent = "dim"; gs.style.color = "#c8a86a"; }
-    else { gs.textContent = "in shadow"; gs.style.color = "#7a8499"; }
+    else if (this._gem > seenAt) { gs.textContent = "dim — visible"; gs.style.color = "#c8a86a"; }
+    else { gs.textContent = "in shadow — unseen"; gs.style.color = "#5fd6b8"; }
 
     // life pips track the blob's remaining mass
     const pips = this.el.lifePips.children;

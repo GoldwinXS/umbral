@@ -64,6 +64,9 @@ class Game {
     this.vialsUsed = 0;
     this.elapsed = 0;
     this.playerVis = 0.06;
+    this.litness = 0;            // 0 (dark) → 1 (exposed), derived from playerVis
+    this.spotting = 0;           // hottest warden awareness that currently sees me
+    this.SEEN_THRESHOLD = 0.18;  // gem below this = in shadow, unseen (see hud.js)
     this.playerSneaking = false;
     this.playerHidden = false;
     this.playerConcealed = false; // standing in a fog bank
@@ -482,9 +485,17 @@ class Game {
       let diff = toP - w.angle;
       while (diff > Math.PI) diff -= Math.PI * 2;
       while (diff < -Math.PI) diff += Math.PI * 2;
-      if (Math.abs(diff) > w.spec.coneAngle) continue;
+      const adiff = Math.abs(diff);
+      if (adiff > w.spec.coneAngle) continue;
       if (!this.los(w.pos.x, 2.2, w.pos.z, p.x, 0.5, p.z)) continue;
-      vis = Math.max(vis, 1 - d / range);
+      // only the bright core of the down-forward beam truly lights you: fall
+      // off toward the cone edge AND with distance, so a warden merely glancing
+      // your way from afar barely lifts the gem (and so can't "see" you in the
+      // dark). This keeps the light meter honest — it reads how lit you ACTUALLY
+      // are, which is exactly what wardens read too.
+      const centering = 1 - Math.min(1, adiff / w.spec.coneAngle);
+      const near = 1 - d / range;
+      vis = Math.max(vis, (0.3 + 0.7 * centering) * near);
     }
     // static light sources: torches, dormant lamps, the scepter
     const pointSrc = (x, y, z, range, k) => {
@@ -588,6 +599,7 @@ class Game {
     // movement + footsteps
     player.move(dt, {
       input, level,
+      litness: this.litness,   // last frame's how-lit-am-I → shadow speed & silence
       surfaceAt: (x, z) => surfaceAt(x, z, level.surfaces),
       surfaceMult: (type) => SURFACES[type].mult,
       onNoise: (x, z, r, s) => this._onNoise(x, z, r, s),
@@ -741,11 +753,16 @@ class Game {
 
     // vision + wardens
     this.playerVis = this._computePlayerVis();
+    // how lit am I, 0 (pitch dark) → 1 (fully exposed) — drives shadow-speed,
+    // footstep loudness, and the gem. Ambient floor (0.06) reads as full dark.
+    this.litness = Math.min(1, Math.max(0, (this.playerVis - 0.06) / 0.64));
     this.maxDanger = 0;
+    this.spotting = 0; // hottest awareness among wardens who can see me RIGHT NOW
     for (const w of this.threats) {
       w.update(dt, t, this);
       const danger = w.state === "chase" || w.state === "alarm" ? 1 : w.alertness * 0.75;
       if (danger > this.maxDanger) this.maxDanger = danger;
+      if (w.canSeePlayer && w.alertness > this.spotting) this.spotting = w.alertness;
     }
 
     // gate fade-out

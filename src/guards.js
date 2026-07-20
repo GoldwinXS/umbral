@@ -19,8 +19,20 @@ const OUT = new THREE.Color(0x1a1c22);
 
 // Below this effective exposure the blob is IN SHADOW and simply cannot be
 // seen — the whole point of being a creature of darkness. Matches the "in
-// shadow" band on the HUD light gem.
-const SHADOW_THRESHOLD = 0.16;
+// shadow" band on the HUD light gem (game.SEEN_THRESHOLD / hud.js).
+const SEEN_THRESHOLD = 0.18;
+
+// Spotting is NOT instant. A fully-lit blob in the open takes ~SPOT_TIME
+// seconds of continuous sight to fully register (awareness 0→1); partial
+// light, distance, and cone-edge all slow that down. Awareness is per-warden
+// and shown above its head so the player can read exactly how close each one
+// is to raising the alarm.
+const SPOT_TIME = 1.8;               // sec of full open exposure to a full spot
+const SPOT_RATE = 1 / SPOT_TIME;     // awareness gained per second at full strength
+const FULL_LIT = 0.7;                // exposure at/above this reads as "fully in the open"
+const SUSPECT_AT = 0.35;             // awareness → investigate
+const CHASE_AT = 0.999;              // awareness → alarm/chase
+const FORGET_RATE = 0.5;             // awareness bled off per second when unseen
 
 export class Warden {
   constructor(scene, spec) {
@@ -92,6 +104,19 @@ export class Warden {
       scene.add(l.target);
       this.light = l;
     }
+
+    // --- awareness pip: a diamond over the head that reads how alerted THIS
+    // sentinel is. Dark when oblivious, amber as it grows suspicious, red and
+    // pulsing as it's about to raise the alarm. Opaque emissive (rtExclude) so
+    // the tracer composites it cleanly. ---
+    this.alertPip = new THREE.Mesh(
+      new THREE.OctahedronGeometry(0.11),
+      new THREE.MeshStandardMaterial({ color: 0x000000, emissive: SUSPECT.clone(), emissiveIntensity: 0 })
+    );
+    this.alertPip.userData.rtExclude = true;
+    this.alertPip.visible = false;
+    scene.add(this.alertPip);
+    this.canSeePlayer = false;
   }
 
   get fx() { return Math.cos(this.angle); }
@@ -131,6 +156,8 @@ export class Warden {
     this.deathStyle = "swallow";
     this.swallowT = 0.0001;
     if (this.light) this.light.intensity = 0;
+    if (this.alertPip) this.alertPip.visible = false;
+    this.canSeePlayer = false;
     return "devour";
   }
 
@@ -258,44 +285,60 @@ export class Warden {
     const dist = Math.hypot(dx, dz);
 
     // ---------- vision (a Snuffed is blind — it hunts by sound only) ----------
+    // A warden's tight spot cone is its bright, sure sight; beyond it lies a
+    // WIDER, LONGER band of peripheral awareness that only catches a blob out
+    // in the LIGHT (being in the open is what gives you away). Either way it
+    // takes ~2s of continuous sight to fully register — never an instant spot.
     let sees = false;
+    let strength = 0; // 0..1 how strongly seen right now → how fast awareness climbs
     if (!this.blind) {
-      if (dist < spec.range && !game.playerHidden) {
+      const fog = 1 - (game.fogCover || 0);
+      const exposure = game.playerVis * (game.playerSneaking ? 0.7 : 1) * fog;
+      const lit = exposure >= SEEN_THRESHOLD; // in shadow → truly invisible
+
+      if (lit && !game.playerHidden && dist < spec.range * 1.5) {
         const toP = Math.atan2(dz, dx);
         let diff = toP - this.angle;
         while (diff > Math.PI) diff -= Math.PI * 2;
         while (diff < -Math.PI) diff += Math.PI * 2;
-        if (Math.abs(diff) < spec.coneAngle * 1.05) {
-          if (game.los(this.pos.x, 2.2, this.pos.z, p.x, 0.5, p.z)) sees = true;
+        const adiff = Math.abs(diff);
+        const inTight = adiff < spec.coneAngle * 1.05 && dist < spec.range;
+        const inWide = adiff < spec.coneAngle * 1.9;
+        if ((inTight || inWide) && game.los(this.pos.x, 2.2, this.pos.z, p.x, 0.5, p.z)) {
+          sees = true;
+          // how far into the seeable band you are (dim → 0, fully open → 1)
+          const expN = Math.min(1, (exposure - SEEN_THRESHOLD) / (FULL_LIT - SEEN_THRESHOLD));
+          // centred in the beam = full; the peripheral band tapers off
+          const cone = inTight ? 1 : Math.max(0.2, 1 - (adiff - spec.coneAngle) / (spec.coneAngle * 0.95)) * 0.75;
+          const near = 0.55 + 0.45 * Math.max(0, 1 - dist / (spec.range * 1.5));
+          strength = expN * cone * near;
         }
       }
       // reflected sight: a lit blob over a still mirror pool is given away even
       // behind cover, if the warden's cone catches the pool.
-      let reflMul = 1;
-      if (!sees && !game.playerHidden) sees = this._seesReflection(game, spec) && (reflMul = 0.8, true);
-
-      // THE SHADOW GATE: light reveals; fog and sneaking hide.
-      const fog = 1 - (game.fogCover || 0);
-      const exposure = game.playerVis * (game.playerSneaking ? 0.7 : 1) * fog * reflMul;
-      if (exposure < SHADOW_THRESHOLD) sees = false; // in shadow → truly invisible
+      if (!sees && lit && !game.playerHidden && this._seesReflection(game, spec)) {
+        sees = true;
+        const expN = Math.min(1, (exposure - SEEN_THRESHOLD) / (FULL_LIT - SEEN_THRESHOLD));
+        strength = expN * 0.5;
+      }
 
       if (sees) {
-        const gain = exposure * (1.3 - dist / spec.range) * 2.1;
-        this.alertness = Math.min(1, this.alertness + Math.max(0, gain) * dt);
+        this.alertness = Math.min(1, this.alertness + SPOT_RATE * strength * dt);
         this.lastKnown.set(p.x, p.z);
         this.lostT = 0;
-        if (this.alertness >= 0.92) this._toChase(game);
-        else if (this.alertness >= 0.4 && this.state === "patrol") {
+        if (this.alertness >= CHASE_AT) this._toChase(game);
+        else if (this.alertness >= SUSPECT_AT && this.state === "patrol") {
           this.investigate.set(p.x, p.z);
           this._toSuspect(game);
           game.sfx.suspicious();
         }
       } else if (this.state !== "chase" && this.state !== "search") {
-        this.alertness = Math.max(0, this.alertness - 0.22 * dt); // calm down quicker
+        this.alertness = Math.max(0, this.alertness - FORGET_RATE * dt); // lose the thread
       }
     } else if (this.state !== "chase" && this.state !== "search") {
       this.alertness = Math.max(0, this.alertness - 0.28 * dt); // the Snuffed loses interest fast in silence
     }
+    this.canSeePlayer = sees;
 
     // they only physically sense the blob if it's all but touching them
     if (dist < 0.8 && this.state !== "chase") {
@@ -392,6 +435,24 @@ export class Warden {
     this.core.material.emissive.copy(this._lightColor);
     this.core.material.emissiveIntensity = this.blind ? (2.2 + (this.state !== "patrol" ? 2 : 0) + Math.sin(t * 8) * 0.5) : 4;
     this.core.rotation.y = t * 1.5;
+
+    // awareness pip: floats over the head, filling amber → red as this
+    // sentinel closes in on spotting you. White-hot flash at the moment the
+    // alarm trips. This is the per-enemy "how alerted is it" the player reads.
+    const aw = this.alertness;
+    if (this.state !== "out" && (aw > 0.04 || this.state === "chase")) {
+      const a = this.state === "chase" ? 1 : aw;
+      this.alertPip.visible = true;
+      this.alertPip.position.set(this.pos.x, bobY + 0.62 + a * 0.22, this.pos.z);
+      const col = a >= 0.99 ? new THREE.Color(0xffffff) : SUSPECT.clone().lerp(CHASE, Math.min(1, a / 0.9));
+      this.alertPip.material.emissive.copy(col);
+      const pulse = a > 0.85 ? Math.max(0, Math.sin(t * 16)) * 3 : 0;
+      this.alertPip.material.emissiveIntensity = 1.6 + a * 5 + pulse;
+      this.alertPip.scale.setScalar(0.65 + a * 0.8);
+      this.alertPip.rotation.y = t * 2.4;
+    } else {
+      this.alertPip.visible = false;
+    }
 
     // ember flecks orbit the Snuffed so it's readable in the dark
     if (this.embers) {

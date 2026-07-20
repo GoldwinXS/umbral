@@ -150,6 +150,7 @@ export class GreatEye {
       }
     }
 
+    this.canSeePlayer = inGaze && this.cooldown <= 0; // feeds the gem's spot-warning
     if (inGaze && this.cooldown <= 0) {
       this.lockT += dt;
       this.state = "wake";
