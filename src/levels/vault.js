@@ -151,10 +151,12 @@ export function buildVault() {
   kit.mawMote("rmaw", -20, -14);
   kit.cache("rc1", -20, 12, 2);
   kit.cache("rc2", -16, 0, 2);
-  // three dozing keepers — slow, sleepy, easy to pass if you're patient
+  // dozing keepers — slow, sleepy, easy to pass if you're patient
   kit.guard([[-19, 26], [-19, 18]], { speed: 0.85, pause: 3.2, range: 8, coneAngle: 0.5 });
-  kit.guard([[-20, 9], [-15, -1]], { speed: 0.85, pause: 3.4, range: 8, coneAngle: 0.5 });
-  kit.guard([[-18, -12], [-16, -3]], { speed: 0.9, pause: 3.0, range: 8, coneAngle: 0.5 });
+  kit.guard([[-20, 9], [-15, 3]], { speed: 0.85, pause: 3.4, range: 8, coneAngle: 0.5 });
+  // a SNUFFED prowls the deep cellar — blind, lightless, hunting by sound.
+  // The moss floor is silent; creep and it never finds you. Make a sound and it comes.
+  kit.guard([[-20, -2], [-16, -10], [-20, -14]], { speed: 1.05, pause: 1.8, blind: true });
 
   // ================= ambient =================
   const moon = new THREE.DirectionalLight(0x7a8cc0, 0.8);

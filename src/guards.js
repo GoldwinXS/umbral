@@ -47,6 +47,11 @@ export class Warden {
     this.bobPhase = Math.random() * Math.PI * 2;
     this.alertCounted = false;
 
+    // A "Snuffed" — its lamp died. It emits NO light (so it can't reveal you,
+    // and can't see) and hunts purely by SOUND. Silence beats it, the way
+    // shadow beats a normal Vesper.
+    this.blind = !!spec.blind;
+
     // --- body (dynamic mesh → casts a real moving shadow) ---
     this.body = new THREE.Mesh(
       new THREE.IcosahedronGeometry(0.34, 0),
@@ -55,22 +60,38 @@ export class Warden {
     this.body.position.copy(this.pos);
     scene.add(this.body);
 
-    // --- glowing core (rasterized only) ---
+    // --- glowing core (rasterized only; the Snuffed's is a dim dying ember) ---
+    const coreCol = this.blind ? new THREE.Color(0xff3a18) : CALM.clone();
     this.core = new THREE.Mesh(
-      new THREE.OctahedronGeometry(0.17),
-      new THREE.MeshStandardMaterial({ color: 0x000000, emissive: CALM.clone(), emissiveIntensity: 4 })
+      new THREE.OctahedronGeometry(this.blind ? 0.13 : 0.17),
+      new THREE.MeshStandardMaterial({ color: 0x000000, emissive: coreCol, emissiveIntensity: this.blind ? 2.2 : 4 })
     );
     this.core.userData.rtExclude = true;
     scene.add(this.core);
+    this._lightColor = coreCol.clone();
 
-    // --- vision cone = spot light ---
-    const l = new THREE.SpotLight(spec.color, 30, spec.range + 7, spec.coneAngle, 0.4);
-    l.position.set(this.pos.x, 2.7, this.pos.z);
-    l.userData.rtRadius = 0.12;
-    scene.add(l);
-    scene.add(l.target);
-    this.light = l;
-    this._lightColor = CALM.clone();
+    if (this.blind) {
+      // a ring of ember flecks + smoke so the player can SEE it in the dark,
+      // though it casts no light of its own (all rtExclude → glow, not lights)
+      this.embers = [];
+      for (let i = 0; i < 4; i++) {
+        const e = new THREE.Mesh(
+          new THREE.TetrahedronGeometry(0.05),
+          new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xff5a20, emissiveIntensity: 1.6 })
+        );
+        e.userData.rtExclude = true; e.userData.a = (i / 4) * Math.PI * 2;
+        scene.add(e); this.embers.push(e);
+      }
+      this.light = null; // NO light
+    } else {
+      // --- vision cone = spot light ---
+      const l = new THREE.SpotLight(spec.color, 30, spec.range + 7, spec.coneAngle, 0.4);
+      l.position.set(this.pos.x, 2.7, this.pos.z);
+      l.userData.rtRadius = 0.12;
+      scene.add(l);
+      scene.add(l.target);
+      this.light = l;
+    }
   }
 
   get fx() { return Math.cos(this.angle); }
@@ -79,11 +100,15 @@ export class Warden {
   /** A noise happened at (x,z) audible within `radius`. */
   hearNoise(x, z, radius, game) {
     if (this.state === "out") return;
+    // the Snuffed hears keenly — and a little beyond a sound's normal reach
+    const reach = this.blind ? radius * 1.35 : radius;
     const d = Math.hypot(x - this.pos.x, z - this.pos.z);
-    if (d > radius) return;
-    const bump = (1 - d / radius) * 0.8;
+    if (d > reach) return;
+    const bump = (1 - d / reach) * (this.blind ? 1.15 : 0.8);
     const before = this.alertness;
     this.alertness = Math.min(1, this.alertness + bump);
+    // the Snuffed tracks purely by ear — fresh sound re-locks its hunt
+    if (this.blind) { this.lastKnown.set(x, z); this.lostT = 0; }
     if (this.state !== "chase") {
       this.investigate.set(x, z);
       if (this.alertness >= 0.92) this._toChase(game);
@@ -105,7 +130,7 @@ export class Warden {
     this.alertness = 0;
     this.deathStyle = "swallow";
     this.swallowT = 0.0001;
-    this.light.intensity = 0;
+    if (this.light) this.light.intensity = 0;
     return "devour";
   }
 
@@ -232,41 +257,44 @@ export class Warden {
     const dx = p.x - this.pos.x, dz = p.z - this.pos.z;
     const dist = Math.hypot(dx, dz);
 
-    // ---------- vision ----------
+    // ---------- vision (a Snuffed is blind — it hunts by sound only) ----------
     let sees = false;
-    if (dist < spec.range && !game.playerHidden) {
-      const toP = Math.atan2(dz, dx);
-      let diff = toP - this.angle;
-      while (diff > Math.PI) diff -= Math.PI * 2;
-      while (diff < -Math.PI) diff += Math.PI * 2;
-      if (Math.abs(diff) < spec.coneAngle * 1.05) {
-        if (game.los(this.pos.x, 2.2, this.pos.z, p.x, 0.5, p.z)) sees = true;
+    if (!this.blind) {
+      if (dist < spec.range && !game.playerHidden) {
+        const toP = Math.atan2(dz, dx);
+        let diff = toP - this.angle;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        if (Math.abs(diff) < spec.coneAngle * 1.05) {
+          if (game.los(this.pos.x, 2.2, this.pos.z, p.x, 0.5, p.z)) sees = true;
+        }
       }
-    }
-    // reflected sight: a lit blob over a still mirror pool is given away even
-    // behind cover, if the warden's cone catches the pool.
-    let reflMul = 1;
-    if (!sees && !game.playerHidden) sees = this._seesReflection(game, spec) && (reflMul = 0.8, true);
+      // reflected sight: a lit blob over a still mirror pool is given away even
+      // behind cover, if the warden's cone catches the pool.
+      let reflMul = 1;
+      if (!sees && !game.playerHidden) sees = this._seesReflection(game, spec) && (reflMul = 0.8, true);
 
-    // THE SHADOW GATE: how exposed is the blob right now? Light (torches, the
-    // warden's own cone, the beacon) reveals it; fog and sneaking hide it.
-    const fog = 1 - (game.fogCover || 0);
-    const exposure = game.playerVis * (game.playerSneaking ? 0.7 : 1) * fog * reflMul;
-    if (exposure < SHADOW_THRESHOLD) sees = false; // in shadow → truly invisible
+      // THE SHADOW GATE: light reveals; fog and sneaking hide.
+      const fog = 1 - (game.fogCover || 0);
+      const exposure = game.playerVis * (game.playerSneaking ? 0.7 : 1) * fog * reflMul;
+      if (exposure < SHADOW_THRESHOLD) sees = false; // in shadow → truly invisible
 
-    if (sees) {
-      const gain = exposure * (1.3 - dist / spec.range) * 2.1;
-      this.alertness = Math.min(1, this.alertness + Math.max(0, gain) * dt);
-      this.lastKnown.set(p.x, p.z);
-      this.lostT = 0;
-      if (this.alertness >= 0.92) this._toChase(game);
-      else if (this.alertness >= 0.4 && this.state === "patrol") {
-        this.investigate.set(p.x, p.z);
-        this._toSuspect(game);
-        game.sfx.suspicious();
+      if (sees) {
+        const gain = exposure * (1.3 - dist / spec.range) * 2.1;
+        this.alertness = Math.min(1, this.alertness + Math.max(0, gain) * dt);
+        this.lastKnown.set(p.x, p.z);
+        this.lostT = 0;
+        if (this.alertness >= 0.92) this._toChase(game);
+        else if (this.alertness >= 0.4 && this.state === "patrol") {
+          this.investigate.set(p.x, p.z);
+          this._toSuspect(game);
+          game.sfx.suspicious();
+        }
+      } else if (this.state !== "chase" && this.state !== "search") {
+        this.alertness = Math.max(0, this.alertness - 0.22 * dt); // calm down quicker
       }
     } else if (this.state !== "chase" && this.state !== "search") {
-      this.alertness = Math.max(0, this.alertness - 0.22 * dt); // calm down quicker
+      this.alertness = Math.max(0, this.alertness - 0.28 * dt); // the Snuffed loses interest fast in silence
     }
 
     // they only physically sense the blob if it's all but touching them
@@ -336,23 +364,41 @@ export class Warden {
     this.body.position.set(this.pos.x, bobY, this.pos.z);
     if (this.state !== "out") this.body.rotation.y = -this.angle;
 
-    // light follows, aimed down-forward along the facing
-    const lead = this.state === "chase" ? 3.0 : 2.4;
-    this.light.position.set(this.pos.x, 2.7, this.pos.z);
-    this.light.target.position.set(this.pos.x + this.fx * lead, 0.1, this.pos.z + this.fz * lead);
+    // light follows, aimed down-forward along the facing (Snuffed has none)
+    if (this.light) {
+      const lead = this.state === "chase" ? 3.0 : 2.4;
+      this.light.position.set(this.pos.x, 2.7, this.pos.z);
+      this.light.target.position.set(this.pos.x + this.fx * lead, 0.1, this.pos.z + this.fz * lead);
+    }
 
     // state colour
     let col = forceColor;
     if (!col) {
-      col = CALM;
-      if (this.state === "suspect" || this.state === "search") col = SUSPECT;
-      else if (this.state === "chase") col = CHASE;
-      else if (this.alertness > 0.15) col = CALM.clone().lerp(SUSPECT, this.alertness / 0.4);
+      if (this.blind) {
+        // ember stays red; brightens when it's roused by a sound
+        col = this.state === "chase" ? new THREE.Color(0xff5a20)
+          : (this.state === "suspect" || this.state === "search") ? new THREE.Color(0xff4418)
+          : new THREE.Color(0xd8280a);
+      } else {
+        col = CALM;
+        if (this.state === "suspect" || this.state === "search") col = SUSPECT;
+        else if (this.state === "chase") col = CHASE;
+        else if (this.alertness > 0.15) col = CALM.clone().lerp(SUSPECT, this.alertness / 0.4);
+      }
     }
     this._lightColor.lerp(col, 0.12);
-    this.light.color.copy(this._lightColor);
+    if (this.light) this.light.color.copy(this._lightColor);
     this.core.position.set(this.pos.x, bobY + 0.05, this.pos.z);
     this.core.material.emissive.copy(this._lightColor);
+    this.core.material.emissiveIntensity = this.blind ? (2.2 + (this.state !== "patrol" ? 2 : 0) + Math.sin(t * 8) * 0.5) : 4;
     this.core.rotation.y = t * 1.5;
+
+    // ember flecks orbit the Snuffed so it's readable in the dark
+    if (this.embers) {
+      for (const e of this.embers) {
+        const a = e.userData.a + t * 1.3;
+        e.position.set(this.pos.x + Math.cos(a) * 0.32, bobY + Math.sin(t * 2 + e.userData.a) * 0.12, this.pos.z + Math.sin(a) * 0.32);
+      }
+    }
   }
 }

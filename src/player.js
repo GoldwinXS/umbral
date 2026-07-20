@@ -30,8 +30,9 @@ export const DOUSE_RADIUS = 2.1; // world radius a vial douses / its splash reac
 export const SWALLOW_RANGE = 2.7; // reach of the maw (buffed) — a warden inside this, from behind, can be devoured
 
 export class Player {
-  constructor(scene) {
+  constructor(scene, overlay) {
     this.scene = scene;
+    this.fx = overlay || scene; // transparent HUD-in-world effects go here (plain forward pass)
     const geo = new THREE.IcosahedronGeometry(PLAYER_R, 2);
     this.base = geo.getAttribute("position").array.slice();
     this.mesh = new THREE.Mesh(
@@ -69,62 +70,33 @@ export class Player {
     );
     this.engulf.userData.rtExclude = true;
     this.engulf.visible = false;
-    scene.add(this.engulf);
+    this.fx.add(this.engulf);
     this.engulfTarget = null;
 
-    // soft umbral aura under the blob — keeps the player readable in the dark
-    this.aura = new THREE.Mesh(
-      new THREE.CircleGeometry(0.62, 24),
-      new THREE.MeshBasicMaterial({
-        color: 0x7a52ff, transparent: true, opacity: 0.28,
-        blending: THREE.AdditiveBlending, depthWrite: false,
-      })
+    // douse reticle — just a subtle teal dot at the vial's predicted landing
+    this.reticle = new THREE.Mesh(
+      new THREE.CircleGeometry(0.16, 20),
+      new THREE.MeshBasicMaterial({ color: 0x39f0c0, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false })
     );
-    this.aura.rotation.x = -Math.PI / 2;
-    this.aura.userData.rtExclude = true;
-    scene.add(this.aura);
-
-    // douse reticle — shows the vial's predicted landing + effective radius
-    this.reticle = new THREE.Group();
-    const douseRing = new THREE.Mesh(
-      new THREE.RingGeometry(DOUSE_RADIUS - 0.08, DOUSE_RADIUS, 44),
-      new THREE.MeshBasicMaterial({ color: 0x39f0c0, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false })
-    );
-    douseRing.rotation.x = -Math.PI / 2;
-    this.reticle.add(douseRing);
-    const pip = new THREE.Mesh(
-      new THREE.CircleGeometry(0.14, 16),
-      new THREE.MeshBasicMaterial({ color: 0x39f0c0, transparent: true, opacity: 0.8, depthWrite: false })
-    );
-    pip.rotation.x = -Math.PI / 2;
-    this.reticle.add(pip);
-    // crosshair ticks
-    for (let a = 0; a < 4; a++) {
-      const tick = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.5, 0.05),
-        new THREE.MeshBasicMaterial({ color: 0x39f0c0, transparent: true, opacity: 0.6, side: THREE.DoubleSide, depthWrite: false })
-      );
-      tick.rotation.x = -Math.PI / 2;
-      tick.rotation.z = a * Math.PI / 2;
-      tick.position.set(Math.cos(a * Math.PI / 2) * (DOUSE_RADIUS - 0.35), 0, Math.sin(a * Math.PI / 2) * (DOUSE_RADIUS - 0.35));
-      this.reticle.add(tick);
-    }
-    this.reticle.traverse((o) => { o.userData.rtExclude = true; });
+    this.reticle.rotation.x = -Math.PI / 2;
+    this.reticle.userData.rtExclude = true;
+    this.reticle.renderOrder = 4;
     this.reticle.visible = false;
-    scene.add(this.reticle);
+    this.fx.add(this.reticle);
     this._reticleOp = 0;
 
-    // maw range ring — a thin red circle (crosshair-style) shown while hungry,
-    // marking how close a warden must be to be swallowed
-    const mawPts = [];
-    for (let i = 0; i <= 64; i++) { const a = (i / 64) * Math.PI * 2; mawPts.push(Math.cos(a) * SWALLOW_RANGE, 0, Math.sin(a) * SWALLOW_RANGE); }
-    const mawGeo = new THREE.BufferGeometry();
-    mawGeo.setAttribute("position", new THREE.Float32BufferAttribute(mawPts, 3));
-    this.mawRing = new THREE.LineLoop(mawGeo, new THREE.LineBasicMaterial({ color: 0xff3a44, transparent: true, opacity: 0, depthWrite: false }));
+    // maw range ring — a thin red ring MESH (crosshair-style) shown while
+    // hungry, marking how close a warden must be to be swallowed. A mesh, not a
+    // line, so the ray tracer actually composites it.
+    this.mawRing = new THREE.Mesh(
+      new THREE.RingGeometry(SWALLOW_RANGE - 0.06, SWALLOW_RANGE, 64),
+      new THREE.MeshBasicMaterial({ color: 0xff3a44, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false })
+    );
+    this.mawRing.rotation.x = -Math.PI / 2;
     this.mawRing.userData.rtExclude = true;
     this.mawRing.renderOrder = 4;
     this.mawRing.visible = false;
-    scene.add(this.mawRing);
+    this.fx.add(this.mawRing);
     this._mawOp = 0;
 
     // afterimage pool for the blink trail
@@ -134,7 +106,7 @@ export class Player {
       const m = new THREE.Mesh(new THREE.IcosahedronGeometry(PLAYER_R, 1), aiMat.clone());
       m.visible = false;
       m.userData.rtExclude = true;
-      scene.add(m);
+      this.fx.add(m);
       this.afterimages.push({ mesh: m, t: 1, delay: 0 });
     }
 
@@ -466,27 +438,18 @@ export class Player {
       const pz = this.pos.z + fz * eyeOut + fx * s * 0.13 * this.scale;
       e.position.set(px, this.pos.y + 0.13 * this.scale, pz);
     }
-    // aura hugs the floor under the blob, brightens a touch when lit
-    this.aura.position.set(this.pos.x, 0.035, this.pos.z);
-    this.aura.scale.setScalar(this.scale);
-    this.aura.material.opacity = 0.22 + this.speedFrac * 0.1 + this.blinkAnim * 0.3;
-
-    // douse reticle: shows where a vial lands + its effective radius. Present
-    // when you hold vials; sharpens when you slow to aim, dims at a sprint.
+    // douse reticle: a subtle dot marking where a vial would land. Present
+    // when you hold vials; a touch clearer when you slow to aim.
     const wantReticle = this.vialCount > 0 && this.falling <= 0 && !this.frozen;
     const aimClarity = 1 - Math.min(1, this.speedFrac * 1.3); // still = clear
-    const targetOp = wantReticle ? 0.25 + aimClarity * 0.75 : 0;
+    const targetOp = wantReticle ? 0.12 + aimClarity * 0.28 : 0; // subtle
     this._reticleOp += (targetOp - this._reticleOp) * Math.min(1, dt * 8);
     if (this._reticleOp > 0.01) {
       this.reticle.visible = true;
       const rx = this.pos.x + this.facing.x * THROW_DIST;
       const rz = this.pos.z + this.facing.y * THROW_DIST;
       this.reticle.position.set(rx, 0.06, rz);
-      const pulse = 1 + Math.sin(t * 4) * 0.03;
-      this.reticle.scale.setScalar(pulse);
-      this.reticle.traverse((o) => {
-        if (o.material) o.material.opacity = (o.userData.baseOp ?? (o.userData.baseOp = o.material.opacity)) * this._reticleOp;
-      });
+      this.reticle.material.opacity = this._reticleOp;
     } else {
       this.reticle.visible = false;
     }
@@ -497,7 +460,7 @@ export class Player {
     if (this._mawOp > 0.01) {
       this.mawRing.visible = true;
       this.mawRing.position.set(this.pos.x, 0.06, this.pos.z);
-      this.mawRing.material.opacity = this._mawOp * (0.85 + Math.sin(t * 4) * 0.15); // gentle pulse
+      this.mawRing.material.opacity = this._mawOp * 0.8; // steady, no pulse
     } else {
       this.mawRing.visible = false;
     }

@@ -30,17 +30,21 @@ export function buildMission1() {
   W(43, 0.6, 0, 26.8);
   W(0.6, 28.5, -21.2, 13);
   W(0.6, 28.5, 21.2, 13);
-  // houses (big dark blocks with violet trim) forming lanes
-  const house = (x, z, w, d, h = 3.6) => {
+  // houses — tall dark blocks that throw long shadows (dark = safe lanes)
+  const house = (x, z, w, d, h = 5.5) => {
     kit.solid(w, h, d, x, z, kit.mats.wall, 0);
-    kit.trim(w * 0.7, 0.14, x, h - 0.4, z + d / 2 + 0.02, 0, 0x8a5cff, 1.6);
+    kit.trim(w * 0.7, 0.14, x, h - 0.5, z + d / 2 + 0.02, 0, 0x8a5cff, 1.4);
   };
-  house(-13, 17, 6, 5);
-  house(-4, 21.5, 5, 4);
-  house(6.5, 19.5, 6, 5);
-  house(14.5, 15.5, 5, 5);
-  house(-14.5, 8, 5, 4);
-  house(12, 5.5, 4, 4);
+  house(-13, 17, 6, 5, 6.5);
+  house(-4, 21.5, 5, 4, 7.5);   // a tall tower
+  house(6.5, 19.5, 6, 5, 6);
+  house(14.5, 15.5, 5, 5, 8);   // the tallest — long shadow across the lane
+  house(-14.5, 8, 5, 4, 5.5);
+  house(12, 5.5, 4, 4, 6);
+  // freestanding obelisks: shadow-casting cover you can duck behind
+  kit.solid(1.2, 5.5, 1.2, -8, 20, kit.mats.pillar, 0.4);
+  kit.solid(1.2, 4.5, 1.2, 2, 16, kit.mats.pillar, 0.2);
+  kit.solid(1.4, 6, 1.4, 9, 22, kit.mats.pillar, 0.3);
   // market stalls (low cover) + well
   kit.solid(2.2, 1.1, 1.2, -3, 13, kit.mats.block, 0.2);
   kit.solid(2.2, 1.1, 1.2, 3.5, 13.5, kit.mats.block, -0.25);
@@ -53,7 +57,7 @@ export function buildMission1() {
   kit.surface(11, 1, 17, 5, "crystal");   // postern gravel
   kit.surface(-2.2, 3.5, 2.2, 8, "moss"); // soft approach to the main gate
   // village torch (douse practice / mood)
-  kit.torch(-8, 12, { intensity: 6, range: 9 });
+  kit.torch(-8, 12, { intensity: 11, range: 10 });
   // the rift home — bring the Noonstaff back here
   kit.extraction(0, 25);
   kit.trim(4, 0.2, 0, 2.6, 26.5, Math.PI, 0x39f0c0, 2.2);
@@ -68,8 +72,8 @@ export function buildMission1() {
   // the west moat: a void strip where the wall is broken — blink it
   kit.hole(-21, -1, -10, 2);
   // gatehouse torches
-  kit.torch(-2.8, 1.4, { intensity: 8, range: 11 });
-  kit.torch(2.8, 1.4, { intensity: 8, range: 11 });
+  kit.torch(-2.8, 1.4, { intensity: 14, range: 12 });
+  kit.torch(2.8, 1.4, { intensity: 14, range: 12 });
 
   // ================= COURTYARD (z -18..0, x -19..19) =================
   kit.floor(41, 19.5, 0, -9);
@@ -84,8 +88,8 @@ export function buildMission1() {
   kit.surface(-17, -15, -6.5, -3, "moss");
   kit.surface(6.5, -15, 17, -3, "moss");
   kit.surface(-2, -18, 2, 0, "crystal");  // the grand approach — loud
-  kit.torch(-8, -8, { intensity: 7, range: 10 });
-  kit.torch(8, -8, { intensity: 7, range: 10 });
+  kit.torch(-8, -8, { intensity: 13, range: 11 });
+  kit.torch(8, -8, { intensity: 13, range: 11 });
 
   // ================= RELIQUARY HALL (z -34..-18, x -11..11) =================
   kit.floor(23.5, 17.5, 0, -26);
@@ -103,8 +107,8 @@ export function buildMission1() {
     kit.trim(1.4, 0.14, -6, 3.6, zz + 0.6, 0, 0x8a5cff, 2.0);
     kit.trim(1.4, 0.14, 6, 3.6, zz + 0.6, 0, 0x8a5cff, 2.0);
   }
-  kit.torch(-3, -26, { intensity: 8, range: 11 });
-  kit.torch(3, -26, { intensity: 8, range: 11 });
+  kit.torch(-3, -26, { intensity: 14, range: 12 });
+  kit.torch(3, -26, { intensity: 14, range: 12 });
   kit.scepterPedestal(0, -29);
   kit.trim(6, 0.25, 0, 4.0, -33.8, 0, 0xffd76a, 2.2);
 
@@ -143,12 +147,14 @@ export function buildMission1() {
   }
 
   // ================= ambient =================
-  const moon = new THREE.DirectionalLight(0x8ea0cc, 1.25);
-  moon.position.set(-14, 24, 8);
+  const moon = new THREE.DirectionalLight(0x8ea0cc, 1.5); // stronger key → longer shadows
+  moon.position.set(-16, 22, 9);
   moon.userData.rtRadius = 0.05;
   scene.add(moon, moon.target);
-  for (const [x, y, z, i] of [[0, 10, 12, 42], [0, 10, -9, 44], [0, 9, -26, 36]]) {
-    const f = new THREE.PointLight(0x8098c0, i, 44);
+  // much dimmer, tighter fill so shadows read DARK between the bright torch
+  // pools — high contrast now that shadow = invisibility
+  for (const [x, y, z, i] of [[0, 9, 12, 12], [0, 9, -9, 13], [0, 9, -26, 11]]) {
+    const f = new THREE.PointLight(0x7088b0, i, 22);
     f.position.set(x, y, z);
     f.userData.rtRadius = 0.85;
     scene.add(f);

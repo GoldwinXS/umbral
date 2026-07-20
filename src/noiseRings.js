@@ -1,35 +1,17 @@
 import * as THREE from "three";
 
 /**
- * Sound made visible — as clean expanding RING OUTLINES that radiate from the
- * player, drawn like the HUD crosshair (thin vector lines, never a fill).
+ * Sound made visible — thin expanding RING OUTLINES that radiate from the
+ * player, drawn in the HUD crosshair's teal. Loudness is the read:
+ *   REACH (max radius) = how far it carries · SPEED = urgency
+ *   THICKNESS (line count + natural band) = loudness · COLOUR = source
  *
- * Each footfall/tool sound emits a "band" of one or more concentric line-loops:
- *   - REACH   (max radius)     = how far the sound carries
- *   - SPEED   (expansion rate) = urgency / sharpness
- *   - THICKNESS (line count)   = loudness — a soft step is a single hairline,
- *                                a smash is a thick band of stacked rings
- *   - COLOUR                   = what made it (surface tint / tool type)
- *   - FREQUENCY (how often)    = driven by stride, upstream
- *
- * These are real LineLoop circles (1px), rtExclude'd, so they are pure overlay
- * and can never wash the floor to a bright fill (the old shader-plane did).
+ * These are flat RING MESHES (annuli), NOT lines: the ray tracer composites
+ * mesh triangles but not line primitives, so meshes are what actually show up.
+ * rtExclude keeps them out of the BVH — pure overlay that lights nothing.
  */
 
-const SEG = 72;
-function circleGeometry() {
-  const pts = [];
-  for (let i = 0; i <= SEG; i++) {
-    const a = (i / SEG) * Math.PI * 2;
-    pts.push(Math.cos(a), 0, Math.sin(a)); // unit circle in the XZ (ground) plane
-  }
-  const g = new THREE.BufferGeometry();
-  g.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
-  return g;
-}
-
-// Same teal LANGUAGE as the HUD crosshair (0x39f0c0), lightly tinted by surface
-// so louder/harsher floors still read distinct — but never white.
+// Same teal LANGUAGE as the HUD crosshair (0x39f0c0), lightly tinted by surface.
 const SURFACE_COLOR = {
   crystal:  new THREE.Color(0x39f0c0), // glassy — the crosshair teal
   obsidian: new THREE.Color(0x46d8e6), // stone — cyan
@@ -47,15 +29,21 @@ export class NoiseRings {
   constructor(scene, pool = 40) {
     this.scene = scene;
     this.rings = [];
-    const geo = circleGeometry();
+    // a thin unit annulus (radius ~1); scaling grows the ring, band stays
+    // proportional so a loud/large ring reads as a slightly thicker band
+    const geo = new THREE.RingGeometry(0.955, 1.0, 64);
     for (let i = 0; i < pool; i++) {
-      const mat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false });
-      const m = new THREE.LineLoop(geo, mat);
+      const mat = new THREE.MeshBasicMaterial({
+        color: 0xffffff, transparent: true, opacity: 0,
+        side: THREE.DoubleSide, depthWrite: false,
+      });
+      const m = new THREE.Mesh(geo, mat);
+      m.rotation.x = -Math.PI / 2;      // lay it flat on the ground
       m.visible = false;
       m.userData.rtExclude = true;
       m.renderOrder = 4;
       scene.add(m);
-      this.rings.push({ mesh: m, active: false, t: 0, dur: 1, maxR: 1, gain: 1 });
+      this.rings.push({ mesh: m, active: false, t: 0, dur: 1, maxR: 1, peak: 0.6, gain: 1 });
     }
   }
 
@@ -66,27 +54,19 @@ export class NoiseRings {
     return best;
   }
 
-  /**
-   * Emit a sound.
-   *   radius   how far it carries (world units) → reach + loudness
-   *   opts.surface / opts.type   colour
-   *   opts.loud  0..1 loudness override (line-count + brightness)
-   *   opts.gain  overall opacity scale
-   */
   emit(x, z, radius, opts = {}) {
     const loud = opts.loud != null ? opts.loud : Math.min(1, radius / 11);
     const color = opts.type ? EVENT_COLOR[opts.type] : (SURFACE_COLOR[opts.surface] || SURFACE_COLOR.obsidian);
-    // LOUDNESS IS THE READ: a quiet creep is a lone faint hairline; a loud
-    // dash is a bright, thick, fast band — so "I was too loud" is obvious.
-    const lines = 1 + Math.round(loud * 3);     // 1 … 4 stacked rings (loud = thick band)
-    const speed = 3.5 + loud * 6.0;             // louder → faster leading edge
-    const peak = 0.28 + loud * 0.6;             // louder → brighter/more visible
+    // quiet creep = a lone faint ring; loud dash = a bright, thick, fast band
+    const lines = 1 + Math.round(loud * 3);
+    const speed = 3.5 + loud * 6.0;
+    const peak = 0.18 + loud * 0.42;   // subtle — a hint of how loud you were
     const reach = Math.max(0.5, radius);
     for (let i = 0; i < lines; i++) {
       const r = this._free();
       r.active = true;
       r.t = 0;
-      r.maxR = reach * (1 - i * 0.05);          // near-parallel lines → a thick band
+      r.maxR = reach * (1 - i * 0.06);
       r.dur = r.maxR / speed;
       r.peak = peak;
       r.gain = (opts.gain ?? 1) * (1 - i * 0.12);
@@ -94,7 +74,7 @@ export class NoiseRings {
       m.position.set(x, 0.05, z);
       m.material.color.copy(color);
       m.material.opacity = 0;
-      m.scale.setScalar(0.02);
+      m.scale.set(0.02, 0.02, 0.02);
       m.visible = true;
     }
   }
@@ -103,9 +83,10 @@ export class NoiseRings {
     for (const r of this.rings) {
       if (!r.active) continue;
       r.t += dt;
-      const f = r.t / r.dur;                     // 0..1 life
+      const f = r.t / r.dur;
       if (f >= 1) { r.active = false; r.mesh.visible = false; continue; }
-      r.mesh.scale.setScalar(Math.max(0.02, f * r.maxR));
+      const s = Math.max(0.02, f * r.maxR);
+      r.mesh.scale.set(s, s, s);
       // hold brightness through the first half, then fade — visible but clean
       r.mesh.material.opacity = r.peak * (1 - f * f) * r.gain;
     }

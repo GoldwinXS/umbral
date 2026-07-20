@@ -292,7 +292,10 @@ class Game {
     this.level = bag;
     this.scene = bag.scene;
 
-    this.player = new Player(this.scene);
+    // a plain-rendered overlay scene for transparent in-world HUD effects
+    this.overlayScene = new THREE.Scene();
+
+    this.player = new Player(this.scene, this.overlayScene);
     this.player.spawnAt(bag.spawn);
     this.player.vialCount = bag.startVials || 0;
 
@@ -321,8 +324,8 @@ class Game {
       if (bag.reflectors && bag.reflectors.length) this.rt.reflections = true;
     }
 
-    // sound-made-visible ring system (fresh per scene)
-    this.noise = new NoiseRings(this.scene);
+    // sound-made-visible ring system (fresh per scene) — in the overlay pass
+    this.noise = new NoiseRings(this.overlayScene);
 
     // state
     this.alerts = 0; this.caughtCount = 0; this.kos = 0; this.vialsUsed = 0;
@@ -446,9 +449,9 @@ class Game {
   _computePlayerVis() {
     const p = this.player.pos;
     let vis = 0.06; // ambient floor — the world is never fully black
-    // warden + sentinel cones
+    // warden + sentinel cones (the Snuffed is dark — it lights nothing)
     for (const w of this.threats) {
-      if (w.state === "out") continue;
+      if (w.state === "out" || w.blind) continue;
       const d = Math.hypot(w.pos.x - p.x, w.pos.z - p.z);
       const range = w.spec.range;
       if (d > range) continue;
@@ -512,10 +515,11 @@ class Game {
   _onVialLand(x, z) {
     this.vialsUsed++;
     this.sfx.splash();
-    // the shatter is a modest, teal-tinted sound + a wide douse ring so the
-    // player can read the tool's reach
-    this._onNoise(x, z, 3.0, { type: "vial", loud: 0.32, silentSfx: true });
-    this.noise.emit(x, z, DOUSE_RADIUS * 2, { type: "vial", loud: 0.5, gain: 0.8 });
+    // dual-use: the shatter is a LOUD lure — wardens (and the Snuffed) hear it
+    // and come investigate, so a vial both douses a light AND draws a crowd
+    // away. A wide teal ring shows the douse reach.
+    this._onNoise(x, z, 10, { type: "vial", loud: 0.6, silentSfx: true });
+    this.noise.emit(x, z, DOUSE_RADIUS * 2, { type: "vial", loud: 0.5, gain: 0.7 });
     let hit = false;
     for (const tc of this.level.torches) {
       if (tc.doused) continue;
@@ -777,6 +781,16 @@ class Game {
 
     if (this.scene && this.camera && this.rt) {
       this.rt.render(this.scene, this.camera);
+      // The ray tracer's raster pass drops transparent overlays (GBufferPass
+      // hides opacity < 0.5). So draw the in-world HUD effects — sound rings,
+      // reticles, aura, trails — in a plain forward pass ON TOP of the traced
+      // image, where normal alpha blending works.
+      if (this.overlayScene) {
+        this.renderer.autoClear = false;
+        this.renderer.clearDepth();
+        this.renderer.render(this.overlayScene, this.camera);
+        this.renderer.autoClear = true;
+      }
       if (!this._booted) { this._booted = true; boot.classList.add("hidden"); }
     }
   }

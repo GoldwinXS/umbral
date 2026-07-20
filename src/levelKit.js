@@ -386,7 +386,7 @@ export function makeKit(scene) {
       return bag.eyes[bag.eyes.length - 1];
     },
 
-    /** Guard spec: path of [x,z] waypoints (loops). */
+    /** Guard spec: path of [x,z] waypoints (loops). opts.blind → a Snuffed. */
     guard(path, opts = {}) {
       bag.guards.push({
         path,
@@ -395,6 +395,7 @@ export function makeKit(scene) {
         range: opts.range ?? 12,      // vision range
         coneAngle: opts.coneAngle ?? 0.62,
         color: opts.color ?? 0xffd9a0,
+        blind: opts.blind ?? false,   // a Snuffed: no light, hunts by sound
       });
       return bag.guards[bag.guards.length - 1];
     },
