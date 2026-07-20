@@ -229,43 +229,13 @@ export function makeKit(scene) {
     },
 
     /**
-     * A fog bank: a stealth-cover volume. Registers a concealment zone (wardens
-     * see you far worse inside it) AND draws a drifting, visible haze so the
-     * cover reads. conceal 0..1 = how much it blunts warden vision.
+     * DEPRECATED / no-op. Fog is no longer a stealth-cover mechanic — the ONLY
+     * meaning of fog now is a barrier (see fogWall). Kept as a stub so existing
+     * level calls don't break; it registers no concealment and draws no haze.
+     * (Shadow is the sole invisibility mechanic.)
      */
-    fogPatch(x0, z0, x1, z1, { conceal = 0.7, density = 0.05, color = 0xa9c4e6, puffs = 7 } = {}) {
-      bag.fogZones.push({ min: [x0, -1, z0], max: [x1, 6, z1], density, conceal });
-      const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
-      const w = x1 - x0, d = z1 - z0;
-      const tex = hazeTex();
-      const group = new THREE.Group();
-      for (let i = 0; i < puffs; i++) {
-        const s = Math.min(w, d) * (0.55 + Math.random() * 0.5);
-        const m = new THREE.Mesh(
-          new THREE.PlaneGeometry(s, s),
-          new THREE.MeshBasicMaterial({
-            map: tex, color, transparent: true, opacity: 0.045 + Math.random() * 0.04,
-            depthWrite: false, blending: THREE.NormalBlending,
-          })
-        );
-        m.rotation.x = -Math.PI / 2;
-        m.position.set(
-          cx + (Math.random() - 0.5) * w * 0.7,
-          0.35 + Math.random() * 1.3,
-          cz + (Math.random() - 0.5) * d * 0.7
-        );
-        m.userData.rtExclude = true;
-        m.userData.drift = 0.1 + Math.random() * 0.2;
-        m.userData.phase = Math.random() * Math.PI * 2;
-        m.userData.baseX = m.position.x;
-        m.userData.baseZ = m.position.z;
-        m.renderOrder = 2;
-        group.add(m);
-      }
-      scene.add(group);
-      bag.fogGroups = bag.fogGroups || [];
-      bag.fogGroups.push(group);
-      return group;
+    fogPatch() {
+      return new THREE.Group();
     },
 
     /**

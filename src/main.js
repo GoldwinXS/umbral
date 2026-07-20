@@ -27,11 +27,16 @@ const LEVELS = [
 ];
 const CAM_OFFSET = new THREE.Vector3(0, 12.5, 6.3);
 const PROGRESS_KEY = "umbral.progress";
-// Light-gem calibration: the analytic direct-light SUM at the player's feet is
-// divided by this to land 0 (shadow) .. 1 (fully lit). The tracer runs gi:false
-// (direct + emissive only), so a LOS-gated sum of the real scene lights closely
-// matches what's on screen — and it's deterministic, so it can be unit-tested.
-const VIS_NORM = 12.0;
+// Light-gem calibration. The analytic direct-light SUM at the player's feet is
+// mapped to 0 (shadow) .. 1 (fully lit). The tracer runs gi:false, so a LOS-gated
+// sum of the real scene lights matches what's on screen — and it's deterministic,
+// so it can be unit-tested. Point lights (torches/fills) use INVERSE-SQUARE
+// falloff on the ground plane, matching the tracer: a tight bright pool that
+// falls off to near-nothing within a few metres, so a torch across the room no
+// longer bleeds light into a dark corner.
+const VIS_ENV = 0.15;   // sky/env floor — the world is never pitch black
+const VIS_MOON = 1.0;   // moon (directional) weight
+const VIS_NORM = 9.0;
 // CUMULATIVE progression by level index — Hush only ever gets stronger. This
 // is the single source of truth (per-level bag.upgrades are ignored), so a
 // later level can never silently regress an earlier grant.
@@ -72,6 +77,9 @@ class Game {
     this._lights = [];           // scene lights (moon + all point lights), collected per level
     this._tmpDir = new THREE.Vector3();
     this._origin = new THREE.Vector3();
+    this._occludedT = 0;         // seconds the camera view of the blob has been blocked
+    this._camHintCd = 0;         // cooldown before the "rotate/zoom" hint can show again
+    this._camHintCount = 0;      // times the hint has shown this level (capped)
     this.litness = 0;            // 0 (dark) → 1 (exposed), derived from playerVis
     this.spotting = 0;           // hottest warden awareness that currently sees me
     this.SEEN_THRESHOLD = 0.18;  // gem below this = in shadow, unseen (see hud.js)
@@ -335,7 +343,7 @@ class Game {
     if (up.maxHealthCap) this.player.maxHealthCap = up.maxHealthCap;
     if (up.maxHealth) { this.player.maxHealth = up.maxHealth; this.player.health = up.maxHealth; }
 
-    this.wardens = bag.guards.map((spec) => new Warden(this.scene, spec));
+    this.wardens = bag.guards.map((spec) => new Warden(this.scene, spec, this.overlayScene));
     this.eyes = (bag.eyes || []).map((spec) => new GreatEye(this.scene, spec));
     // threats = everything that can spot you (wardens + sentinels). Only real
     // wardens have bodies / are devourable, so they stay a separate list too.
@@ -343,6 +351,7 @@ class Game {
 
     // snapshot the scene's lights so the gem can sum their real contribution
     this._collectLights();
+    this._occludedT = 0; this._camHintCd = 3; this._camHintCount = 0; // fresh camera-hint state
 
     this.camDist = 1; this.camYaw = 0; // reset view each level
     this.camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.1, 160);
@@ -512,9 +521,11 @@ class Game {
   _computePlayerVis() {
     const p = this.player.pos;
     const px = p.x, pz = p.z;
-    let raw = 0.3; // faint sky/env floor — the world is never pitch black
+    let raw = VIS_ENV;
 
-    // point lights: torches, fills, dormant lamps, the scepter (all PointLights)
+    // point lights: torches, fills, dormant lamps, the scepter (all PointLights).
+    // INVERSE-SQUARE pool on the ground plane — bright on the light, gone within a
+    // few metres — so a torch across the room does NOT light a dark corner.
     for (const L of this._lights) {
       const lt = L.light;
       if (L.kind === "dir") {
@@ -525,22 +536,20 @@ class Game {
         dir.normalize();
         const sx = px + dir.x * 40, sy = 0.5 + dir.y * 40, sz = pz + dir.z * 40;
         if (!this.los(sx, sy, sz, px, 0.5, pz)) continue;
-        raw += lt.intensity * 2.2;
+        raw += lt.intensity * VIS_MOON;
       } else {
         const lp = lt.position;
         const dist = lt.distance || 20;
         const d = Math.hypot(lp.x - px, lp.z - pz);
         if (d >= dist || lt.intensity <= 0.001) continue;
         if (!this.los(lp.x, lp.y, lp.z, px, 0.5, pz)) continue;
-        const f = 1 - d / dist;
-        raw += lt.intensity * f * f;
+        const win = 1 - (d / dist) * (d / dist);      // smooth cutoff at range
+        raw += lt.intensity * win / (1 + d * d);       // inverse-square core
       }
     }
 
-    // (torches / dormant / scepter are PointLights already summed above — douse
-    //  simply zeroes a torch's intensity, so it drops out for free.)
-
-    // warden + sentinel spot cones — a beam ON you lights you (and gives you away)
+    // warden + sentinel spot cones — a focused beam ON you lights you (and gives
+    // you away). Gentler falloff than a torch: a spotlight reaches across its cone.
     for (const w of this.threats) {
       if (w.state === "out" || w.blind || !w.light) continue;
       const d = Math.hypot(w.pos.x - px, w.pos.z - pz);
@@ -555,7 +564,7 @@ class Game {
       if (!this.los(w.pos.x, 2.2, w.pos.z, px, 0.5, pz)) continue;
       const centering = 1 - Math.min(1, adiff / w.spec.coneAngle);
       const f = 1 - d / range;
-      raw += w.light.intensity * 0.5 * f * f * (0.4 + 0.6 * centering);
+      raw += w.light.intensity * 0.25 * f * f * (0.4 + 0.6 * centering);
     }
 
     // the relic is a blazing beacon strapped to you — always reads exposed
@@ -779,24 +788,9 @@ class Game {
       if (d < 1.5 && (!sc || this.scepterTaken)) this._win();
     }
 
-    // fog concealment — blunts warden vision while the blob is in the mist
-    this.fogCover = this._fogCoverAt(player.pos.x, player.pos.z);
-    this.playerConcealed = this.fogCover > 0.35;
-
-    // fog-wall barriers: idle shimmer + dissipate once opened
+    // fog-wall barriers: idle shimmer + dissipate once opened. (Fog is no longer
+    // a concealment mechanic — shadow alone hides you; fog means "barrier".)
     if (level.fogWalls) for (const fw of level.fogWalls) fw.update(dt, t);
-
-    // drifting fog banks
-    if (level.fogGroups) {
-      for (const grp of level.fogGroups) {
-        for (const m of grp.children) {
-          const u = m.userData;
-          m.position.x = u.baseX + Math.sin(t * u.drift + u.phase) * 1.1;
-          m.position.z = u.baseZ + Math.cos(t * u.drift * 0.8 + u.phase) * 0.9;
-          m.rotation.z = t * u.drift * 0.3;
-        }
-      }
-    }
 
     // vision + wardens
     this.playerVis = this._computePlayerVis();
@@ -844,6 +838,22 @@ class Game {
     );
     this.camera.position.lerp(this._camPos, 1 - Math.pow(0.001, dt));
     this.camera.lookAt(player.pos.x + player.vel.x * lead * 0.15, 0.4, player.pos.z + player.vel.z * lead * 0.15);
+
+    // camera-obstruction hint: if the blob is hidden behind geometry (a tall
+    // building/wall between camera and player) for a few seconds, teach the
+    // player they can rotate/zoom around it. Shown a couple of times per level.
+    const cp = this.camera.position;
+    const blocked = !player.frozen && !this.los(cp.x, cp.y, cp.z, player.pos.x, player.pos.y + 0.35, player.pos.z);
+    this._occludedT = blocked ? this._occludedT + dt : 0;
+    this._camHintCd = Math.max(0, this._camHintCd - dt);
+    if (this._occludedT > 2.5 && this._camHintCd <= 0 && this._camHintCount < 3) {
+      this.hud.prompt(this.isTouch
+        ? "View blocked? <b>Twist</b> two fingers to rotate the camera, <b>pinch</b> to zoom around it."
+        : "View blocked? <b>Right-drag</b> (or <span class='keycap'>,</span> <span class='keycap'>.</span>) to rotate, <b>scroll</b> (or <span class='keycap'>-</span> <span class='keycap'>=</span>) to zoom around it.", 4);
+      this._camHintCd = 22;
+      this._camHintCount++;
+      this._occludedT = 0;
+    }
 
     this.hud.update(dt, this);
   }

@@ -143,9 +143,8 @@ export class GreatEye {
       while (diff < -Math.PI) diff += Math.PI * 2;
       if (Math.abs(diff) < this.spec.coneAngle) {
         if (game.los(this.x, this.height, this.z, p.x, 0.5, p.z)) {
-          // you must be visible — light minus fog cover
-          const exposure = game.playerVis * (1 - (game.fogCover || 0));
-          if (exposure > 0.18) inGaze = true;
+          // you must be visible — light alone (fog no longer conceals)
+          if (game.playerVis > 0.18) inGaze = true;
         }
       }
     }

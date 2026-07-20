@@ -35,8 +35,9 @@ const CHASE_AT = 0.999;              // awareness → alarm/chase
 const FORGET_RATE = 0.5;             // awareness bled off per second when unseen
 
 export class Warden {
-  constructor(scene, spec) {
+  constructor(scene, spec, overlay) {
     this.scene = scene;
+    this.overlay = overlay || scene; // transparent glow halo lives in the overlay pass
     this.spec = spec;
     this.pos = new THREE.Vector3(spec.path[0][0], 1.45, spec.path[0][1]);
     this.vel = new THREE.Vector3();
@@ -105,6 +106,21 @@ export class Warden {
       this.light = l;
     }
 
+    // --- alert glow halo: a soft additive aura enveloping the WHOLE body that
+    // brightens amber → red as this sentinel grows suspicious. Lives in the
+    // overlay pass (like the sound rings) so its transparency animates smoothly
+    // in the traced view. Invisible when calm — the enemy itself lights up. ---
+    this.glow = new THREE.Mesh(
+      new THREE.SphereGeometry(0.58, 18, 14),
+      new THREE.MeshBasicMaterial({
+        color: SUSPECT.clone(), transparent: true, opacity: 0,
+        blending: THREE.AdditiveBlending, depthWrite: false,
+      })
+    );
+    this.glow.userData.rtExclude = true;
+    this.glow.renderOrder = 3;
+    this.overlay.add(this.glow);
+
     this.canSeePlayer = false;
   }
 
@@ -145,6 +161,7 @@ export class Warden {
     this.deathStyle = "swallow";
     this.swallowT = 0.0001;
     if (this.light) this.light.intensity = 0;
+    if (this.glow) this.glow.material.opacity = 0;
     this.canSeePlayer = false;
     return "devour";
   }
@@ -280,8 +297,7 @@ export class Warden {
     let sees = false;
     let strength = 0; // 0..1 how strongly seen right now → how fast awareness climbs
     if (!this.blind) {
-      const fog = 1 - (game.fogCover || 0);
-      const exposure = game.playerVis * (game.playerSneaking ? 0.7 : 1) * fog;
+      const exposure = game.playerVis * (game.playerSneaking ? 0.7 : 1);
       const lit = exposure >= SEEN_THRESHOLD; // in shadow → truly invisible
 
       if (lit && !game.playerHidden && dist < spec.range * 1.5) {
@@ -426,14 +442,36 @@ export class Warden {
       // touch brighter as it hunts, for drama
       this.light.intensity = 30 * (1 + aw * 0.35);
     }
+
+    // THE WHOLE CREATURE kindles: calm = a dark body with just a dim core; as it
+    // grows suspicious a glowing halo swells around its entire silhouette, amber
+    // → red, blazing on the hunt. This is the alert read — the enemy itself
+    // lighting up, not a pip. The halo (overlay, additive) is the reliable tell;
+    // the body emissive complements it in the raster/NEE.
+    const pulse = aw > 0.85 ? Math.max(0, Math.sin(t * 13)) : 0;
+    this.glow.position.set(this.pos.x, bobY + 0.02, this.pos.z);
+    this.glow.material.color.copy(this._lightColor);
+    if (!this.blind) {
+      this.glow.material.opacity = Math.min(0.9, aw * aw * 0.95 + pulse * 0.25);
+      this.glow.scale.setScalar(0.9 + aw * 0.7 + pulse * 0.08);
+      this.body.material.emissive.copy(this._lightColor);
+      this.body.material.emissiveIntensity = aw * aw * 1.6 + pulse * 0.5;
+    } else {
+      // the Snuffed has no lamp, but its embered body glows redder when roused
+      const e = 0.25 + (this.state !== "patrol" ? 0.55 : 0) + Math.sin(t * 6) * 0.08;
+      this.glow.material.opacity = Math.min(0.7, e * 0.6);
+      this.glow.scale.setScalar(0.85 + e * 0.4);
+      this.body.material.emissive.setHex(0x2a0805);
+      this.body.material.emissiveIntensity = e;
+    }
+
     this.core.position.set(this.pos.x, bobY + 0.05, this.pos.z);
     this.core.material.emissive.copy(this._lightColor);
-    // the visible core (rtExclude glow — casts no light, so it can blaze without
-    // affecting who it lights) swells and brightens with suspicion
+    // the core stays a small, steady eye — the BODY is the alert tell now, so the
+    // core no longer swells into a "pip"
     this.core.material.emissiveIntensity = this.blind
-      ? (2.2 + (this.state !== "patrol" ? 2 : 0) + Math.sin(t * 8) * 0.5)
-      : 4 + aw * 11 + (aw > 0.88 ? Math.max(0, Math.sin(t * 13)) * 4 : 0);
-    this.core.scale.setScalar(1 + aw * 0.6);
+      ? (2.2 + (this.state !== "patrol" ? 1.5 : 0) + Math.sin(t * 8) * 0.5)
+      : 4 + aw * 5;
     this.core.rotation.y = t * 1.5;
 
     // ember flecks orbit the Snuffed so it's readable in the dark

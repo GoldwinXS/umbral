@@ -82,7 +82,6 @@ export class Hud {
     const gs = this.el.gemState;
     if (spot > 0.55) { gs.textContent = "SPOTTED — being seen!"; gs.style.color = "#ff5a5a"; }
     else if (spot > 0.12) { gs.textContent = "a warden stirs…"; gs.style.color = "#ffb056"; }
-    else if (game.playerConcealed) { gs.textContent = "veiled — in mist"; gs.style.color = "#7fe0d0"; }
     else if (game.playerHidden) { gs.textContent = "hidden"; gs.style.color = "#39f0c0"; }
     else if (this._gem > 0.55) { gs.textContent = "lit — exposed"; gs.style.color = "#ffd9a0"; }
     else if (this._gem > seenAt) { gs.textContent = "dim — visible"; gs.style.color = "#c8a86a"; }
