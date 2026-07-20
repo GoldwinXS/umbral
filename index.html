@@ -148,9 +148,16 @@
     transform: translate(-50%, -50%); display: none; pointer-events: none; }
   #joyKnob { width: 48px; height: 48px; background: rgba(138,92,255,.3); }
   #joyBase.on, #joyKnob.on { display: block; }
-  #touchBtns { position: absolute; right: 12px; bottom: calc(max(16px, env(safe-area-inset-bottom)) + 84px);
+  #touchBtns { position: absolute; right: calc(12px + env(safe-area-inset-right)); bottom: calc(max(16px, env(safe-area-inset-bottom)) + 84px);
     display: none; flex-direction: column; gap: 10px; pointer-events: none; }
   body.coarse #touchBtns { display: flex; }
+  /* LANDSCAPE (phones held sideways): a short screen pushed the button column too
+     high to reach. Hug the bottom-right corner and put the grab/interact button
+     nearest the thumb (column-reverse → first child renders at the bottom). */
+  @media (orientation: landscape) {
+    body.coarse #touchBtns { bottom: max(12px, env(safe-area-inset-bottom)); flex-direction: column-reverse; gap: 8px; }
+    body.coarse .tbtn { width: 54px; height: 54px; font-size: 21px; }
+  }
   /* on touch, the on-screen buttons carry the tool state — hide the desktop
      tool row and shrink the HUD so it doesn't crowd a phone screen */
   body.coarse #tools { display: none; }
