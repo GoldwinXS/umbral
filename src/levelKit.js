@@ -247,7 +247,7 @@ export function makeKit(scene) {
      *
      * rot 0 → the doorway faces ±z (curtain spans x); rot Math.PI/2 → faces ±x.
      */
-    fogWall(x, z, w, { h = 3.4, rot = 0, color = 0xb7c8ec, thick = 0.55, conceal = 0 } = {}) {
+    fogWall(x, z, w, { h = 3.4, rot = 0, color = 0xb7c8ec, thick = 0.7 } = {}) {
       const collider = {
         x, z,
         hx: rot === 0 ? w / 2 : thick, hz: rot === 0 ? thick : w / 2,
@@ -259,55 +259,44 @@ export function makeKit(scene) {
       const group = new THREE.Group();
       group.position.set(x, 0, z);
       group.rotation.y = rot;
-      const layers = [];
-      // full-width curtain quads at slight yaw + depth offsets so the wall reads
-      // dense from the angled, orbiting camera
-      const N = 5;
-      for (let i = 0; i < N; i++) {
-        const m = new THREE.Mesh(
-          new THREE.PlaneGeometry(w * (1.04 + (i % 3) * 0.06), h),
-          new THREE.MeshBasicMaterial({
-            map: tex, color, transparent: true, opacity: 0.5,
-            depthWrite: false, side: THREE.DoubleSide, blending: THREE.NormalBlending,
-          })
-        );
-        m.position.set(((i % 2) - 0.5) * w * 0.12, h / 2 + ((i % 3) - 1) * 0.12, (i - (N - 1) / 2) * (thick * 0.9));
-        m.rotation.y = ((i % 2) - 0.5) * 0.5; // crossed yaw → volume
-        m.userData.rtExclude = true;
-        m.userData.baseOp = m.material.opacity;
-        m.userData.baseY = m.position.y;
-        m.userData.phase = i * 1.3;
-        m.renderOrder = 3;
-        group.add(m); layers.push(m);
-      }
-      // soft puffs to break the flat edges
-      for (let i = 0; i < 6; i++) {
-        const s = h * (0.42 + (i % 3) * 0.16);
-        const m = new THREE.Mesh(
-          new THREE.PlaneGeometry(s, s),
-          new THREE.MeshBasicMaterial({
-            map: tex, color, transparent: true, opacity: 0.16,
-            depthWrite: false, blending: THREE.NormalBlending,
-          })
-        );
-        m.position.set((((i * 7) % 10) / 10 - 0.5) * w * 0.9, 0.5 + ((i * 3) % 7) / 7 * (h * 0.8), (((i * 5) % 4) / 4 - 0.5) * thick * 2.2);
-        m.userData.rtExclude = true;
-        m.userData.baseOp = m.material.opacity;
-        m.userData.baseY = m.position.y;
-        m.userData.phase = i * 0.9 + 2;
-        m.renderOrder = 3;
-        group.add(m); layers.push(m);
+
+      // A VOLUME of billboarded sprites filling the doorway box. Sprites always
+      // face the camera, so the cloud reads as a genuine 3-D body of fog from any
+      // angle (not a flat curtain), and it renders in the overlay pass.
+      const puffs = [];
+      const COLS = Math.max(3, Math.round(w / 1.1));
+      const ROWS = 4, DEPTH = 3;
+      let i = 0;
+      for (let cx = 0; cx < COLS; cx++) {
+        for (let cy = 0; cy < ROWS; cy++) {
+          for (let cz = 0; cz < DEPTH; cz++) {
+            // jittered lattice through the box → even, cloud-like fill
+            const jx = (cx + 0.5) / COLS - 0.5 + (((i * 13) % 7) / 7 - 0.5) * 0.12;
+            const jy = (cy + 0.5) / ROWS + (((i * 17) % 5) / 5 - 0.5) * 0.12;
+            const jz = (cz + 0.5) / DEPTH - 0.5 + (((i * 11) % 5) / 5 - 0.5) * 0.18;
+            const s = 1.3 + ((i * 7) % 5) / 5 * 0.9;
+            const mat = new THREE.SpriteMaterial({
+              map: tex, color, transparent: true, opacity: 0.34,
+              depthWrite: false, blending: THREE.NormalBlending,
+            });
+            const sp = new THREE.Sprite(mat);
+            sp.position.set(jx * w, jy * h, jz * thick * 3.2);
+            sp.scale.set(s, s, 1);
+            sp.userData.rtExclude = true;
+            sp.userData.baseOp = 0.34;
+            sp.userData.baseY = sp.position.y;
+            sp.userData.phase = i * 0.7;
+            sp.renderOrder = 3;
+            group.add(sp); puffs.push(sp);
+            i++;
+          }
+        }
       }
       scene.add(group);
 
-      if (conceal > 0) {
-        const ex = rot === 0 ? w / 2 : thick, ez = rot === 0 ? thick : w / 2;
-        bag.fogZones.push({ min: [x - ex, -1, z - ez], max: [x + ex, 6, z + ez], conceal, density: 0 });
-      }
-
       bag.fogWalls = bag.fogWalls || [];
       const fw = {
-        group, collider, layers, opened: false, _diss: 0,
+        group, collider, layers: puffs, opened: false, _diss: 0,
         open() {
           if (this.opened) return;
           this.opened = true;
@@ -321,16 +310,16 @@ export function makeKit(scene) {
               const e = this._diss;
               for (const m of this.layers) {
                 m.material.opacity = m.userData.baseOp * (1 - e);
-                m.position.y = m.userData.baseY + e * 2.6; // rises as it clears
+                m.position.y = m.userData.baseY + e * 2.6; // the whole body rises + thins
               }
               if (this._diss >= 1) this.group.visible = false;
             }
             return;
           }
-          // idle: shimmer + slow vertical breathing so it looks alive
+          // idle: each puff breathes + drifts a little, so the body churns
           for (const m of this.layers) {
-            m.material.opacity = m.userData.baseOp * (0.8 + 0.2 * Math.sin(t * 0.8 + m.userData.phase));
-            m.position.y = m.userData.baseY + Math.sin(t * 0.5 + m.userData.phase) * 0.09;
+            m.material.opacity = m.userData.baseOp * (0.72 + 0.28 * Math.sin(t * 0.9 + m.userData.phase));
+            m.position.y = m.userData.baseY + Math.sin(t * 0.5 + m.userData.phase) * 0.1;
           }
         },
       };
