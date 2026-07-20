@@ -78,6 +78,12 @@ export class Sfx {
     this._tone(120, 0.34, { type: "triangle", gain: 0.16, slide: -60, delay: 0.06 });
   }
   whiff() { this._noise(0.1, { freq: 1500, q: 0.7, gain: 0.08 }); }
+  // a warden connects — a dull fleshy thud + the whoosh of being flung
+  hitFlesh() {
+    this._tone(130, 0.18, { type: "sine", gain: 0.26, slide: -50 });
+    this._noise(0.2, { freq: 320, q: 0.7, gain: 0.2 });
+    this._noise(0.3, { freq: 900, q: 0.5, gain: 0.1, delay: 0.04 });
+  }
   throwVial() { this._noise(0.14, { freq: 1100, q: 0.8, gain: 0.1 }); }
   splash() {
     this._noise(0.28, { freq: 2400, q: 0.6, gain: 0.24 });

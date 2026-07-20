@@ -22,8 +22,9 @@ const RING_VERT = `
   }
 `;
 
-// r = 0..1 across the quad (0 = centre, 1 = edge). We draw a soft annulus at
-// uRadius with half-width uThick, plus a faint leading whisker.
+// r = 0..1 across the quad (0 = centre, 1 = edge). A crisp vector-drawn ring:
+// a thin bright stroke at uRadius with a hairline inner echo — reads like the
+// HUD crosshair, not a glow. No ground-washing halo.
 const RING_FRAG = `
   precision highp float;
   varying vec2 vUv;
@@ -34,13 +35,14 @@ const RING_FRAG = `
   void main() {
     float r = length(vUv - 0.5) * 2.0;      // 0 at centre, 1 at quad edge
     float d = abs(r - uRadius);
-    float band = smoothstep(uThick, 0.0, d);        // the ring body
-    float glow = smoothstep(uThick * 3.0, 0.0, d) * 0.35; // soft halo
-    float a = (band + glow) * uOpacity;
-    // fade the whole thing out toward the quad edge so clipping is invisible
-    a *= smoothstep(1.0, 0.86, r);
-    if (a < 0.003) discard;
-    gl_FragColor = vec4(uColor * (1.0 + band * 0.6), a);
+    // crisp main stroke (sharp inner falloff so it looks drawn, not blurred)
+    float stroke = smoothstep(uThick, uThick * 0.25, d);
+    // a faint hairline just inside, for a little instrument detail
+    float echo = smoothstep(uThick * 0.6, 0.0, abs(r - uRadius * 0.86)) * 0.35;
+    float a = (stroke + echo) * uOpacity;
+    a *= smoothstep(1.0, 0.92, r);          // hide the quad clip
+    if (a < 0.01) discard;
+    gl_FragColor = vec4(uColor, a);
   }
 `;
 
@@ -68,7 +70,7 @@ export class NoiseRings {
         fragmentShader: RING_FRAG,
         transparent: true,
         depthWrite: false,
-        blending: THREE.AdditiveBlending,
+        blending: THREE.NormalBlending, // no additive white-wash of the ground
         uniforms: {
           uColor: { value: new THREE.Color(0xffffff) },
           uRadius: { value: 0 },
@@ -105,9 +107,9 @@ export class NoiseRings {
   emit(x, z, radius, opts = {}) {
     const loud = opts.loud != null ? opts.loud : Math.min(1, radius / 11);
     const color = opts.type ? EVENT_COLOR[opts.type] : (SURFACE_COLOR[opts.surface] || SURFACE_COLOR.obsidian);
-    const burst = 1 + Math.floor(loud * 2.6);   // louder → more stacked ripples
+    const burst = 1 + Math.floor(loud * 1.8);   // louder → more stacked ripples
     const speed = 3.0 + loud * 6.0;             // louder → faster leading edge
-    const thick = 0.05 + loud * 0.14;           // louder → thicker band
+    const thick = 0.03 + loud * 0.08;           // louder → thicker stroke
     for (let i = 0; i < burst; i++) {
       const r = this._free();
       r.active = true;
@@ -137,7 +139,7 @@ export class NoiseRings {
       const u = r.mesh.material.uniforms;
       // frag radius 1.0 ↔ maxR world; grow 0 → maxR over the ring's life
       u.uRadius.value = f;
-      u.uOpacity.value = (0.55 * (1 - f) + 0.12) * r.gain;
+      u.uOpacity.value = (0.7 * (1 - f) + 0.15) * r.gain;
     }
   }
 

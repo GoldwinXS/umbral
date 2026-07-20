@@ -15,9 +15,9 @@ import { buildMission1 } from "./levels/mission1.js";
 import { buildVault } from "./levels/vault.js";
 
 const LEVELS = [
-  { name: "THE NURSERY", build: buildTutorial },
-  { name: "THE UMBRAL CITADEL", build: buildMission1 },
-  { name: "THE MIRROR VAULT", build: buildVault },
+  { name: "THE ASHWAY", build: buildTutorial },
+  { name: "BRIGHTWARD", build: buildMission1 },
+  { name: "THE RELIQUARY", build: buildVault },
 ];
 const CAM_OFFSET = new THREE.Vector3(0, 12.5, 6.3);
 const PROGRESS_KEY = "umbral.progress";
@@ -281,6 +281,8 @@ class Game {
       this.hud.prompt(this.isTouch
         ? "You are the dark between stars. <b>Push the left stick</b> to move — gently to creep, fully to flow."
         : "You are the dark between stars. <b>Move</b> — <span class='keycap'>W</span><span class='keycap'>A</span><span class='keycap'>S</span><span class='keycap'>D</span> or arrows.", 9);
+    } else if (bag.onStart) {
+      bag.onStart(this);
     }
     setTimeout(() => boot.classList.add("hidden"), 120);
   }
@@ -487,9 +489,19 @@ class Game {
       sfx: this.sfx,
     });
 
+    // hard safety net: a hard fling must never punt the blob out of the world
+    const b = level.bounds;
+    if (b && (player.pos.x < b.x0 || player.pos.x > b.x1 || player.pos.z < b.z0 || player.pos.z > b.z1)) {
+      player.pos.x = Math.min(b.x1, Math.max(b.x0, player.pos.x));
+      player.pos.z = Math.min(b.z1, Math.max(b.z0, player.pos.z));
+      player.vel.set(0, 0, 0);
+      player.launch = 0;
+    }
+
     // actions
     if (input.consume("blink")) player.tryBlink({
       input, level, sfx: this.sfx,
+      blinkCdMul: level.blinkCdMul ?? 1,
       onBlink: (ox, oz, nx, nz) => {
         // silent, violet: a quick gather at the origin and a shock at the landing
         this.noise.emit(ox, oz, 1.6, { type: "blink", loud: 0.55, gain: 0.7 });
@@ -512,7 +524,7 @@ class Game {
         if (behind && player.mawCharges > 0) {
           // FEAST — swallow the warden from behind, grow, flash red
           bestW.devour(this);
-          player.beginDevour();
+          player.beginDevour(bestW.pos.x, bestW.pos.z);
           this.kos++;
           this.sfx.devour();
           this.noise.emit(player.pos.x, player.pos.z, 3.0, { type: "devour", loud: 0.4 });
@@ -590,6 +602,11 @@ class Game {
         if (input.consume("interact")) {
           this.scepterTaken = true;
           this.sfx.scepter();
+          // the beacon ignites: it makes you FAST but blazing — the escape is
+          // an outrun, not a sneak
+          player.carrySpeedMul = 2.4;
+          if (sc.light) { sc.light.intensity = 14; sc.light.distance = 16; }
+          if (sc.core) sc.core.material.emissiveIntensity = 7;
           if (level.onAlarm) level.onAlarm(this);
           else this.setObjective("Escape to the rift!");
         }

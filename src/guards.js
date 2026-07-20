@@ -198,17 +198,14 @@ export class Warden {
 
     if (this.state === "out") {
       if (this.deathStyle === "swallow" && this.swallowT < 1) {
-        // drawn into the maw: rush toward the blob, spin, and shrink to nothing
-        this.swallowT = Math.min(1, this.swallowT + dt * 2.6);
-        const e = this.swallowT * this.swallowT; // ease-in
-        const p = game.player.pos;
-        this.pos.x += (p.x - this.pos.x) * Math.min(1, dt * 7);
-        this.pos.z += (p.z - this.pos.z) * Math.min(1, dt * 7);
-        const s = Math.max(0.001, 1 - e);
+        // enveloped in place by the blob's engulf sac: crumple, sink, wink out
+        this.swallowT = Math.min(1, this.swallowT + dt * 3.0);
+        const e = this.swallowT;
+        const s = Math.max(0.001, 1 - e * e);
         this.body.scale.setScalar(s);
         this.core.scale.setScalar(s);
-        this.body.position.set(this.pos.x, 1.45 - e * 0.9, this.pos.z);
-        this.body.rotation.y += dt * 14;
+        this.body.position.set(this.pos.x, 1.45 - e * 0.6, this.pos.z);
+        this.body.rotation.z = e * 1.2;
         this.core.position.copy(this.body.position);
         this.core.material.emissive.copy(CHASE);
         if (this.swallowT >= 1) { this.body.visible = false; this.core.visible = false; }

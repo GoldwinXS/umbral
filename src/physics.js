@@ -3,8 +3,13 @@
  * Colliders are plain data: boxes {x,z,hx,hz,rot,enabled}, cylinders {x,z,r,enabled}.
  */
 
-/** Resolve a moving circle against all colliders; slides along faces. */
-export function collideCircle(pos, r, vel, boxes, cylinders) {
+/**
+ * Resolve a moving circle against all colliders.
+ * bounce = 0 (default) slides along faces; bounce > 0 reflects the velocity's
+ * inward normal component with that restitution (a pingpong off walls).
+ */
+export function collideCircle(pos, r, vel, boxes, cylinders, bounce = 0) {
+  const push = 1 + bounce; // how much of the inward normal velocity to remove/flip
   for (let pass = 0; pass < 2; pass++) {
     for (const b of boxes) {
       if (b.enabled === false) continue;
@@ -35,7 +40,7 @@ export function collideCircle(pos, r, vel, boxes, cylinders) {
         if (nl > 1e-6) {
           const ux = wx / nl, uz = wz / nl;
           const vn = vel.x * ux + vel.z * uz;
-          if (vn < 0) { vel.x -= vn * ux; vel.z -= vn * uz; }
+          if (vn < 0) { vel.x -= push * vn * ux; vel.z -= push * vn * uz; }
         }
       }
     }
@@ -51,7 +56,7 @@ export function collideCircle(pos, r, vel, boxes, cylinders) {
       pos.x += nx * pen; pos.z += nz * pen;
       if (vel) {
         const vn = vel.x * nx + vel.z * nz;
-        if (vn < 0) { vel.x -= vn * nx; vel.z -= vn * nz; }
+        if (vn < 0) { vel.x -= push * vn * nx; vel.z -= push * vn * nz; }
       }
     }
   }

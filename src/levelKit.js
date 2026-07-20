@@ -262,6 +262,36 @@ export function makeKit(scene) {
       return group;
     },
 
+    /** A glowing carved inscription on a wall (world lore). */
+    inscription(x, y, z, text, rotY = 0, color = "#9a86d8") {
+      const cvs = document.createElement("canvas");
+      cvs.width = 1024; cvs.height = 128;
+      const g2 = cvs.getContext("2d");
+      let size = 46;
+      do {
+        g2.font = `italic ${size}px Georgia, 'Times New Roman', serif`;
+        if (g2.measureText(text).width <= 980) break;
+        size -= 2;
+      } while (size > 18);
+      g2.textAlign = "center"; g2.textBaseline = "middle";
+      g2.shadowColor = color; g2.shadowBlur = 16;
+      g2.fillStyle = color;
+      g2.fillText(text, 512, 64);
+      const tex = new THREE.CanvasTexture(cvs);
+      tex.anisotropy = 4;
+      const w = 5.2, h = w * (128 / 1024);
+      const m = new THREE.Mesh(
+        new THREE.PlaneGeometry(w, h),
+        new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false })
+      );
+      m.position.set(x, y, z);
+      m.rotation.y = rotY;
+      m.userData.rtExclude = true;
+      m.renderOrder = 2;
+      scene.add(m);
+      return m;
+    },
+
     /** Crimson maw mote — pick up to charge one devour. */
     mawMote(id, x, z) {
       const group = new THREE.Group();

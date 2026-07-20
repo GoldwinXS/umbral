@@ -84,7 +84,7 @@ export class Hud {
     }
 
     // tools
-    const cdFrac = game.player.blinkCd / 6;
+    const cdFrac = game.player.blinkCd / (game.player.blinkCdMax || 6);
     this.el.cdBlink.style.setProperty("--p", (cdFrac * 100).toFixed(1) + "%");
     this.el.cdBlinkT.style.setProperty("--p", (cdFrac * 100).toFixed(1) + "%");
     this.el.vialCount.textContent = game.player.vialCount;

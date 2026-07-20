@@ -16,11 +16,15 @@ import { collideCircle, circleHits, pointInHole } from "./physics.js";
  */
 
 export const PLAYER_R = 0.42;
-export const SPEEDS = { sneak: 1.7, walk: 3.7, run: 6.1 };
-const ACCEL = 30;
+// The blob is SLOWER than a hunting warden (chase ≈ 3.2–3.6): once seen you
+// cannot simply outrun them — you break line of sight, blink, or die. Mobility
+// comes from the shadowstep, not foot speed. (The beacon breaks this rule on
+// purpose for the finale — see carrySpeedMul.)
+export const SPEEDS = { sneak: 1.35, walk: 2.3, run: 3.0 };
+const ACCEL = 26;
 const DAMPING = 11;
 export const BLINK_RANGE = 5.0;
-export const BLINK_CD = 6.0;
+export const BLINK_CD = 4.0;   // shorter than before — the step is your lifeline now
 export const THROW_DIST = 4.6;   // how far a lobbed vial travels
 export const DOUSE_RADIUS = 2.1; // world radius a vial douses / its splash reach
 
@@ -53,6 +57,19 @@ export class Player {
       this.eyes.push(e);
     }
     this._eyeColor = this.eyeCalm.clone();
+
+    // engulf sac — a dark bulge the blob extrudes to envelop a warden it swallows
+    this.engulf = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(PLAYER_R, 2),
+      new THREE.MeshStandardMaterial({
+        color: 0x05060c, roughness: 0.4, metalness: 0.1,
+        emissive: 0x3a0a14, emissiveIntensity: 1.0, transparent: true, opacity: 0.94,
+      })
+    );
+    this.engulf.userData.rtExclude = true;
+    this.engulf.visible = false;
+    scene.add(this.engulf);
+    this.engulfTarget = null;
 
     // soft umbral aura under the blob — keeps the player readable in the dark
     this.aura = new THREE.Mesh(
@@ -116,11 +133,14 @@ export class Player {
     this.facing = new THREE.Vector2(0, -1);
     this.vialCount = 0;
     this.blinkCd = 0;
+    this.blinkCdMax = BLINK_CD; // actual cooldown of the last blink (for HUD + per-level buffs)
+    this.carrySpeedMul = 1;     // >1 while carrying the beacon — the outrun finale
     this.strideAcc = 0;
     this.speedFrac = 0;   // smoothed 0..1 of run speed — drives morph + noise
     this.blinkAnim = 0;   // 1 → 0 after a blink
     this.falling = 0;     // >0 while falling into a void
     this.frozen = false;  // input locked (falling / caught)
+    this.launch = 0;      // >0 while flung by a warden hit (physics fling, no input)
 
     // life: the blob shrinks as it takes hits, slowly regrows in safety
     this.maxHealth = 3;
@@ -153,8 +173,11 @@ export class Player {
     let dx = this.pos.x - fromX, dz = this.pos.z - fromZ;
     const l = Math.hypot(dx, dz) || 1;
     dx /= l; dz /= l;
-    this.vel.x = dx * 13;
-    this.vel.z = dz * 13;
+    // FLING the blob away — a hard launch that resets the encounter. move()
+    // lets this play out uncapped + bouncing off walls while `launch` runs.
+    this.vel.x = dx * 17;
+    this.vel.z = dz * 17;
+    this.launch = 0.65;
     if (this.health <= 0) return "dead";
     return "hit";
   }
@@ -164,12 +187,13 @@ export class Player {
     this.invuln = 0;
   }
 
-  /** Swallow a warden: consume a maw charge, gulp, and grow a little. */
-  beginDevour() {
+  /** Swallow a warden: consume a maw charge, engulf it, gulp, and grow. */
+  beginDevour(gx, gz) {
     this.mawCharges = Math.max(0, this.mawCharges - 1);
     this.growth = Math.min(0.42, this.growth + 0.08); // cap the bloat
     this.devourAnim = 1;
     this.eyeFlash = 1;
+    if (gx != null) this.engulfTarget = { x: gx, z: gz };
     // every third feast thickens the hide — one more hit to spare
     if (this.growth > 0 && Math.round(this.growth / 0.08) % 3 === 0 && this.maxHealth < 5) {
       this.maxHealth++;
@@ -184,6 +208,7 @@ export class Player {
     this.vel.set(0, 0, 0);
     this.falling = 0;
     this.frozen = false;
+    this.launch = 0;
   }
 
   /**
@@ -195,12 +220,34 @@ export class Player {
       this.vel.set(0, 0, 0);
       return;
     }
+
+    // --- flung by a hit: fly free, bounce off walls, no player control ---
+    if (this.launch > 0) {
+      this.launch -= dt;
+      const d = Math.max(0, 1 - 3.0 * dt);   // air drag so the fling settles
+      this.vel.x *= d; this.vel.z *= d;
+      const speed = Math.hypot(this.vel.x, this.vel.z);
+      const steps = Math.max(1, Math.ceil(speed * dt / 0.22)); // substep: never tunnel a wall
+      for (let i = 0; i < steps; i++) {
+        this.pos.x += (this.vel.x * dt) / steps;
+        this.pos.z += (this.vel.z * dt) / steps;
+        collideCircle(this.pos, this.radius, this.vel, level.boxes, level.cylinders, 0.7);
+      }
+      this.pos.y = this.radius;
+      this.speedFrac += (Math.min(1, speed / SPEEDS.run) - this.speedFrac) * Math.min(1, dt * 8);
+      this.facing.set(this.vel.x, this.vel.z);
+      if (this.facing.lengthSq() > 0.01) this.facing.normalize();
+      if (this.launch <= 0 || speed < 0.6) { this.launch = 0; } // land
+      return;
+    }
+
     let ix = input.move.x, iz = input.move.z;
     const moving = Math.hypot(ix, iz) > 0.01;
     let maxSpeed = SPEEDS.walk;
     if (input.sneak) maxSpeed = SPEEDS.sneak;
     else if (input.run) maxSpeed = SPEEDS.run;
     if (input.joy && input.joy.active) maxSpeed = Math.max(SPEEDS.sneak, SPEEDS.run * input.joy.mag);
+    maxSpeed *= this.carrySpeedMul; // beacon surge
 
     if (moving) {
       this.vel.x += ix * ACCEL * dt;
@@ -264,7 +311,8 @@ export class Player {
     }
     this.pos.x += dx * best;
     this.pos.z += dz * best;
-    this.blinkCd = BLINK_CD;
+    this.blinkCdMax = BLINK_CD * (ctx.blinkCdMul || 1);
+    this.blinkCd = this.blinkCdMax;
     this.blinkAnim = 1;
     this.eyeFlash = Math.max(this.eyeFlash, 0.6);
     ctx.sfx.blink();
@@ -329,6 +377,26 @@ export class Player {
       // flicker while invulnerable
       this.mesh.material.emissiveIntensity = this.invuln > 0
         ? 0.55 + Math.sin(t * 30) * 0.4 : 0.55;
+    }
+
+    // engulf: the blob reaches out a dark sac, swells to swallow the warden,
+    // then draws it in — reads as the monster ENGULFING the guard.
+    if (this.devourAnim > 0 && this.engulfTarget) {
+      const p = 1 - this.devourAnim;                 // 0 → 1 over the anim
+      const reach = Math.min(1, p * 2.2);            // sac travels to the guard first
+      const cx = this.pos.x + (this.engulfTarget.x - this.pos.x) * reach;
+      const cz = this.pos.z + (this.engulfTarget.z - this.pos.z) * reach;
+      // swell to envelop (first half), then contract as it's absorbed (second half)
+      const grow = p < 0.5 ? 0.5 + p * 2 * 1.7 : Math.max(0.001, 2.2 * (1 - (p - 0.5) * 2));
+      this.engulf.visible = true;
+      this.engulf.position.set(cx, 0.5 * this.scale + 0.1, cz);
+      this.engulf.scale.setScalar(grow * this.scale);
+      this.engulf.rotation.y += dt * 9;
+      this.engulf.rotation.x += dt * 5;
+      this.engulf.material.opacity = 0.94 * Math.min(1, this.devourAnim * 1.6);
+    } else if (this.engulf.visible) {
+      this.engulf.visible = false;
+      this.engulfTarget = null;
     }
 
     // eyes smoulder red while hungry (maw charged), flaring on a devour

@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { makeKit } from "../levelKit.js";
 
 /**
- * LEVEL 0 — THE NURSERY (tutorial).
+ * LEVEL 0 — THE ASHWAY (tutorial).
  * A linear chain of small rooms, each teaching one mechanic:
  *   A move → B noisy vs quiet floors → C the light gem & warden cones
  *   → D shadowstep across a void → E void vials (douse) → F strike from behind
@@ -16,7 +16,7 @@ export function buildTutorial() {
   const kit = makeKit(scene);
   const bag = kit.bag;
   bag.id = "nursery";
-  bag.name = "THE NURSERY";
+  bag.name = "THE ASHWAY";
   bag.spawn.set(0, 0.42, 8);
 
   const W = (w, d, x, z) => kit.wall(w, 3.2, d, x, z); // wall helper, h=3.2
@@ -150,8 +150,8 @@ export function buildTutorial() {
         if (bag.stage === 1) {
           bag.stage = 2;
           gateB.open(); game.sfx.gate();
-          game.setObjective("Pass the warden's light unseen");
-          p.prompt("The <b>eye gem</b> shows how lit you are. Wardens see <b>light</b>, not you — cross when the cone swings wide.");
+          game.setObjective("Pass the Vesper's light unseen");
+          p.prompt("The <b>eye gem</b> shows how lit you are. Vespers see <b>light</b>, not you — cross when the cone swings wide.");
         }
         break;
       case "crossedC":
@@ -175,10 +175,10 @@ export function buildTutorial() {
         break;
       case "strikeRoom":
         if (bag.stage === 5) {
-          game.setObjective("Feed, then swallow the warden from behind");
+          game.setObjective("Feed, then swallow the Vesper from behind");
           p.prompt(game.isTouch
-            ? "Take the <b>crimson mote</b> — eyes red. Drift <b>behind</b> the warden and tap <b>🗡</b> to <b>swallow</b> it. Face it and you only shove."
-            : "Take the <b>crimson mote</b> — eyes red. Drift <b>behind</b> the warden and press <span class='keycap'>F</span> to <b>swallow</b> it whole. Face it and you only shove.");
+            ? "Take the <b>crimson mote</b> — eyes red. Drift <b>behind</b> the Vesper and tap <b>🗡</b> to <b>swallow</b> it. Face it and you only shove."
+            : "Take the <b>crimson mote</b> — eyes red. Drift <b>behind</b> the Vesper and press <span class='keycap'>F</span> to <b>swallow</b> it whole. Face it and you only shove.");
         }
         break;
       case "exitRoom":
@@ -196,7 +196,7 @@ export function buildTutorial() {
     if (bag.stage === 4 && (named.torchE.doused || game.wardens[1].state === "out")) {
       bag.stage = 5;
       gateE.open(); game.sfx.gate();
-      game.setObjective("Slip past, or fell the warden from behind");
+      game.setObjective("Slip past, or fell the Vesper from behind");
     }
     // strike-room gate: opens when the training warden is out
     if (bag.stage === 5 && game.wardens[2].state === "out") {

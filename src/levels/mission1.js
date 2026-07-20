@@ -2,15 +2,15 @@ import * as THREE from "three";
 import { makeKit } from "../levelKit.js";
 
 /**
- * LEVEL 1 — THE UMBRAL CITADEL.
- * A village crouched outside a floating obsidian citadel. Steal the Scepter
+ * LEVEL 1 — BRIGHTWARD.
+ * A village crouched outside a floating obsidian citadel. Steal the Noonstaff
  * from the reliquary and escape back to the rift.
  *
  * Three ways in, Thief-style:
  *   - the lit main gate (guarded, bright — fast but hot)
  *   - the east postern (dark, but the approach is loud crystal gravel)
  *   - the west moat gap (unwatched — but only a shadowstep crosses the void)
- * Taking the Scepter wakes the citadel: dormant lamps ignite, wardens quicken,
+ * Taking the Noonstaff wakes the citadel: dormant lamps ignite, wardens quicken,
  * and the relic's own glow makes YOU a light source on the way out.
  */
 export function buildMission1() {
@@ -19,7 +19,7 @@ export function buildMission1() {
   const kit = makeKit(scene);
   const bag = kit.bag;
   bag.id = "citadel";
-  bag.name = "THE UMBRAL CITADEL";
+  bag.name = "BRIGHTWARD";
   bag.spawn.set(0, 0.42, 24);
 
   const W = (w, d, x, z, h = 3.2) => kit.wall(w, h, d, x, z);
@@ -54,7 +54,7 @@ export function buildMission1() {
   kit.surface(-2.2, 3.5, 2.2, 8, "moss"); // soft approach to the main gate
   // village torch (douse practice / mood)
   kit.torch(-8, 12, { intensity: 6, range: 9 });
-  // the rift home — bring the Scepter back here
+  // the rift home — bring the Noonstaff back here
   kit.extraction(0, 25);
   kit.trim(4, 0.2, 0, 2.6, 26.5, Math.PI, 0x39f0c0, 2.2);
 
@@ -187,10 +187,10 @@ export function buildMission1() {
     }
     if (id === "hall" && bag.stage === 1) {
       bag.stage = 2;
-      game.setObjective("Take the Scepter");
+      game.setObjective("Take the Noonstaff");
       game.hud.prompt(game.isTouch
-        ? "The Scepter. Drift close and tap <b>✦</b> to take it."
-        : "The Scepter. Drift close and press <span class='keycap'>E</span> to take it.");
+        ? "The Noonstaff. Drift close and tap <b>✦</b> to take it."
+        : "The Noonstaff. Drift close and press <span class='keycap'>E</span> to take it.");
     }
     if (id === "gate" && bag.stage === 0) {
       game.hud.prompt("The gate blazes with light. Douse the torches — or find another way.");
@@ -201,7 +201,7 @@ export function buildMission1() {
     game.guardSpeedMul = 1.3;
     game.sfx.alarm();
     game.setObjective("Escape to the rift!");
-    game.hud.prompt("<b>The citadel wakes.</b> The Scepter's glow betrays you — run, shadow, RUN.");
+    game.hud.prompt("<b>The citadel wakes.</b> The Noonstaff's glow betrays you — run, shadow, RUN.");
   };
 
   bag.update = (t, dt, game) => {
