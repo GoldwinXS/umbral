@@ -105,10 +105,10 @@ export function buildChandlery() {
   const vatRowZ = [22, 14, 6];
   for (const z of vatRowZ) {
     kit.reflectPool(-9, z, 1.8);
-    kit.torch(-9, z, { intensity: 12, range: 11 });
+    kit.torch(-9, z, { intensity: 10, range: 6.5 }); // tighter pool → the center spine stays dark
     kit.trim(2.2, 1.3, -9, 1.7, z + 1.6, 0, 0xff8a3c, 3.2);
     kit.reflectPool(9, z, 1.8);
-    kit.torch(9, z, { intensity: 12, range: 11 });
+    kit.torch(9, z, { intensity: 10, range: 6.5 });
     kit.trim(2.2, 1.3, 9, 1.7, z + 1.6, 0, 0xff8a3c, 3.2);
     kit.fogPatch(-10.5, z - 1.5, -7.5, z + 1.5, { conceal: 0.15, density: 0.09 }); // god-rays
     kit.fogPatch(7.5, z - 1.5, 10.5, z + 1.5, { conceal: 0.15, density: 0.09 });
@@ -130,7 +130,7 @@ export function buildChandlery() {
   // five Vespers work the rows and the crossing
   kit.guard([[-8, 25], [-8, 3]], { speed: 1.4, pause: 1.0 });
   kit.guard([[8, 3], [8, 25]], { speed: 1.4, pause: 1.0 });
-  kit.guard([[-10, 14], [10, 14]], { speed: 1.5, pause: 0.8 });
+  kit.guard([[-10, 14], [10, 14]], { speed: 1.5, pause: 0.8, range: 9 }); // shorter cone → doesn't sweep the whole hall
   kit.guard([[-4, 1.5], [4, 1.5]], { speed: 1.3, pause: 1.2 });
   kit.guard([[-4, 25], [4, 25]], { speed: 1.3, pause: 1.2 });
 

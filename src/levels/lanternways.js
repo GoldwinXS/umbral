@@ -95,9 +95,9 @@ export function buildLanternWays() {
   kit.cache("plazaCache", 15.5, 6, 2);
   kit.mawMote("plazaMaw", -10, -4);
   // the temptation — five Vespers thick on the ground
-  kit.guard([[-14, 15], [14, 15]], { speed: 1.5, pause: 1.0, range: 12 });
+  kit.guard([[-13.3, 15], [14, 15]], { speed: 1.5, pause: 1.0, range: 12 });
   kit.guard([[14, 15], [14, -1]], { speed: 1.4, pause: 1.2, range: 12 });
-  kit.guard([[-14, -1], [-14, 15]], { speed: 1.4, pause: 1.2, range: 12 });
+  kit.guard([[-13.3, -1], [-13.3, 15]], { speed: 1.4, pause: 1.2, range: 12 });
   kit.guard([[-8, 0], [8, 0]], { speed: 1.6, pause: 0.8, range: 11 });
   kit.guard([[2.5, 15.5], [2.5, -3.5]], { speed: 1.3, pause: 1.5, range: 13, coneAngle: 0.65 });
   kit.checkpoint(0, 10, 3);
@@ -116,8 +116,8 @@ export function buildLanternWays() {
   tenement(-19, 6, 4.2, 6, 6);
   kit.cache("alleyCache", -30, 18, 2);
   kit.mawMote("alleyMaw", -22, 8);
-  kit.guard([[-28, 28], [-20, 20]], { speed: 1.3, pause: 1.5 });
-  kit.guard([[-30, 12], [-18, 12]], { speed: 1.3, pause: 1.6 });
+  kit.guard([[-32, 28], [-32, 21], [-20, 20]], { speed: 1.3, pause: 1.5 }); // routed clear of the tenement
+  kit.guard([[-30, 13.5], [-22, 13.5]], { speed: 1.3, pause: 1.6 });        // both waypoints clear of the tenements
   kit.inscription(-14.1, 2.4, 24, "You remember narrower doors, and kinder dark.", -Math.PI / 2, "#9a86d8");
   kit.checkpoint(-24, 16, 3, -24, 16);
   kit.trigger("alley", -24, 20, 4);
@@ -139,7 +139,7 @@ export function buildLanternWays() {
   kit.torch(-24, -14, { intensity: 3, range: 6, color: 0x9a7bff });
   kit.inscription(-33.9, 2.3, -7, "You remember drowning was never the worst part of water.", Math.PI / 2, "#9a86d8");
   // two Snuffed own this water's silence
-  kit.guard([[-30, -0.5], [-18, -0.5]], { speed: 1.0, pause: 2.0, blind: true });
+  kit.guard([[-30, -0.5], [-21, -0.5]], { speed: 1.0, pause: 2.0, blind: true }); // clear of the plaza west wall
   kit.guard([[-30, -9.5], [-18, -9.5]], { speed: 1.0, pause: 2.0, blind: true });
   kit.checkpoint(-20, 0.5, 2.5, -20, 0.5);
   kit.checkpoint(-20, -11, 2.5, -20, -11);

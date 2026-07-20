@@ -129,7 +129,7 @@ export function buildSpire() {
   kit.solid(1.4, 6, 1.4, 4, 4, kit.mats.pillar, -0.2);
   kit.mawMote("maw2", -6, 1);
   kit.cache("upperc1", -8, 3, 2);
-  kit.guard([[-9, -1], [9, -1]], { speed: 1.4, pause: 1.0 });
+  kit.guard([[-9, -1.5], [9, -1.5]], { speed: 1.4, pause: 1.0 }); // nudged off the terrace pillar
   kit.guard([[9, 5], [-9, 5]], { speed: 1.5, pause: 0.9 });
 
   // ================= G · SUMMIT — the rift =================================
@@ -145,7 +145,7 @@ export function buildSpire() {
   kit.extraction(0, -18);
   kit.trim(3.4, 0.2, 0, 2.6, -21.8, 0, 0x39f0c0, 2.0);
   kit.guard([[-6, -10], [6, -10]], { speed: 1.3, pause: 1.2 });
-  kit.guard([[4, -19], [-4, -15]], { speed: 1.2, pause: 1.4, range: 10 });
+  kit.guard([[4, -19], [-4, -13.5]], { speed: 1.2, pause: 1.4, range: 10 }); // waypoint clear of the summit pillar
   kit.inscription(0, 2.6, -21.9, "I have climbed this before. I did not remember climbing.", 0, "#9a86d8");
   kit.trigger("summit", 0, -14, 3);
 
