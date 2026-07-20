@@ -75,12 +75,12 @@ export function buildLanternWays() {
   vWall(-20, -6, 18);
   vWall(20, -6, 18);
   // tenement rows carving the dark side-lanes
-  tenement(-16, 13, 3.4, 4.6, 7);
-  tenement(-16, 3, 3.4, 4.6, 6.5);
-  tenement(16, 13, 3.4, 4.6, 7);
-  tenement(16, 3, 3.4, 4.6, 6.5);
-  tenement(-16, -3.5, 3, 3.4, 6);
-  tenement(16, -3.5, 3, 3.4, 6);
+  tenement(-16, 13, 3.4, 4.6, 8.5);
+  tenement(-16, 3, 3.4, 4.6, 4.5);
+  tenement(16, 13, 3.4, 4.6, 6);
+  tenement(16, 3, 3.4, 4.6, 7.5);
+  tenement(-16, -3.5, 3, 3.4, 3.8);
+  tenement(16, -3.5, 3, 3.4, 5.5);
   // exposed crystal square: hanging-lantern light pools + a little cover
   kit.torch(0, 14, { intensity: 13, range: 11 });
   kit.torch(-8, 9, { intensity: 12, range: 10 });
@@ -110,10 +110,10 @@ export function buildLanternWays() {
   vWall(-34, 2, 30);                         // west: dead wall
   vWall(-14, 2, 30, [[22, 26]]);             // east → hub
   hWall(2, -34, -14, [[-26, -22]]);          // north → canal
-  tenement(-28, 24, 6, 4.4, 7.5);
-  tenement(-19, 16, 5, 5, 6.5);
-  tenement(-29, 10, 7, 4.2, 8);
-  tenement(-19, 6, 4.2, 6, 6);
+  tenement(-28, 24, 6, 4.4, 8.5);
+  tenement(-19, 16, 5, 5, 5);
+  tenement(-29, 10, 7, 4.2, 6.5);
+  tenement(-19, 6, 4.2, 6, 4);
   kit.cache("alleyCache", -30, 18, 2);
   kit.mawMote("alleyMaw", -22, 8);
   kit.guard([[-32, 28], [-32, 21], [-20, 20]], { speed: 1.3, pause: 1.5 }); // routed clear of the tenement
@@ -169,15 +169,17 @@ export function buildLanternWays() {
   kit.trigger("concourse", -7, -25, 5);
 
   // ================= ambient =================
-  const moon = new THREE.DirectionalLight(0x8ea0cc, 1.3);
+  const moon = new THREE.DirectionalLight(0x8ea0cc, 0.55);
   moon.position.set(-16, 22, 10);
   moon.userData.rtRadius = 0.05;
   scene.add(moon, moon.target);
+  // dim, sparse fill — just enough to keep the hub/alley/concourse from
+  // total blindness; the plaza (six torches), canal, and lane stay dark
+  // between their own bright pools
   for (const [x, y, z, i] of [
-    [0, 8, 34, 12], [0, 8, 24, 12], [0, 9, 6, 10],
-    [-24, 7, 16, 12], [-24, 7, -7, 11], [0, 8, -11, 10], [-7, 8, -28, 12],
+    [0, 8, 34, 4], [0, 8, 24, 4], [-24, 7, 16, 4], [-7, 8, -28, 4],
   ]) {
-    const f = new THREE.PointLight(0x7088b0, i, 24);
+    const f = new THREE.PointLight(0x7088b0, i, 16);
     f.position.set(x, y, z);
     f.userData.rtRadius = 0.85;
     scene.add(f);

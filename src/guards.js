@@ -105,17 +105,6 @@ export class Warden {
       this.light = l;
     }
 
-    // --- awareness pip: a diamond over the head that reads how alerted THIS
-    // sentinel is. Dark when oblivious, amber as it grows suspicious, red and
-    // pulsing as it's about to raise the alarm. Opaque emissive (rtExclude) so
-    // the tracer composites it cleanly. ---
-    this.alertPip = new THREE.Mesh(
-      new THREE.OctahedronGeometry(0.11),
-      new THREE.MeshStandardMaterial({ color: 0x000000, emissive: SUSPECT.clone(), emissiveIntensity: 0 })
-    );
-    this.alertPip.userData.rtExclude = true;
-    this.alertPip.visible = false;
-    scene.add(this.alertPip);
     this.canSeePlayer = false;
   }
 
@@ -156,7 +145,6 @@ export class Warden {
     this.deathStyle = "swallow";
     this.swallowT = 0.0001;
     if (this.light) this.light.intensity = 0;
-    if (this.alertPip) this.alertPip.visible = false;
     this.canSeePlayer = false;
     return "devour";
   }
@@ -414,7 +402,12 @@ export class Warden {
       this.light.target.position.set(this.pos.x + this.fx * lead, 0.1, this.pos.z + this.fz * lead);
     }
 
-    // state colour
+    // awareness 0..1 — the sentinel KINDLES brighter and redder as it closes in
+    // on you. This IS the alert read: a calm amber ember → a swelling orange
+    // glow → a fierce red glare the instant before it raises the alarm.
+    const aw = this.state === "chase" ? 1 : Math.max(this.alertness, this.state === "search" ? 0.5 : 0);
+
+    // state colour, blended continuously by awareness
     let col = forceColor;
     if (!col) {
       if (this.blind) {
@@ -423,36 +416,25 @@ export class Warden {
           : (this.state === "suspect" || this.state === "search") ? new THREE.Color(0xff4418)
           : new THREE.Color(0xd8280a);
       } else {
-        col = CALM;
-        if (this.state === "suspect" || this.state === "search") col = SUSPECT;
-        else if (this.state === "chase") col = CHASE;
-        else if (this.alertness > 0.15) col = CALM.clone().lerp(SUSPECT, this.alertness / 0.4);
+        col = CALM.clone().lerp(SUSPECT, Math.min(1, aw / 0.55)).lerp(CHASE, Math.max(0, (aw - 0.55) / 0.45));
       }
     }
-    this._lightColor.lerp(col, 0.12);
-    if (this.light) this.light.color.copy(this._lightColor);
+    this._lightColor.lerp(col, 0.16);
+    if (this.light) {
+      this.light.color.copy(this._lightColor);
+      // hold the beam's reach steady (so detection stays fair) but flare it a
+      // touch brighter as it hunts, for drama
+      this.light.intensity = 30 * (1 + aw * 0.35);
+    }
     this.core.position.set(this.pos.x, bobY + 0.05, this.pos.z);
     this.core.material.emissive.copy(this._lightColor);
-    this.core.material.emissiveIntensity = this.blind ? (2.2 + (this.state !== "patrol" ? 2 : 0) + Math.sin(t * 8) * 0.5) : 4;
+    // the visible core (rtExclude glow — casts no light, so it can blaze without
+    // affecting who it lights) swells and brightens with suspicion
+    this.core.material.emissiveIntensity = this.blind
+      ? (2.2 + (this.state !== "patrol" ? 2 : 0) + Math.sin(t * 8) * 0.5)
+      : 4 + aw * 11 + (aw > 0.88 ? Math.max(0, Math.sin(t * 13)) * 4 : 0);
+    this.core.scale.setScalar(1 + aw * 0.6);
     this.core.rotation.y = t * 1.5;
-
-    // awareness pip: floats over the head, filling amber → red as this
-    // sentinel closes in on spotting you. White-hot flash at the moment the
-    // alarm trips. This is the per-enemy "how alerted is it" the player reads.
-    const aw = this.alertness;
-    if (this.state !== "out" && (aw > 0.04 || this.state === "chase")) {
-      const a = this.state === "chase" ? 1 : aw;
-      this.alertPip.visible = true;
-      this.alertPip.position.set(this.pos.x, bobY + 0.62 + a * 0.22, this.pos.z);
-      const col = a >= 0.99 ? new THREE.Color(0xffffff) : SUSPECT.clone().lerp(CHASE, Math.min(1, a / 0.9));
-      this.alertPip.material.emissive.copy(col);
-      const pulse = a > 0.85 ? Math.max(0, Math.sin(t * 16)) * 3 : 0;
-      this.alertPip.material.emissiveIntensity = 1.6 + a * 5 + pulse;
-      this.alertPip.scale.setScalar(0.65 + a * 0.8);
-      this.alertPip.rotation.y = t * 2.4;
-    } else {
-      this.alertPip.visible = false;
-    }
 
     // ember flecks orbit the Snuffed so it's readable in the dark
     if (this.embers) {

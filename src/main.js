@@ -27,6 +27,11 @@ const LEVELS = [
 ];
 const CAM_OFFSET = new THREE.Vector3(0, 12.5, 6.3);
 const PROGRESS_KEY = "umbral.progress";
+// Light-gem calibration: the analytic direct-light SUM at the player's feet is
+// divided by this to land 0 (shadow) .. 1 (fully lit). The tracer runs gi:false
+// (direct + emissive only), so a LOS-gated sum of the real scene lights closely
+// matches what's on screen — and it's deterministic, so it can be unit-tested.
+const VIS_NORM = 12.0;
 // CUMULATIVE progression by level index — Hush only ever gets stronger. This
 // is the single source of truth (per-level bag.upgrades are ignored), so a
 // later level can never silently regress an earlier grant.
@@ -64,6 +69,9 @@ class Game {
     this.vialsUsed = 0;
     this.elapsed = 0;
     this.playerVis = 0.06;
+    this._lights = [];           // scene lights (moon + all point lights), collected per level
+    this._tmpDir = new THREE.Vector3();
+    this._origin = new THREE.Vector3();
     this.litness = 0;            // 0 (dark) → 1 (exposed), derived from playerVis
     this.spotting = 0;           // hottest warden awareness that currently sees me
     this.SEEN_THRESHOLD = 0.18;  // gem below this = in shadow, unseen (see hud.js)
@@ -128,8 +136,10 @@ class Game {
       emissiveNEE: true,       // trims/studs light the scene for free
       restir: true,            // flat cost in light count — many-light scenes stay cheap
       maxHistory: 48,
-      envColor: new THREE.Color(0x101527),
-      envIntensity: 0.9,
+      // a LOW, cold ambient floor — shadows must go genuinely dark so torches
+      // and warden beams pool bright and the "shadow = unseen" mechanic reads.
+      envColor: new THREE.Color(0x0a0e1a),
+      envIntensity: 0.28,
       volumetric: { enabled: true, density: 0 },
       overloadProtection: true,
     });
@@ -331,6 +341,9 @@ class Game {
     // wardens have bodies / are devourable, so they stay a separate list too.
     this.threats = [...this.wardens, ...this.eyes];
 
+    // snapshot the scene's lights so the gem can sum their real contribution
+    this._collectLights();
+
     this.camDist = 1; this.camYaw = 0; // reset view each level
     this.camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.1, 160);
     this.camera.position.copy(bag.spawn).add(this._camOffset());
@@ -370,8 +383,8 @@ class Game {
       this.hud.prompt("Ray tracing is not supported on this device — running flat-lighting fallback.", 6);
     } else if (index === 0) {
       this.hud.prompt(this.isTouch
-        ? "You are the dark between stars. <b>Push the left stick</b> to move — gently to creep, fully to flow."
-        : "You are the dark between stars. <b>Move</b> — <span class='keycap'>W</span><span class='keycap'>A</span><span class='keycap'>S</span><span class='keycap'>D</span> or arrows.", 9);
+        ? "You are the dark between stars. <b>Push the left stick</b> to move. In <b>shadow</b> you are unseen — and <b>swift and silent</b>. The light betrays you."
+        : "You are the dark between stars. <b>Move</b> — <span class='keycap'>W</span><span class='keycap'>A</span><span class='keycap'>S</span><span class='keycap'>D</span> or arrows. In <b>shadow</b> you are unseen — and <b>swift and silent</b>. The light betrays you.", 9);
     } else if (bag.onStart) {
       bag.onStart(this);
     }
@@ -471,53 +484,84 @@ class Game {
     return this._ray.intersectObjects(this.level.occluders, false).length === 0;
   }
 
-  /** How lit is the player right now? Drives the gem AND warden vision. */
+  /**
+   * Collect the level's ambient lights (moon + fills) once, so _computePlayerVis
+   * can sum their real contribution. Torches / warden spots / scepter are read
+   * from their own lists; these are the raw scene lights nothing else tracks.
+   */
+  _collectLights() {
+    this._lights.length = 0;
+    this.scene.traverse((o) => {
+      if (!o.isLight) return;
+      // moon (dir) + every point light: torches, fills, dormant lamps, scepter.
+      // Warden/eye SpotLights are handled separately (cone logic), so skip them.
+      if (o.isDirectionalLight) this._lights.push({ kind: "dir", light: o });
+      else if (o.isPointLight) this._lights.push({ kind: "point", light: o });
+    });
+  }
+
+  /**
+   * How lit is the player right now? Drives the gem AND warden vision.
+   *
+   * The tracer runs gi:false — the picture IS direct light + emissive. So we sum
+   * the real scene lights' contribution at the blob's feet, each gated by
+   * line-of-sight (a wall or building between you and a light = shadow, exactly
+   * as rendered), and normalize. Deterministic → unit-testable, and it tracks
+   * what's on screen because it computes the same thing the screen does.
+   */
   _computePlayerVis() {
     const p = this.player.pos;
-    let vis = 0.06; // ambient floor — the world is never fully black
-    // warden + sentinel cones (the Snuffed is dark — it lights nothing)
+    const px = p.x, pz = p.z;
+    let raw = 0.3; // faint sky/env floor — the world is never pitch black
+
+    // point lights: torches, fills, dormant lamps, the scepter (all PointLights)
+    for (const L of this._lights) {
+      const lt = L.light;
+      if (L.kind === "dir") {
+        // moon / key: uniform unless a building blocks the sightline to the sky
+        if (lt.intensity <= 0.001) continue;
+        const dir = this._tmpDir.copy(lt.position).sub(lt.target ? lt.target.position : this._origin);
+        if (dir.lengthSq() < 1e-6) continue;
+        dir.normalize();
+        const sx = px + dir.x * 40, sy = 0.5 + dir.y * 40, sz = pz + dir.z * 40;
+        if (!this.los(sx, sy, sz, px, 0.5, pz)) continue;
+        raw += lt.intensity * 2.2;
+      } else {
+        const lp = lt.position;
+        const dist = lt.distance || 20;
+        const d = Math.hypot(lp.x - px, lp.z - pz);
+        if (d >= dist || lt.intensity <= 0.001) continue;
+        if (!this.los(lp.x, lp.y, lp.z, px, 0.5, pz)) continue;
+        const f = 1 - d / dist;
+        raw += lt.intensity * f * f;
+      }
+    }
+
+    // (torches / dormant / scepter are PointLights already summed above — douse
+    //  simply zeroes a torch's intensity, so it drops out for free.)
+
+    // warden + sentinel spot cones — a beam ON you lights you (and gives you away)
     for (const w of this.threats) {
-      if (w.state === "out" || w.blind) continue;
-      const d = Math.hypot(w.pos.x - p.x, w.pos.z - p.z);
+      if (w.state === "out" || w.blind || !w.light) continue;
+      const d = Math.hypot(w.pos.x - px, w.pos.z - pz);
       const range = w.spec.range;
       if (d > range) continue;
-      const toP = Math.atan2(p.z - w.pos.z, p.x - w.pos.x);
+      const toP = Math.atan2(pz - w.pos.z, px - w.pos.x);
       let diff = toP - w.angle;
       while (diff > Math.PI) diff -= Math.PI * 2;
       while (diff < -Math.PI) diff += Math.PI * 2;
       const adiff = Math.abs(diff);
       if (adiff > w.spec.coneAngle) continue;
-      if (!this.los(w.pos.x, 2.2, w.pos.z, p.x, 0.5, p.z)) continue;
-      // only the bright core of the down-forward beam truly lights you: fall
-      // off toward the cone edge AND with distance, so a warden merely glancing
-      // your way from afar barely lifts the gem (and so can't "see" you in the
-      // dark). This keeps the light meter honest — it reads how lit you ACTUALLY
-      // are, which is exactly what wardens read too.
+      if (!this.los(w.pos.x, 2.2, w.pos.z, px, 0.5, pz)) continue;
       const centering = 1 - Math.min(1, adiff / w.spec.coneAngle);
-      const near = 1 - d / range;
-      vis = Math.max(vis, (0.3 + 0.7 * centering) * near);
+      const f = 1 - d / range;
+      raw += w.light.intensity * 0.5 * f * f * (0.4 + 0.6 * centering);
     }
-    // static light sources: torches, dormant lamps, the scepter
-    const pointSrc = (x, y, z, range, k) => {
-      const d = Math.hypot(x - p.x, z - p.z);
-      if (d > range) return;
-      if (!this.los(x, y, z, p.x, 0.5, p.z)) return;
-      vis = Math.max(vis, k * (1 - d / range));
-    };
-    for (const tc of this.level.torches) {
-      if (tc.doused) continue;
-      pointSrc(tc.x, 2.3, tc.z, tc.light.distance || 9, 0.9);
-    }
-    for (const d of this.level.dormant) {
-      if (d.light.intensity <= 0.05) continue;
-      pointSrc(d.light.position.x, 3.2, d.light.position.z, 13, 0.85);
-    }
-    const s = this.level.scepter;
-    if (s) {
-      if (this.scepterTaken) vis = Math.max(vis, 0.62); // the relic betrays you
-      else pointSrc(s.x, 1.9, s.z, 8, 0.8);
-    }
-    return Math.min(1, vis);
+
+    // the relic is a blazing beacon strapped to you — always reads exposed
+    let vis = raw / VIS_NORM;
+    if (this.level.scepter && this.scepterTaken) vis = Math.max(vis, 0.62);
+    return Math.min(1, Math.max(0.06, vis));
   }
 
   /**
@@ -738,6 +782,9 @@ class Game {
     // fog concealment — blunts warden vision while the blob is in the mist
     this.fogCover = this._fogCoverAt(player.pos.x, player.pos.z);
     this.playerConcealed = this.fogCover > 0.35;
+
+    // fog-wall barriers: idle shimmer + dissipate once opened
+    if (level.fogWalls) for (const fw of level.fogWalls) fw.update(dt, t);
 
     // drifting fog banks
     if (level.fogGroups) {

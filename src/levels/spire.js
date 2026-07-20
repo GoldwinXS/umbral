@@ -45,7 +45,7 @@ export function buildSpire() {
   hWall(80, -13, 13);                          // south — spawn wall, dead end
   hWall(66, -13, 13, [[-13, -9], [9, 13]]);     // north — two mouths, middle solid
   kit.torch(0, 72, { intensity: 5, range: 8 });
-  kit.guard([[-6, 72], [6, 72]], { speed: 1.3, pause: 1.5, range: 11 });
+  kit.guard([[-6, 67], [6, 67]], { speed: 1.3, pause: 1.5, range: 11 }); // patrols below the spawn terrace, not staring at it
   kit.inscription(0, 2.6, 65.9, "KEEP THE FIRES FED", 0, "#ffb46a");
 
   // ================= B · OUTER STAIR (bright, watched) ====================
@@ -90,8 +90,8 @@ export function buildSpire() {
   kit.torch(9, 35, { intensity: 8, range: 11 });
   kit.torch(-9, 31, { intensity: 2.2, range: 5, color: 0x6a5aa0 });
   kit.reflectPool(5, 32, 1.8);
-  kit.solid(1.4, 6, 1.4, -2, 32, kit.mats.pillar, 0.15);
-  kit.solid(1.6, 6.5, 1.6, 7, 26, kit.mats.pillar, 0.3);
+  kit.solid(1.4, 5, 1.4, -2, 32, kit.mats.pillar, 0.15);
+  kit.solid(1.6, 8.5, 1.6, 7, 26, kit.mats.pillar, 0.3);
   kit.mawMote("maw1", -8, 34);
   kit.guard([[-10, 28], [-6, 34]], { speed: 0.9, pause: 2.5, blind: true });
   kit.guard([[-2, 26], [2, 36]], { speed: 1.4, pause: 1.0 });
@@ -125,8 +125,8 @@ export function buildSpire() {
   hWall(-6, -13, 13, [[-4, 4]]);                // north — narrows toward the summit
   kit.torch(-6, 1, { intensity: 5, range: 8 });
   kit.torch(6, -3, { intensity: 5, range: 8 });
-  kit.solid(1.4, 6, 1.4, -3, -2, kit.mats.pillar, 0.2);
-  kit.solid(1.4, 6, 1.4, 4, 4, kit.mats.pillar, -0.2);
+  kit.solid(1.4, 4.5, 1.4, -3, -2, kit.mats.pillar, 0.2);
+  kit.solid(1.4, 7, 1.4, 4, 4, kit.mats.pillar, -0.2);
   kit.mawMote("maw2", -6, 1);
   kit.cache("upperc1", -8, 3, 2);
   kit.guard([[-9, -1.5], [9, -1.5]], { speed: 1.4, pause: 1.0 }); // nudged off the terrace pillar
@@ -140,8 +140,8 @@ export function buildSpire() {
   vWall(-9, -22, -6);
   hWall(-22, -9, 9);                            // north — the crown, dead end
   kit.torch(0, -10, { intensity: 6, range: 9 });
-  kit.solid(1.6, 7, 1.6, 3, -12, kit.mats.pillar, 0.25);
-  kit.solid(1.6, 7, 1.6, -4, -16, kit.mats.pillar, -0.15);
+  kit.solid(1.6, 8.5, 1.6, 3, -12, kit.mats.pillar, 0.25);
+  kit.solid(1.6, 5, 1.6, -4, -16, kit.mats.pillar, -0.15);
   kit.extraction(0, -18);
   kit.trim(3.4, 0.2, 0, 2.6, -21.8, 0, 0x39f0c0, 2.0);
   kit.guard([[-6, -10], [6, -10]], { speed: 1.3, pause: 1.2 });
@@ -156,15 +156,17 @@ export function buildSpire() {
   kit.checkpoint(0, -16, 3, 0, -16);
 
   // ================= ambient =================
-  const moon = new THREE.DirectionalLight(0x8ea0cc, 1.4);
+  const moon = new THREE.DirectionalLight(0x8ea0cc, 0.55);
   moon.position.set(-16, 24, 10);
   moon.userData.rtRadius = 0.05;
   scene.add(moon, moon.target);
+  // dim, sparse fill along the spawn/courtyard/summit terraces; the outer
+  // stair (already torch-lit), the dark inner stair, and the bridge (raked
+  // by the Pharos, meant to stay near-black) keep their own contrast
   for (const [x, y, z, i] of [
-    [0, 9, 73, 24], [11, 7, 50, 14], [-11, 7, 50, 10],
-    [0, 8, 30, 22], [0, 7, 16, 18], [0, 8, 1, 20], [0, 8, -14, 22],
+    [0, 9, 73, 4], [0, 8, 30, 4], [0, 8, 1, 4], [0, 8, -14, 4],
   ]) {
-    const f = new THREE.PointLight(0x7088b0, i, 30);
+    const f = new THREE.PointLight(0x7088b0, i, 16);
     f.position.set(x, y, z);
     f.userData.rtRadius = 0.85;
     scene.add(f);

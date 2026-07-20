@@ -4,11 +4,13 @@ import { makeKit } from "../levelKit.js";
 /**
  * LEVEL 0 — THE ASHWAY (tutorial).
  * A linear chain of small rooms, each teaching one mechanic:
- *   A move → B noisy vs quiet floors → C the light gem & warden cones
- *   → D shadowstep across a void → E void vials (douse) → F strike from behind
- *   → G the rift (exit).
- * Gates are light-barriers (collider-only, no BVH change) opened by the stage
- * machine in bag.update().
+ *   A shadow = fast/silent/unseen vs light = slow/loud/seen
+ *   → B noisy crystal vs silent moss (sound draws Vespers)
+ *   → C the light gem & how a Vesper takes ~2s to spot you (it kindles brighter)
+ *   → D shadowstep across a void → E void vials (douse + lure) → F devour from
+ *   behind → G the rift (exit).
+ * Each locked door is a DENSE FOG WALL (kit.fogWall) that lifts once the room's
+ * lesson is done — an unmistakable "not yet" barrier the player can read.
  */
 export function buildTutorial() {
   const scene = new THREE.Scene();
@@ -27,7 +29,7 @@ export function buildTutorial() {
   W(11.6, 0.4, 0, 10.2);                    // back
   W(0.4, 11.6, -5.6, 5); W(0.4, 11.6, 5.6, 5); // sides
   W(4.1, 0.4, -3.75, 0); W(4.1, 0.4, 3.75, 0);  // front, gap x -1.5..1.5
-  const gateA = kit.gate("A", 3.2, 0, 0);
+  const gateA = kit.fogWall(0, 0, 3.2);
   kit.trim(3, 0.15, 0, 2.9, 10.0, Math.PI, 0x8a5cff, 2.0);
 
   // ---------- Corridor B — x -1.5..1.5, z -8..0 ----------
@@ -36,7 +38,7 @@ export function buildTutorial() {
   kit.surface(-1.5, -6, 1.5, -2, "crystal"); // the "singing" stretch
   // wall between corridor and room C (gap at corridor)
   W(5.1, 0.4, -4.15, -8); W(5.1, 0.4, 4.15, -8);
-  const gateB = kit.gate("B", 3.2, 0, -8);
+  const gateB = kit.fogWall(0, -8, 3.2);
 
   // ---------- Room C (light gem) — x -6..6, z -18..-8 ----------
   kit.floor(13.2, 10.4, 0, -13);
@@ -44,7 +46,7 @@ export function buildTutorial() {
   kit.surface(2, -18, 6, -8, "moss");        // quiet east lane
   W(0.4, 10.4, -6.6, -13); W(0.4, 10.4, 6.6, -13);
   W(5.1, 0.4, -4.15, -18); W(5.1, 0.4, 4.15, -18);
-  const gateC = kit.gate("C", 3.2, 0, -18);
+  const gateC = kit.fogWall(0, -18, 3.2);
   kit.solid(1.8, 1.6, 1.8, -4, -11, kit.mats.block, 0.15);
   kit.solid(1.8, 1.6, 1.8, 4, -15, kit.mats.block, -0.2);
   const torchC = kit.torch(0, -13, { intensity: 7, range: 10 });
@@ -62,7 +64,7 @@ export function buildTutorial() {
   kit.surface(-6, -36, -2, -26, "moss");
   W(0.4, 10.4, -6.6, -31); W(0.4, 10.4, 6.6, -31);
   W(5.1, 0.4, -4.15, -36); W(5.1, 0.4, 4.15, -36);
-  const gateE = kit.gate("E", 3.2, 0, -36);
+  const gateE = kit.fogWall(0, -36, 3.2);
   const torchE = kit.torch(0, -31, { intensity: 8, range: 11 });
   kit.cache("cacheE", -4.5, -28.5, 3);
   kit.solid(1.6, 1.4, 1.6, 4.5, -28.5, kit.mats.block, 0.3);
@@ -72,7 +74,7 @@ export function buildTutorial() {
   kit.surface(-6, -46, 6, -42.5, "moss");
   W(0.4, 10.4, -6.6, -41); W(0.4, 10.4, 6.6, -41);
   W(5.1, 0.4, -4.15, -46); W(5.1, 0.4, 4.15, -46);
-  const gateF = kit.gate("F", 3.2, 0, -46);
+  const gateF = kit.fogWall(0, -46, 3.2);
   kit.pillar(0.5, 2.6, -3.5, -38.5);
   kit.pillar(0.5, 2.6, 3.5, -44);
   kit.mawMote("mawF", -3.5, -37.5); // feed before the strike lesson
@@ -91,13 +93,15 @@ export function buildTutorial() {
   kit.guard([[0, -40.5], [3.2, -43], [0, -45], [-3.2, -43]], { speed: 1.3, pause: 0.8 }); // 2: room F
 
   // ---------- ambient light ----------
-  const moon = new THREE.DirectionalLight(0x8ea0cc, 1.25);
+  // low moon + faint fills: rooms without a torch sit in navigable gloom (safe,
+  // unseen), torch pools blaze bright. Contrast is the whole lesson.
+  const moon = new THREE.DirectionalLight(0x8ea0cc, 0.55);
   moon.position.set(-12, 22, 6);
   moon.userData.rtRadius = 0.05;
   scene.add(moon, moon.target);
-  const fills = [[0, 6, 5], [0, 6, -13], [0, 6, -31], [0, 6, -41]];
+  const fills = [[0, 6, 5], [0, 6, -31]];
   for (const [x, y, z] of fills) {
-    const f = new THREE.PointLight(0x8098c0, 26, 34);
+    const f = new THREE.PointLight(0x8098c0, 5, 16);
     f.position.set(x, y, z);
     f.userData.rtRadius = 0.85;
     scene.add(f);
@@ -127,7 +131,7 @@ export function buildTutorial() {
 
   // ---------- stage machine ----------
   bag.stage = 0;
-  bag.objective = "Learn to move";
+  bag.objective = "Slip through the dark";
   const named = { gateA, gateB, gateC, gateE, gateF, torchE };
   bag.named = named;
 
@@ -138,18 +142,18 @@ export function buildTutorial() {
         if (bag.stage === 0) {
           bag.stage = 1;
           gateA.open(); game.sfx.gate();
-          game.setObjective("Cross the singing corridor");
+          game.setObjective("Cross the singing floor");
           p.prompt(game.isTouch
-            ? "Glassy <b>crystal</b> rings underfoot — push the stick <b>gently</b> to creep across. Soft moss is silent."
-            : "Glassy <b>crystal</b> rings underfoot — hold <span class='keycap'>C</span> to creep. Soft <b>moss</b> is silent. Speed is loud.");
+            ? "In <b>shadow</b> you pour along fast and silent — in <b>light</b> you crawl and glow. Ahead, glassy <b>crystal</b> rings loud underfoot; soft <b>moss</b> is silent. Sound draws the Vespers."
+            : "In <b>shadow</b> you pour along fast and silent — in <b>light</b> you crawl and glow. Ahead, glassy <b>crystal</b> rings loud underfoot; soft <b>moss</b> is silent. Sound draws the Vespers.");
         }
         break;
       case "crossedB":
         if (bag.stage === 1) {
           bag.stage = 2;
           gateB.open(); game.sfx.gate();
-          game.setObjective("Pass the Vesper's light unseen");
-          p.prompt("The <b>eye gem</b> shows how lit you are. Vespers see <b>light</b>, not you — cross when the cone swings wide.");
+          game.setObjective("Pass the Vesper unseen");
+          p.prompt("Your <b>eye-gem</b> (top-left) reads how lit you are — dark means <b>unseen</b>. A Vesper needs a moment to fix on you: it <b>kindles brighter and redder</b> as it does. Stay in shadow, or break its gaze before it flares red.");
         }
         break;
       case "crossedC":
@@ -158,8 +162,8 @@ export function buildTutorial() {
           gateC.open(); game.sfx.gate();
           game.setObjective("Shadowstep across the void");
           p.prompt(game.isTouch
-            ? "A hungry void. Aim at the far lip and tap <b>⤞</b> to shadowstep across."
-            : "A hungry void. Aim at the far lip and press <span class='keycap'>SPACE</span> to shadowstep across.");
+            ? "A hungry void — fall in and it takes you. Aim at the far lip and tap <b>⤞</b> to shadowstep across."
+            : "A hungry void — fall in and it takes you. Aim at the far lip and press <span class='keycap'>SPACE</span> to shadowstep across.");
         }
         break;
       case "across":
@@ -167,16 +171,16 @@ export function buildTutorial() {
           bag.stage = 4;
           game.setObjective("Douse the flame with a void vial");
           p.prompt(game.isTouch
-            ? "Take the <b>void vials</b>, face the flame, and tap <b>◍</b>. Douse the light and the way opens."
-            : "Take the <b>void vials</b>, face the flame, and press <span class='keycap'>Q</span>. Douse the light and the way opens.");
+            ? "Take the <b>void vials</b>, face the flame, and tap <b>◍</b>. It drinks the light — and the <b>shatter lures</b> Vespers to the sound. Douse the flame and the mist lifts."
+            : "Take the <b>void vials</b>, face the flame, and press <span class='keycap'>Q</span>. It drinks the light — and the <b>shatter lures</b> Vespers to the sound. Douse the flame and the mist lifts.");
         }
         break;
       case "strikeRoom":
         if (bag.stage === 5) {
           game.setObjective("Feed, then swallow the Vesper from behind");
           p.prompt(game.isTouch
-            ? "Take the <b>crimson mote</b> — eyes red. Drift <b>behind</b> the Vesper and tap <b>🗡</b> to <b>swallow</b> it. Face it and you only shove."
-            : "Take the <b>crimson mote</b> — eyes red. Drift <b>behind</b> the Vesper and press <span class='keycap'>F</span> to <b>swallow</b> it whole. Face it and you only shove.");
+            ? "Take the <b>crimson mote</b> — your eyes kindle red. Drift <b>behind</b> the Vesper and tap <b>🗡</b> to <b>swallow</b> it whole. Face it and you only shove."
+            : "Take the <b>crimson mote</b> — your eyes kindle red. Drift <b>behind</b> the Vesper and press <span class='keycap'>F</span> to <b>swallow</b> it whole. Face it and you only shove.");
         }
         break;
       case "exitRoom":

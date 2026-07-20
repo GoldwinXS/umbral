@@ -28,6 +28,11 @@ export const BLINK_CD = 4.0;   // shorter than before — the step is your lifel
 export const THROW_DIST = 4.6;   // how far a lobbed vial travels
 export const DOUSE_RADIUS = 2.1; // world radius a vial douses / its splash reach
 export const SWALLOW_RANGE = 2.7; // reach of the maw (buffed) — a warden inside this, from behind, can be devoured
+// Shadow is the blob's element: pitch dark ≈ beacon-carry speed (2.4×), full
+// light drags it to a crawl. This is the core risk/reward — race through the
+// dark, creep through the light.
+const SHADOW_SPEED = 2.4;
+const LIT_SPEED = 0.72;
 
 export class Player {
   constructor(scene, overlay) {
@@ -236,15 +241,18 @@ export class Player {
     if (input.sneak) maxSpeed = SPEEDS.sneak;
     else if (input.run) maxSpeed = SPEEDS.run;
     if (input.joy && input.joy.active) maxSpeed = Math.max(SPEEDS.sneak, SPEEDS.run * input.joy.mag);
-    maxSpeed *= this.carrySpeedMul; // beacon surge
 
-    // LIGHT DRAG: darkness is the blob's element. In full shadow it slips along
-    // fast and near-silent; out in the light it turns sluggish and loud. `lit`
-    // is 0 (pitch dark) → 1 (fully exposed), supplied from the light gem.
+    // LIGHT DRAG: darkness is the blob's element. In full shadow it POURS along
+    // — as fast as it moves carrying the beacon — and near-silent; out in the
+    // light it turns sluggish and loud. `lit` is 0 (pitch dark) → 1 (fully
+    // exposed), supplied from the light gem.
     const lit = ctx.litness || 0;
     this.litness = lit;
-    const shadowSpeedMul = 1.16 - lit * 0.42;   // ~1.16× dark → ~0.74× lit
-    maxSpeed *= shadowSpeedMul;
+    const shadowSpeedMul = SHADOW_SPEED - lit * (SHADOW_SPEED - LIT_SPEED); // dark→SHADOW_SPEED, lit→LIT_SPEED
+    let mul = shadowSpeedMul;
+    // the beacon guarantees a fast floor even out in the blazing open
+    if (this.carrySpeedMul > 1) mul = Math.max(mul, this.carrySpeedMul);
+    maxSpeed *= mul;
 
     if (moving) {
       this.vel.x += ix * ACCEL * dt;

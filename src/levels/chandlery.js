@@ -117,10 +117,10 @@ export function buildChandlery() {
   kit.trim(28, 1.6, 15.8, 2.4, 13, -Math.PI / 2, 0xffae55, 2.2);
   kit.inscription(9, 2.2, -1.85, "Every wick in Lanternspire drinks a stolen dusk.", 0, "#ffb46a");
   // bleeding-rack pillars between the vat rows — shadow the center spine
-  kit.solid(1.0, 6.5, 5.0, -5, 18, kit.mats.dark);
-  kit.solid(1.0, 6.5, 5.0, -5, 10, kit.mats.dark);
-  kit.solid(1.0, 6.5, 5.0, 5, 18, kit.mats.dark);
-  kit.solid(1.0, 6.5, 5.0, 5, 10, kit.mats.dark);
+  kit.solid(1.0, 5.5, 5.0, -5, 18, kit.mats.dark);
+  kit.solid(1.0, 8.0, 5.0, -5, 10, kit.mats.dark);
+  kit.solid(1.0, 4.5, 5.0, 5, 18, kit.mats.dark);
+  kit.solid(1.0, 7.0, 5.0, 5, 10, kit.mats.dark);
   kit.pillar(0.6, H, -16, 12, kit.mats.pillar); // cover at the vent mouth
   kit.pillar(0.6, H, -2, 20, kit.mats.pillar);
   kit.pillar(0.6, H, 2, 8, kit.mats.pillar);
@@ -153,12 +153,14 @@ export function buildChandlery() {
   kit.guard([[-20, -12], [-10, -16]], { speed: 1.1, pause: 1.8 });
 
   // ================= ambient =================
-  const moon = new THREE.DirectionalLight(0x7a8cc0, 0.7);
+  const moon = new THREE.DirectionalLight(0x7a8cc0, 0.55);
   moon.position.set(-10, 24, 10);
   moon.userData.rtRadius = 0.05;
   scene.add(moon, moon.target);
-  for (const [x, y, z, i] of [[0, 9, 33, 20], [0, 9, 13, 12], [-24, 7, 12, 14], [-24, 7, -2, 12], [0, 9, -10, 18]]) {
-    const f = new THREE.PointLight(0x7088b0, i, 30);
+  // dim, sparse fill — the hall's own vats/torches carry that room; the
+  // undercroft (no torches beyond a few dim reds) gets the lift instead
+  for (const [x, y, z, i] of [[0, 9, 33, 4], [-24, 7, 12, 4], [-24, 7, -2, 4]]) {
+    const f = new THREE.PointLight(0x7088b0, i, 16);
     f.position.set(x, y, z);
     f.userData.rtRadius = 0.8;
     scene.add(f);

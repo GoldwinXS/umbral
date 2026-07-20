@@ -166,7 +166,9 @@ export function makeKit(scene) {
       const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.09, h, 8), mats.dark);
       pole.position.set(x, h / 2, z);
       scene.add(pole);
-      bag.occluders.push(pole);
+      // NOTE: the pole is NOT an occluder — a 6cm stick shouldn't block sight or
+      // (crucially) the torch's own light. Adding it made a torch directly
+      // overhead self-occlude, so standing on a torch read as unlit.
       const light = new THREE.PointLight(color, intensity, range);
       light.position.set(x, h + 0.15, z);
       light.userData.rtRadius = 0.12;
@@ -264,6 +266,106 @@ export function makeKit(scene) {
       bag.fogGroups = bag.fogGroups || [];
       bag.fogGroups.push(group);
       return group;
+    },
+
+    /**
+     * A FOG WALL: a dense, drifting curtain of mist that PLUGS a doorway. Unlike
+     * fogPatch (thin ground haze / stealth cover), this reads as a solid barrier
+     * — it blocks passage with a collider and clearly says "not yet." Call
+     * .open() when the section's condition is met and the curtain lifts and
+     * thins away over ~1.2s. Reusable gating cue for any level.
+     *
+     * rot 0 → the doorway faces ±z (curtain spans x); rot Math.PI/2 → faces ±x.
+     */
+    fogWall(x, z, w, { h = 3.4, rot = 0, color = 0xb7c8ec, thick = 0.55, conceal = 0 } = {}) {
+      const collider = {
+        x, z,
+        hx: rot === 0 ? w / 2 : thick, hz: rot === 0 ? thick : w / 2,
+        rot: 0, enabled: true,
+      };
+      bag.boxes.push(collider);
+
+      const tex = hazeTex();
+      const group = new THREE.Group();
+      group.position.set(x, 0, z);
+      group.rotation.y = rot;
+      const layers = [];
+      // full-width curtain quads at slight yaw + depth offsets so the wall reads
+      // dense from the angled, orbiting camera
+      const N = 5;
+      for (let i = 0; i < N; i++) {
+        const m = new THREE.Mesh(
+          new THREE.PlaneGeometry(w * (1.04 + (i % 3) * 0.06), h),
+          new THREE.MeshBasicMaterial({
+            map: tex, color, transparent: true, opacity: 0.34,
+            depthWrite: false, side: THREE.DoubleSide, blending: THREE.NormalBlending,
+          })
+        );
+        m.position.set(((i % 2) - 0.5) * w * 0.12, h / 2 + ((i % 3) - 1) * 0.12, (i - (N - 1) / 2) * (thick * 0.9));
+        m.rotation.y = ((i % 2) - 0.5) * 0.5; // crossed yaw → volume
+        m.userData.rtExclude = true;
+        m.userData.baseOp = m.material.opacity;
+        m.userData.baseY = m.position.y;
+        m.userData.phase = i * 1.3;
+        m.renderOrder = 3;
+        group.add(m); layers.push(m);
+      }
+      // soft puffs to break the flat edges
+      for (let i = 0; i < 6; i++) {
+        const s = h * (0.42 + (i % 3) * 0.16);
+        const m = new THREE.Mesh(
+          new THREE.PlaneGeometry(s, s),
+          new THREE.MeshBasicMaterial({
+            map: tex, color, transparent: true, opacity: 0.16,
+            depthWrite: false, blending: THREE.NormalBlending,
+          })
+        );
+        m.position.set((((i * 7) % 10) / 10 - 0.5) * w * 0.9, 0.5 + ((i * 3) % 7) / 7 * (h * 0.8), (((i * 5) % 4) / 4 - 0.5) * thick * 2.2);
+        m.userData.rtExclude = true;
+        m.userData.baseOp = m.material.opacity;
+        m.userData.baseY = m.position.y;
+        m.userData.phase = i * 0.9 + 2;
+        m.renderOrder = 3;
+        group.add(m); layers.push(m);
+      }
+      scene.add(group);
+
+      if (conceal > 0) {
+        const ex = rot === 0 ? w / 2 : thick, ez = rot === 0 ? thick : w / 2;
+        bag.fogZones.push({ min: [x - ex, -1, z - ez], max: [x + ex, 6, z + ez], conceal, density: 0 });
+      }
+
+      bag.fogWalls = bag.fogWalls || [];
+      const fw = {
+        group, collider, layers, opened: false, _diss: 0,
+        open() {
+          if (this.opened) return;
+          this.opened = true;
+          this.collider.enabled = false;
+          this._diss = 0.0001; // begin lifting
+        },
+        update(dt, t) {
+          if (this.opened) {
+            if (this._diss > 0 && this._diss < 1) {
+              this._diss = Math.min(1, this._diss + dt / 1.2);
+              const e = this._diss;
+              for (const m of this.layers) {
+                m.material.opacity = m.userData.baseOp * (1 - e);
+                m.position.y = m.userData.baseY + e * 2.6; // rises as it clears
+              }
+              if (this._diss >= 1) this.group.visible = false;
+            }
+            return;
+          }
+          // idle: shimmer + slow vertical breathing so it looks alive
+          for (const m of this.layers) {
+            m.material.opacity = m.userData.baseOp * (0.8 + 0.2 * Math.sin(t * 0.8 + m.userData.phase));
+            m.position.y = m.userData.baseY + Math.sin(t * 0.5 + m.userData.phase) * 0.09;
+          }
+        },
+      };
+      bag.fogWalls.push(fw);
+      return fw;
     },
 
     /** A glowing carved inscription on a wall (world lore). */

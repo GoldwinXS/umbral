@@ -110,6 +110,7 @@ export function buildVault() {
   kit.surface(-13, 28, -7, 32, "moss");
   hWall(32, -13, -7); hWall(28, -13, -7);
   vWall(-13, 28, 32, [[28.6, 31]]);            // west → cellar-upper
+  kit.hole(-14, 28.6, -12, 31);                // the pit itself — shadowstep it
   kit.inscription(-10, 1.6, 31.7, "the pit below", 0, "#7a6bb0");
 
   // ================= CELLAR (the bleeding undercroft) ===================
@@ -161,12 +162,15 @@ export function buildVault() {
   kit.guard([[-20, -2], [-16, -10], [-20, -14]], { speed: 1.05, pause: 1.8, blind: true });
 
   // ================= ambient =================
-  const moon = new THREE.DirectionalLight(0x7a8cc0, 0.8);
+  const moon = new THREE.DirectionalLight(0x7a8cc0, 0.55);
   moon.position.set(-8, 22, 14);
   moon.userData.rtRadius = 0.05;
   scene.add(moon, moon.target);
-  for (const [x, y, z, i] of [[0, 8, 30, 24], [0, 8, 20, 22], [0, 9, 4, 34], [0, 8, -12, 22], [-18, 7, 20, 16], [-18, 7, -4, 16]]) {
-    const f = new THREE.PointLight(0x7088b0, i, 30);
+  // dim, sparse fill — the courtyard (four torches + the Pharos) and the
+  // reliquary (torches + the Ember) carry themselves; the lower cellar stays
+  // near-black for the blind Snuffed encounter
+  for (const [x, y, z, i] of [[0, 8, 30, 4], [0, 8, 20, 4], [-18, 7, 20, 4]]) {
+    const f = new THREE.PointLight(0x7088b0, i, 16);
     f.position.set(x, y, z);
     f.userData.rtRadius = 0.8;
     scene.add(f);

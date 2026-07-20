@@ -44,7 +44,7 @@ export function buildMission1() {
   // freestanding obelisks: shadow-casting cover you can duck behind
   kit.solid(1.2, 5.5, 1.2, -8, 20, kit.mats.pillar, 0.4);
   kit.solid(1.2, 4.5, 1.2, 2, 16, kit.mats.pillar, 0.2);
-  kit.solid(1.4, 6, 1.4, 9, 22, kit.mats.pillar, 0.3);
+  kit.solid(1.4, 6.5, 1.4, 12, 23, kit.mats.pillar, 0.3); // clear of the house at (6.5,19.5)
   // market stalls (low cover) + well
   kit.solid(2.2, 1.1, 1.2, -3, 13, kit.mats.block, 0.2);
   kit.solid(2.2, 1.1, 1.2, 3.5, 13.5, kit.mats.block, -0.25);
@@ -147,14 +147,14 @@ export function buildMission1() {
   }
 
   // ================= ambient =================
-  const moon = new THREE.DirectionalLight(0x8ea0cc, 1.5); // stronger key → longer shadows
+  const moon = new THREE.DirectionalLight(0x8ea0cc, 0.55); // low key → long dark shadows
   moon.position.set(-16, 22, 9);
   moon.userData.rtRadius = 0.05;
   scene.add(moon, moon.target);
-  // much dimmer, tighter fill so shadows read DARK between the bright torch
-  // pools — high contrast now that shadow = invisibility
-  for (const [x, y, z, i] of [[0, 9, 12, 12], [0, 9, -9, 13], [0, 9, -26, 11]]) {
-    const f = new THREE.PointLight(0x7088b0, i, 22);
+  // faint fills only — shadows read DARK between the bright torch pools so the
+  // "shadow = invisibility" contrast is real
+  for (const [x, y, z, i] of [[0, 9, 12, 4], [0, 9, -14, 4]]) {
+    const f = new THREE.PointLight(0x7088b0, i, 16);
     f.position.set(x, y, z);
     f.userData.rtRadius = 0.85;
     scene.add(f);
