@@ -38,12 +38,14 @@ export function buildTutorial() {
   kit.surface(-32, -12, -24, -4, "moss");   // start room
   kit.surface(-29, -4, -27, 0, "moss");      // start corridor
   kit.surface(-36, 0, -8, 3, "moss");        // path
-  // SOUND room: crystal shortcut down the entry line, moss framed around it
-  kit.surface(-8, -9, -1, 12, "moss");        // moss W
-  kit.surface(3, -9, 10, 12, "moss");         // moss E
-  kit.surface(-1, 6, 3, 12, "moss");          // moss N
-  kit.surface(-1, -9, 3, 0, "moss");          // moss S
-  kit.surface(-1, 0, 3, 6, "crystal");        // the loud shortcut
+  // SOUND room: a LARGE loud crystal floor filling the centre (lit by the
+  // towers) with only a thin MOSS border. Cross the middle and you must creep to
+  // stay quiet — or hug the silent, dark edges the long way round.
+  kit.surface(-8, -9, -5.5, 12, "moss");       // moss edge W
+  kit.surface(7.5, -9, 10, 12, "moss");        // moss edge E
+  kit.surface(-5.5, 9.5, 7.5, 12, "moss");     // moss edge N
+  kit.surface(-5.5, -9, 7.5, -6.5, "moss");    // moss edge S
+  kit.surface(-5.5, -6.5, 7.5, 9.5, "crystal"); // the big resonant floor
   kit.surface(10, 0, 16, 3, "moss");          // sound corridor
   // BLINK room: two vertical resonant bands with moss strips between
   kit.surface(16, -9, 21, 12, "moss");
@@ -82,12 +84,13 @@ export function buildTutorial() {
   kit.trim(2.6, 0.2, 36, 2.4, 0.05, 0, 0x39f0c0, 2.2);
 
   // ================= light towers (SOUND) =====================================
-  const towerN = kit.torch(1, 8, { intensity: 7, range: 8 });
-  const towerS = kit.torch(1, -3, { intensity: 7, range: 8 });
+  const towerN = kit.torch(1, 7, { intensity: 7, range: 8 });
+  const towerS = kit.torch(1, -2, { intensity: 7, range: 8 });
 
   // ================= guards ===================================================
-  // SOUND: one slow Vesper looping the room
-  kit.guard([[-5, -5], [7, -5], [7, 10], [-5, 10]], { speed: 1.0, pause: 1.6, range: 8 });
+  // SOUND: one slow Vesper sweeping the loud centre — so the safe line is the
+  // dark, silent edges (or a slow creep across the middle when its gaze turns)
+  kit.guard([[1, -5], [1, 8]], { speed: 1.0, pause: 1.8, range: 8 });
   // BLINK (final room): TWO Vespers sweeping in OPPOSITE directions
   kit.guard([[19, -7], [19, 10]], { speed: 1.1, pause: 1.0, range: 8 });   // starts heading +z
   kit.guard([[31, 10], [31, -7]], { speed: 1.1, pause: 1.0, range: 8 });   // starts heading -z
