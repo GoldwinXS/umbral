@@ -1,0 +1,20 @@
+{
+  "name": "umbral",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Umbral — a ray traced shadow-monster stealth game for the browser (three.js + three-realtime-rt)",
+  "scripts": {
+    "dev": "vite --port 5180 --strictPort",
+    "build": "vite build",
+    "preview": "vite preview --port 4180"
+  },
+  "dependencies": {
+    "three": "^0.160.1",
+    "three-mesh-bvh": "^0.7.8",
+    "three-realtime-rt": "^0.3.2"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0"
+  }
+}

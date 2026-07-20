@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#05060a" />
+<title>UMBRAL — a shadow heist</title>
+<style>
+  :root {
+    --ink: #cfd6e4;
+    --dim: #7a8499;
+    --violet: #8a5cff;
+    --teal: #39f0c0;
+    --amber: #ffd9a0;
+    --danger: #ff4a5e;
+    --panel: rgba(10, 12, 20, 0.88);
+    --line: rgba(138, 92, 255, 0.25);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; background: #05060a; }
+  body {
+    font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif;
+    color: var(--ink);
+    -webkit-user-select: none; user-select: none;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #app, #app canvas { position: fixed; inset: 0; }
+  #app canvas { display: block; }
+
+  .overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 80; background: radial-gradient(ellipse at 50% 40%, rgba(20,16,40,.72), rgba(4,5,9,.94)); backdrop-filter: blur(6px); }
+  .hidden { display: none !important; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 28px 32px;
+    max-width: min(560px, 92vw);
+    max-height: 88vh; overflow-y: auto;
+    box-shadow: 0 0 60px rgba(138,92,255,.12), 0 20px 60px rgba(0,0,0,.6);
+    text-align: center;
+  }
+  h1 { font-size: clamp(34px, 7vw, 54px); letter-spacing: .35em; font-weight: 700;
+       background: linear-gradient(180deg, #e8e2ff, var(--violet) 70%);
+       -webkit-background-clip: text; background-clip: text; color: transparent;
+       text-shadow: 0 0 34px rgba(138,92,255,.35); margin-bottom: 4px; }
+  h2 { font-size: 20px; letter-spacing: .2em; margin-bottom: 14px; color: var(--ink); }
+  .sub { color: var(--dim); font-size: 13px; letter-spacing: .12em; margin-bottom: 22px; }
+  .btn {
+    display: block; width: 100%; margin: 8px 0; padding: 13px 18px;
+    background: rgba(138,92,255,.08); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 10px;
+    font-size: 15px; letter-spacing: .14em; cursor: pointer;
+    transition: background .15s, border-color .15s, transform .05s;
+  }
+  .btn:hover:not(:disabled) { background: rgba(138,92,255,.2); border-color: var(--violet); }
+  .btn:active:not(:disabled) { transform: scale(.985); }
+  .btn:disabled { opacity: .35; cursor: default; }
+  .btn.primary { background: rgba(138,92,255,.28); border-color: var(--violet); }
+  .btn.small { width: auto; display: inline-block; padding: 8px 16px; font-size: 13px; margin: 4px; }
+  .btn.locked::after { content: " 🔒"; }
+  .row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .stat { color: var(--dim); font-size: 13px; margin: 3px 0; letter-spacing: .08em; }
+  .stat b { color: var(--ink); font-weight: 600; }
+  .rating { font-size: 26px; letter-spacing: .3em; margin: 10px 0 4px; color: var(--teal); text-shadow: 0 0 24px rgba(57,240,192,.4); }
+
+  /* --- settings --- */
+  .setrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 10px 0; text-align: left; }
+  .setrow label { font-size: 13px; color: var(--ink); letter-spacing: .06em; flex: 1; }
+  .setrow .hint { display: block; font-size: 11px; color: var(--dim); margin-top: 2px; }
+  .setrow input[type=range] { width: 150px; accent-color: var(--violet); }
+  .setrow .val { width: 44px; text-align: right; font-size: 12px; color: var(--dim); font-variant-numeric: tabular-nums; }
+  .toggle { width: 46px; height: 24px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255,255,255,.06); position: relative; cursor: pointer; flex-shrink: 0; }
+  .toggle::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: var(--dim); transition: all .15s; }
+  .toggle.on { background: rgba(138,92,255,.35); border-color: var(--violet); }
+  .toggle.on::after { left: 24px; background: #e8e2ff; }
+  .presets { display: flex; gap: 6px; margin-bottom: 14px; }
+  .presets .btn { margin: 0; padding: 9px 6px; font-size: 12px; }
+  .presets .btn.sel { background: rgba(138,92,255,.35); border-color: var(--violet); }
+
+  /* --- HUD --- */
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 40; }
+  #objective {
+    position: absolute; top: max(12px, env(safe-area-inset-top)); left: 14px;
+    font-size: 13px; letter-spacing: .1em; color: var(--ink);
+    background: rgba(8,10,16,.55); border: 1px solid rgba(138,92,255,.18);
+    padding: 8px 14px; border-radius: 8px; max-width: 62vw;
+  }
+  #objective .obj-label { color: var(--violet); font-size: 10px; letter-spacing: .25em; display: block; margin-bottom: 2px; }
+  #stats { position: absolute; top: max(12px, env(safe-area-inset-top)); right: 60px; text-align: right;
+    font-size: 11px; color: var(--dim); letter-spacing: .1em; line-height: 1.7;
+    background: rgba(8,10,16,.45); padding: 6px 12px; border-radius: 8px; }
+
+  /* light gem */
+  #gemWrap { position: absolute; bottom: max(16px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
+    width: 74px; height: 74px; }
+  #gem { width: 100%; height: 100%; transform: rotate(-90deg); }
+  #gem .track { fill: rgba(6,8,14,.72); stroke: rgba(138,92,255,.25); stroke-width: 3; }
+  #gem .fill { fill: none; stroke: var(--amber); stroke-width: 5; stroke-linecap: round;
+    filter: drop-shadow(0 0 6px rgba(255,217,160,.8)); transition: stroke .2s; }
+  #gemCore { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 20px; color: var(--amber); text-shadow: 0 0 12px rgba(255,217,160,.9); }
+  #gemNoise { position: absolute; top: 50%; left: 50%; width: 74px; height: 74px; border-radius: 50%;
+    border: 2px solid var(--amber); transform: translate(-50%,-50%) scale(1); opacity: 0;
+    pointer-events: none; box-shadow: 0 0 10px rgba(255,180,120,.7); }
+  #gemState { position: absolute; bottom: max(2px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
+    font-size: 9px; letter-spacing: .28em; color: var(--dim); text-transform: uppercase; transition: color .2s; }
+  #lifePips { position: absolute; bottom: max(100px, calc(env(safe-area-inset-bottom) + 100px)); left: 50%; transform: translateX(-50%);
+    display: flex; gap: 6px; }
+  .pip { width: 8px; height: 8px; border-radius: 2px; transform: rotate(45deg);
+    background: rgba(138,92,255,.15); border: 1px solid rgba(138,92,255,.4); transition: all .25s; }
+  .pip.on { background: var(--violet); box-shadow: 0 0 8px rgba(138,92,255,.8); }
+
+  /* tools */
+  #tools { position: absolute; bottom: max(16px, env(safe-area-inset-bottom)); right: 14px;
+    display: flex; gap: 10px; align-items: flex-end; }
+  .tool { width: 58px; height: 58px; border-radius: 12px; background: rgba(8,10,16,.6);
+    border: 1px solid rgba(138,92,255,.2); position: relative;
+    display: flex; align-items: center; justify-content: center; font-size: 22px; color: var(--ink); }
+  .tool .key { position: absolute; top: 2px; left: 5px; font-size: 9px; color: var(--dim); letter-spacing: .05em; }
+  .tool .count { position: absolute; bottom: 2px; right: 6px; font-size: 11px; color: var(--teal); font-weight: 600; }
+  .tool .cd { position: absolute; inset: 0; border-radius: 12px; background: conic-gradient(rgba(5,6,10,.85) var(--p, 0%), transparent 0); }
+  .tool.empty { opacity: .35; }
+  .tool .count.maw { color: var(--danger); }
+  .tool.hungry { border-color: var(--danger); box-shadow: 0 0 14px rgba(255,74,94,.55), inset 0 0 12px rgba(255,74,94,.25);
+    animation: hungerPulse 1.1s ease-in-out infinite; }
+  @keyframes hungerPulse { 50% { box-shadow: 0 0 22px rgba(255,74,94,.85), inset 0 0 16px rgba(255,74,94,.4); } }
+  .tbtn.hungry { border-color: var(--danger); box-shadow: 0 0 14px rgba(255,74,94,.6); color: var(--danger); }
+
+  /* prompt toast */
+  #prompt { position: absolute; bottom: 118px; left: 50%; transform: translateX(-50%);
+    background: rgba(8,10,16,.78); border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px 20px; font-size: 14px; letter-spacing: .06em; text-align: center;
+    max-width: min(520px, 86vw); opacity: 0; transition: opacity .3s; line-height: 1.5; }
+  #prompt.show { opacity: 1; }
+  #prompt b { color: var(--teal); }
+  #prompt .keycap { display: inline-block; border: 1px solid var(--dim); border-radius: 4px; padding: 0 6px; margin: 0 2px; font-size: 12px; color: var(--amber); }
+
+  /* caught vignette + flash */
+  #vignette { position: fixed; inset: 0; pointer-events: none; z-index: 35; opacity: 0;
+    background: radial-gradient(ellipse at center, transparent 42%, rgba(255,40,60,.45) 100%); transition: opacity .18s; }
+  #flash { position: fixed; inset: 0; pointer-events: none; z-index: 36; opacity: 0; background: rgba(255,30,50,.35); }
+
+  /* touch controls */
+  #touchLayer { position: fixed; inset: 0; z-index: 30; }
+  #joyBase, #joyKnob { position: absolute; width: 110px; height: 110px; border-radius: 50%;
+    border: 2px solid rgba(138,92,255,.35); background: rgba(138,92,255,.06);
+    transform: translate(-50%, -50%); display: none; pointer-events: none; }
+  #joyKnob { width: 48px; height: 48px; background: rgba(138,92,255,.3); }
+  #joyBase.on, #joyKnob.on { display: block; }
+  #touchBtns { position: absolute; right: 12px; bottom: calc(max(16px, env(safe-area-inset-bottom)) + 84px);
+    display: none; flex-direction: column; gap: 10px; pointer-events: none; }
+  body.coarse #touchBtns { display: flex; }
+  body.coarse #tools { right: 88px; }
+  .tbtn { width: 62px; height: 62px; border-radius: 50%; background: rgba(8,10,16,.65);
+    border: 1.5px solid rgba(138,92,255,.4); color: var(--ink); font-size: 24px;
+    display: flex; align-items: center; justify-content: center; pointer-events: auto; position: relative; }
+  .tbtn:active { background: rgba(138,92,255,.4); }
+  .tbtn .count { position: absolute; bottom: 4px; right: 8px; font-size: 11px; color: var(--teal); }
+  .tbtn .cd { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(rgba(5,6,10,.85) var(--p, 0%), transparent 0); pointer-events: none; }
+  #btnInteract { border-color: var(--teal); color: var(--teal); }
+  #pauseBtn { position: absolute; top: max(10px, env(safe-area-inset-top)); right: 12px;
+    width: 38px; height: 38px; border-radius: 8px; background: rgba(8,10,16,.6);
+    border: 1px solid rgba(138,92,255,.25); color: var(--dim); font-size: 15px;
+    pointer-events: auto; display: flex; align-items: center; justify-content: center; }
+
+  #boot { position: fixed; inset: 0; z-index: 90; display: flex; align-items: center; justify-content: center;
+    background: #05060a; flex-direction: column; gap: 14px; transition: opacity .4s; }
+  #boot.hidden { display: none !important; }
+  .orb { width: 46px; height: 46px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #2a1650, #05060a 70%);
+    box-shadow: 0 0 40px rgba(138,92,255,.5), inset 0 0 18px rgba(138,92,255,.4);
+    animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 50% { transform: scale(1.12); box-shadow: 0 0 60px rgba(138,92,255,.8), inset 0 0 24px rgba(138,92,255,.6); } }
+  #boot-msg { color: var(--dim); font-size: 13px; letter-spacing: .2em; }
+  .err { color: #ffb0b0; font-size: 14px; max-width: 480px; text-align: center; line-height: 1.6; white-space: pre-wrap; }
+
+  .kbd-list { text-align: left; font-size: 13px; line-height: 2.1; color: var(--dim); letter-spacing: .05em; margin: 6px 0 14px; }
+  .kbd-list .keycap { display: inline-block; min-width: 26px; text-align: center; border: 1px solid var(--dim);
+    border-radius: 4px; padding: 0 7px; margin-right: 8px; color: var(--amber); font-size: 12px; }
+</style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <div id="hud" class="hidden">
+    <div id="objective"><span class="obj-label">OBJECTIVE</span><span id="objText">—</span></div>
+    <div id="stats"><span id="statTime">0:00</span> · <span id="statAlerts">0 alerts</span> · <span id="statCaught">0 caught</span></div>
+    <div id="gemWrap">
+      <div id="gemNoise"></div>
+      <svg id="gem" viewBox="0 0 74 74"><circle class="track" cx="37" cy="37" r="32"/><circle class="fill" id="gemFill" cx="37" cy="37" r="32" stroke-dasharray="201" stroke-dashoffset="201"/></svg>
+      <div id="gemCore">☀</div>
+    </div>
+    <div id="gemState">in shadow</div>
+    <div id="lifePips"><span class="pip on"></span><span class="pip on"></span><span class="pip on"></span></div>
+    <div id="tools">
+      <div class="tool" id="toolBlink"><span class="key">SPC</span>⤞<div class="cd" id="cdBlink"></div></div>
+      <div class="tool" id="toolStrike"><span class="key">F</span>✦<span class="count maw" id="mawCount"></span></div>
+      <div class="tool" id="toolVial"><span class="key">Q</span>◍<span class="count" id="vialCount">0</span></div>
+    </div>
+    <div id="prompt"></div>
+  </div>
+
+  <div id="vignette"></div>
+  <div id="flash"></div>
+
+  <div id="touchLayer">
+    <div id="joyBase"></div><div id="joyKnob"></div>
+    <div id="touchBtns">
+      <div class="tbtn hidden" id="btnInteract">✦</div>
+      <div class="tbtn" id="btnVial">◍<span class="count" id="vialCountT">0</span></div>
+      <div class="tbtn" id="btnStrike">🗡</div>
+      <div class="tbtn" id="btnBlink">⤞<div class="cd" id="cdBlinkT"></div></div>
+    </div>
+    <div id="pauseBtn">II</div>
+  </div>
+
+  <div id="boot"><div class="orb"></div><div id="boot-msg">waking the dark…</div></div>
+
+  <div id="title" class="overlay hidden">
+    <div class="panel">
+      <h1>UMBRAL</h1>
+      <div class="sub">A SHADOW HEIST · RAY TRACED STEALTH</div>
+      <button class="btn primary" id="btnPlay">PLAY</button>
+      <button class="btn" id="btnLevels">MISSIONS</button>
+      <button class="btn" id="btnHow">HOW TO PLAY</button>
+      <button class="btn" id="btnSettings">SETTINGS</button>
+    </div>
+  </div>
+
+  <div id="levels" class="overlay hidden">
+    <div class="panel">
+      <h2>MISSIONS</h2>
+      <button class="btn" id="lv0">0 · THE NURSERY <span class="stat" id="best0"></span></button>
+      <button class="btn" id="lv1">1 · THE UMBRAL CITADEL <span class="stat" id="best1"></span></button>
+      <button class="btn" id="lv2">2 · THE MIRROR VAULT <span class="stat" id="best2"></span></button>
+      <button class="btn" id="lvBack">BACK</button>
+    </div>
+  </div>
+
+  <div id="how" class="overlay hidden">
+    <div class="panel">
+      <h2>HOW TO PLAY</h2>
+      <div class="kbd-list">
+        <div><span class="keycap">W A S D</span> move (analog stick on touch — push gently to creep)</div>
+        <div><span class="keycap">SHIFT</span> flow fast <i>(loud)</i> &nbsp; <span class="keycap">C</span> creep <i>(quiet)</i></div>
+        <div><span class="keycap">SPACE</span> shadowstep — blink a short distance (cooldown)</div>
+        <div><span class="keycap">F</span> strike — knock out a warden <b>from behind</b></div>
+        <div><span class="keycap">Q</span> hurl a void vial — douses flames and lamps</div>
+        <div><span class="keycap">E</span> interact &nbsp; <span class="keycap">ESC</span> pause &nbsp; <span class="keycap">M</span> mute</div>
+      </div>
+      <div class="stat" style="line-height:1.8">
+        The <b style="color:var(--amber)">eye gem</b> shows how lit you are. Wardens see light, not you —
+        stay dark and their gaze slides off. Glassy crystal floors ring underfoot;
+        soft moss is silent. Light is the enemy. The dark is yours.
+      </div>
+      <button class="btn" id="howBack">BACK</button>
+    </div>
+  </div>
+
+  <div id="settings" class="overlay hidden">
+    <div class="panel">
+      <h2>SETTINGS</h2>
+      <div class="presets">
+        <button class="btn" id="prePerf">PERFORMANCE</button>
+        <button class="btn sel" id="preBal">BALANCED</button>
+        <button class="btn" id="preBeauty">BEAUTY</button>
+      </div>
+      <div id="setRows"></div>
+      <div class="setrow"><label>Sound</label><div class="toggle" id="tglSound"></div></div>
+      <button class="btn" id="setBack">BACK</button>
+    </div>
+  </div>
+
+  <div id="pause" class="overlay hidden">
+    <div class="panel">
+      <h2>PAUSED</h2>
+      <button class="btn primary" id="btnResume">RESUME</button>
+      <button class="btn" id="btnRestart">RESTART MISSION</button>
+      <button class="btn" id="btnPauseSettings">SETTINGS</button>
+      <button class="btn" id="btnQuit">QUIT TO TITLE</button>
+    </div>
+  </div>
+
+  <div id="win" class="overlay hidden">
+    <div class="panel">
+      <h2 id="winTitle">MISSION COMPLETE</h2>
+      <div class="rating" id="winRating">GHOST</div>
+      <div class="stat">time <b id="winTime">—</b></div>
+      <div class="stat"><b id="winAlerts">0</b> alerts · <b id="winKOs">0</b> knockouts · <b id="winVials">0</b> vials used</div>
+      <div class="stat" id="winBest"></div>
+      <button class="btn primary" id="btnNext">NEXT</button>
+      <button class="btn" id="btnReplay">REPLAY</button>
+      <button class="btn" id="btnWinTitle">TITLE</button>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
