@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { collideCircle, circleHits, pointInHole } from "./physics.js";
+import { collideCircle, circleHits, pointInHole, groundHeightAt, topSurfaceAt } from "./physics.js";
 
 /**
  * The player: an umbral blob — a void-black, morphing creature.
@@ -137,6 +137,7 @@ export class Player {
     this.falling = 0;     // >0 while falling into a void
     this.frozen = false;  // input locked (falling / caught)
     this.launch = 0;      // >0 while flung by a warden hit (physics fling, no input)
+    this.groundY = 0;     // height of the surface the blob is standing on (verticality)
 
     // life: the blob shrinks as it takes hits, slowly regrows in safety
     this.maxHealth = 3;
@@ -200,7 +201,8 @@ export class Player {
   get pos() { return this.mesh.position; }
 
   spawnAt(v) {
-    this.mesh.position.set(v.x, PLAYER_R, v.z);
+    this.groundY = v.y > 0.6 ? v.y - PLAYER_R : 0; // spawn on a deck if y is raised
+    this.mesh.position.set(v.x, this.groundY + PLAYER_R, v.z);
     this.vel.set(0, 0, 0);
     this.falling = 0;
     this.frozen = false;
@@ -227,9 +229,12 @@ export class Player {
       for (let i = 0; i < steps; i++) {
         this.pos.x += (this.vel.x * dt) / steps;
         this.pos.z += (this.vel.z * dt) / steps;
-        collideCircle(this.pos, this.radius, this.vel, level.boxes, level.cylinders, 0.7);
+        collideCircle(this.pos, this.radius, this.vel, level.boxes, level.cylinders, 0.7, this.groundY, this.radius * 2);
       }
-      this.pos.y = this.radius;
+      const gf = groundHeightAt(this.pos.x, this.pos.z, level.platforms, level.ramps, this.groundY);
+      if (gf > this.groundY) this.groundY = gf;
+      else this.groundY += (gf - this.groundY) * Math.min(1, dt * 10);
+      this.pos.y = this.groundY + this.radius;
       this.speedFrac += (Math.min(1, speed / SPEEDS.run) - this.speedFrac) * Math.min(1, dt * 8);
       this.facing.set(this.vel.x, this.vel.z);
       if (this.facing.lengthSq() > 0.01) this.facing.normalize();
@@ -275,8 +280,14 @@ export class Player {
 
     this.pos.x += this.vel.x * dt;
     this.pos.z += this.vel.z * dt;
-    collideCircle(this.pos, this.radius, this.vel, level.boxes, level.cylinders);
-    this.pos.y = this.radius;
+    collideCircle(this.pos, this.radius, this.vel, level.boxes, level.cylinders, 0, this.groundY, this.radius * 2);
+    // VERTICALITY: settle onto the surface under our feet. Step UP snaps (a ramp
+    // rises only a hair per frame; never sink into it); DROP eases (a soft fall
+    // off a catwalk edge). Flat levels have no platforms/ramps → groundY stays 0.
+    const g = groundHeightAt(this.pos.x, this.pos.z, level.platforms, level.ramps, this.groundY);
+    if (g > this.groundY) this.groundY = g;
+    else this.groundY += (g - this.groundY) * Math.min(1, dt * 10);
+    this.pos.y = this.groundY + this.radius;
 
     // --- footsteps → noise events ---
     const speedNow = Math.hypot(this.vel.x, this.vel.z);
@@ -310,7 +321,7 @@ export class Player {
     let best = 0;
     for (let d = 1.2; d <= this.blinkRange; d += 0.25) {
       const x = this.pos.x + dx * d, z = this.pos.z + dz * d;
-      if (circleHits(x, z, this.radius * 0.9, ctx.level.boxes, ctx.level.cylinders)) break;
+      if (circleHits(x, z, this.radius * 0.9, ctx.level.boxes, ctx.level.cylinders, this.groundY, this.radius * 2)) break;
       if (pointInHole(x, z, ctx.level.holes)) continue; // may cross, not land
       best = d;
     }
@@ -326,6 +337,9 @@ export class Player {
     }
     this.pos.x += dx * best;
     this.pos.z += dz * best;
+    // land on the surface under the blob (ramps/drops resolve like a step)
+    this.groundY = groundHeightAt(this.pos.x, this.pos.z, ctx.level.platforms, ctx.level.ramps, this.groundY);
+    this.pos.y = this.groundY + this.radius;
     this.blinkCdMax = BLINK_CD * (ctx.blinkCdMul || 1);
     this.blinkCd = this.blinkCdMax;
     this.blinkAnim = 1;

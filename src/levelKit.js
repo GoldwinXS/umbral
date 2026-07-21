@@ -45,6 +45,8 @@ export function makeKit(scene) {
     occluders: [],
     holes: [],      // {x0,z0,x1,z1}
     surfaces: [],   // {x0,z0,x1,z1,type}
+    platforms: [],  // raised catwalks/decks {x0,z0,x1,z1,y} — walk on top, pass beneath
+    ramps: [],      // sloped connectors {x0,z0,x1,z1,y0,y1,axis} — climb between heights
     guards: [],
     eyes: [],       // Great Eye sentinel specs
     torches: [],    // douseable {x,z,light,flame,doused}
@@ -101,6 +103,88 @@ export function makeKit(scene) {
     for (const [g0, g1] of gs) { if (g0 > cur) spans.push([cur, Math.min(g0, b)]); cur = Math.max(cur, g1); }
     if (cur < b) spans.push([cur, b]);
     return spans;
+  }
+
+  // ==========================================================================
+  // COMPOSITION INTERNALS — shared machinery for the placement helpers at the
+  // bottom of the kit. Not meant to be called directly by levels.
+  // ==========================================================================
+
+  // Approximate footprint RADIUS (world units) per prop builder. Used ONLY for
+  // keep-clear testing (would this piece intrude on a door lane / patrol line /
+  // spawn pad?) and for tall-back/short-front sorting inside clusters.
+  const PROP_FOOT = {
+    crate: 0.5, crateStack: 0.78, barrel: 0.45, sack: 0.42, urn: 0.3,
+    brokenColumn: 0.55, rubble: 0.7, statue: 0.5, sarcophagus: 0.95,
+    cart: 0.85, brazier: 0.36, deadLantern: 0.2, banner: 0.1, chains: 0.1,
+  };
+
+  // Normalize the many palette spellings into a list of [{make,w,foot}]. An
+  // entry may be any of:
+  //   "crate"                                → builder looked up by name, weight 1
+  //   (x,z,o) => kit.crate(x,z,o)            → a raw builder function
+  //   { prop:"barrel", w:2, opts:{r:0.5} }   → named builder + weight + fixed opts
+  //   { make:(x,z,o)=>…, w:1, foot:0.6 }     → fully custom builder + footprint
+  // A bare string/function (not wrapped in an array) is treated as a 1-entry
+  // palette, so `wallRun(...,"crate",...)` just works.
+  function _normPalette(pal) {
+    const list = Array.isArray(pal) ? pal : [pal];
+    return list.map((e) => {
+      if (typeof e === "string")
+        return { make: (x, z, o) => kit[e](x, z, o), w: 1, foot: PROP_FOOT[e] ?? 0.5 };
+      if (typeof e === "function")
+        return { make: e, w: 1, foot: 0.5 };
+      if (e.make)
+        return { make: e.make, w: e.w ?? 1, foot: e.foot ?? 0.5 };
+      const name = e.prop, opts = e.opts || {};
+      return {
+        make: (x, z, o) => kit[name](x, z, { ...opts, ...o }),
+        w: e.w ?? 1,
+        foot: e.foot ?? PROP_FOOT[name] ?? 0.5,
+      };
+    });
+  }
+
+  // Weighted pick from a normalized palette given r in [0,1) (seeded upstream).
+  function _pick(norm, r) {
+    const total = norm.reduce((s, e) => s + e.w, 0);
+    let t = r * total;
+    for (const e of norm) if ((t -= e.w) < 0) return e;
+    return norm[norm.length - 1];
+  }
+
+  // Does a footprint circle (x,z,foot) intrude on any keep-clear zone? A zone is
+  // either a RECT {x0,z0,x1,z1,pad?} (door lanes ~3 wide, spawn pads, patrol
+  // corridors) or a DISC {x,z,r} (a landmark / point to leave open). This is the
+  // single gate every helper routes cover placements through.
+  function _clearHit(x, z, foot, clear) {
+    if (!clear || !clear.length) return false;
+    for (const c of clear) {
+      if (c.x0 !== undefined) {
+        const x0 = Math.min(c.x0, c.x1), x1 = Math.max(c.x0, c.x1);
+        const z0 = Math.min(c.z0, c.z1), z1 = Math.max(c.z0, c.z1);
+        const pad = (c.pad || 0) + foot;
+        if (x > x0 - pad && x < x1 + pad && z > z0 - pad && z < z1 + pad) return true;
+      } else if (c.r !== undefined) {
+        const dx = x - c.x, dz = z - c.z, rr = c.r + foot;
+        if (dx * dx + dz * dz < rr * rr) return true;
+      }
+    }
+    return false;
+  }
+
+  // Build one palette entry at (x,z). If it lands in a keep-clear zone and a
+  // nudge direction is supplied, push it out in up to 3 short steps; if it still
+  // won't fit, SKIP it (return null) rather than block a lane. This is what lets
+  // authors pass door lanes / patrol lines and trust the composition stays legal.
+  function _tryPlace(entry, x, z, rot, seed, clear, nudge) {
+    let px = x, pz = z;
+    for (let k = 0; k < 4; k++) {
+      if (!_clearHit(px, pz, entry.foot, clear)) return entry.make(px, pz, { rot, seed });
+      if (!nudge) return null;
+      px += nudge.x * 0.55; pz += nudge.z * 0.55;
+    }
+    return null;
   }
 
   const kit = {
@@ -211,6 +295,75 @@ export function makeKit(scene) {
       mk(x1 - x0, 0.1, (x0 + x1) / 2, z1 - 0.05);
       mk(0.1, z1 - z0, x0 + 0.05, (z0 + z1) / 2);
       mk(0.1, z1 - z0, x1 - 0.05, (z0 + z1) / 2);
+    },
+
+    // ===== VERTICALITY — raised catwalks/decks, ramps, and edge railings =====
+    // A PLATFORM is a walk-on-top deck at height `y`; it is OPEN beneath (a blob
+    // on the floor passes under it, a guard patrols on top of it — the "above /
+    // below you" fantasy). Reach it via a `ramp`. Registers bag.platforms so the
+    // movement system resolves the blob's ground height. The deck slab is a real
+    // occluder (it shadows what's beneath). Optional `surface` plate + noise type.
+    platform(x0, z0, x1, z1, { y = 2, mat = mats.block, surface, thickness = 0.3, support = false } = {}) {
+      const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, w = x1 - x0, d = z1 - z0;
+      const m = new THREE.Mesh(boxGeo(w, thickness, d), mat);
+      m.position.set(cx, y - thickness / 2, cz); // top face sits exactly at y
+      m.userData.fxOcclude = true;
+      scene.add(m);
+      bag.occluders.push(m);
+      bag.platforms.push({ x0, z0, x1, z1, y });
+      if (surface) {
+        const s = SURFACES[surface];
+        const sm = new THREE.Mesh(boxGeo(w, 0.06, d), new THREE.MeshStandardMaterial({ color: s.color, roughness: s.rough, metalness: s.metal }));
+        sm.position.set(cx, y + 0.031, cz);
+        scene.add(sm); bag.occluders.push(sm);
+        bag.surfaces.push({ x0, z0, x1, z1, type: surface }); // noise-floor follows the deck
+      }
+      if (support) { // cosmetic corner posts down to the floor (no collider)
+        for (const [sx, sz] of [[x0 + 0.4, z0 + 0.4], [x1 - 0.4, z0 + 0.4], [x0 + 0.4, z1 - 0.4], [x1 - 0.4, z1 - 0.4]]) {
+          const post = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, y, 6), mats.dark);
+          post.position.set(sx, y / 2, sz); post.userData.rtExclude = false;
+          scene.add(post); bag.occluders.push(post);
+        }
+      }
+      return m;
+    },
+
+    // A RAMP: sloped walkable slab from height y0 (at its x0/z0 lip) up to y1
+    // (at its far lip), sloping along `axis` ('x' or 'z'). No collider — it IS
+    // the ground. Its low lip must sit ~level with the floor/deck it connects to
+    // so the blob can step onto it. Registers bag.ramps for height resolution.
+    ramp(x0, z0, x1, z1, { y0 = 0, y1 = 2, axis = "x", mat = mats.block, surface } = {}) {
+      const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, w = x1 - x0, d = z1 - z0;
+      const runLen = axis === "x" ? w : d;
+      const rise = y1 - y0;
+      const slabLen = Math.hypot(runLen, rise);
+      const geo = boxGeo(axis === "x" ? slabLen : w, 0.16, axis === "x" ? d : slabLen);
+      const m = new THREE.Mesh(geo, mat);
+      m.position.set(cx, (y0 + y1) / 2, cz);
+      const ang = Math.atan2(rise, runLen);
+      if (axis === "x") m.rotation.z = -ang; else m.rotation.x = ang;
+      m.userData.fxOcclude = true;
+      scene.add(m);
+      bag.occluders.push(m);
+      bag.ramps.push({ x0, z0, x1, z1, y0, y1, axis });
+      if (surface) bag.surfaces.push({ x0, z0, x1, z1, type: surface });
+      return m;
+    },
+
+    // A RAILING: a low wall sitting ON a deck at height `y`, blocking ONLY movers
+    // at that height (height-banded collider y..y+h) — it keeps a blob from
+    // walking off a catwalk edge but does NOT block anyone on the floor below.
+    // Runs from (ax,az) to (bx,bz). Set `openFall` where a ramp/gap should be.
+    railing(ax, az, bx, bz, { y = 2, h = 0.85, t = 0.14, mat = mats.pillar } = {}) {
+      const cx = (ax + bx) / 2, cz = (az + bz) / 2;
+      const w = Math.max(t, Math.abs(bx - ax)), d = Math.max(t, Math.abs(bz - az));
+      const m = new THREE.Mesh(boxGeo(w, h, d), mat);
+      m.position.set(cx, y + h / 2, cz);
+      m.userData.fxOcclude = true;
+      scene.add(m);
+      bag.occluders.push(m);
+      bag.boxes.push({ x: cx, z: cz, hx: w / 2, hz: d / 2, rot: 0, enabled: true, y0: y, y1: y + h });
+      return m;
     },
 
     /** Static emissive trim — a FREE area light via emissive NEE (no light slot). */
@@ -888,6 +1041,322 @@ export function makeKit(scene) {
       scene.add(group);
       bag.occluders.push(pole, cage, ring);
       return group;
+    },
+
+    // ========================================================================
+    // PLACEMENT / COMPOSITION SYSTEM
+    //
+    // These helpers dress a room so props read as PURPOSEFUL, not scattered.
+    // Each just drives the prop builders above at composed positions, returns
+    // the created handles (an array, or a small {} of arrays for `focal`), and
+    // respects KEEP-CLEAR zones so nothing ever blocks a door/patrol/spawn.
+    //
+    // ---- COMPOSITION GUIDE (the rules baked in) ---------------------------
+    //  1. ALIGN TO WALLS & AXES. Props hug walls, corners, and the room's
+    //     axes — never dotted at random into open floor. `wallRun` lines a
+    //     wall; `corner` tucks into a corner; `flank`/`focal` sit on an axis.
+    //  2. KEEP THE CENTRE OPEN. Circulation runs through the middle of a room.
+    //     Helpers frame the edges and focal points and leave the centre clear;
+    //     if you want something central, make it a `focal` LANDMARK, not clutter.
+    //  3. SYMMETRY IS CHEAP INTENT. A mirrored `flank` pair either side of a
+    //     door / statue / light instantly reads "placed on purpose."
+    //  4. RHYTHM. `wallRun`/`leadingLine` use even spacing with only gentle
+    //     seeded jitter in offset & rotation — regular, but not sterile.
+    //  5. VARY HEIGHT IN A PILE. `cluster` sorts a weighted palette tall-at-
+    //     the-back, short-at-the-front, inside one coherent footprint.
+    //  6. FACE COHERENTLY. Flanks face their focal point; wall runs align to
+    //     the wall; leading lines face the alley — rotations aren't random.
+    //
+    // ---- KEEP-CLEAR ZONES -------------------------------------------------
+    //  Every helper takes `opts.clear` — an array of zones no COVER prop may
+    //  intrude on. A zone is a RECT {x0,z0,x1,z1,pad?} (door lanes ~3 units
+    //  wide, guard patrol corridors, the spawn pad) or a DISC {x,z,r} (a point
+    //  to keep open). Blocked placements are nudged out or dropped. Build the
+    //  list ONCE per room and pass it to every call:
+    //     const clear = [
+    //       { x0:-1.5, z0:5.6, x1:1.5, z1:6.4 },   // north door lane
+    //       { x:0, z:-5, r:2.2 },                  // spawn pad
+    //     ];
+    //
+    // ---- USAGE EXAMPLES (room = kit.room(-8,-6, 8,6, {doors:{n:[[-1.5,1.5]]}})) --
+    //   // A) A wall of supply crates + barrels down the WEST wall, rhythmic,
+    //   //    aligned, clear of the north door lane:
+    //   kit.wallRunSide(room, "w",
+    //     [ { prop:"crate", w:2 }, { prop:"barrel", w:1 } ],
+    //     { spacing:1.5, inset:0.7, clear });
+    //
+    //   // B) A shrine as the room's focal point: a statue dead-centre-north,
+    //   //    a mirrored pair of urns flanking it, rubble scattered at its feet:
+    //   kit.focal(0, 4, {
+    //     landmark:"statue", landmarkOpts:{ h:2.8 },
+    //     flankProp:"urn", flankGap:1.4, flankDir:0,     // urns left/right on x
+    //     scatterProp:"rubble", scatterCount:3, clear });
+    //
+    //   // C) A lived-in corner: a pile of stacked crates + a barrel + a sack
+    //   //    wedged into the south-east corner, tall pieces to the back:
+    //   kit.corner(room, "se",
+    //     [ { prop:"crateStack", w:2, foot:0.8 }, "barrel", "sack" ],
+    //     { count:4, footprint:1.1, clear });
+    // ========================================================================
+
+    /**
+     * WALL-RUN: line props along the segment A→B, inset toward one side, with
+     * even RHYTHM and gentle seeded jitter. `palette` is any palette spelling
+     * (see _normPalette). opts:
+     *   spacing   centre-to-centre step (world units)         default 1.6
+     *   inset     perpendicular offset from the line; sign    default 0.6
+     *             chooses the side (+ = left of A→B direction)
+     *   jitter    max random offset in inset & along-wall     default 0.12
+     *   rotJitter max random rotation wobble (radians)        default 0.12
+     *   face      "wall" (align to wall) | "in" | "out" |     default "wall"
+     *             a fixed rotation number
+     *   endMargin gap left at each end (keeps corners clean)  default spacing/2
+     *   clear     keep-clear zones (see header)               default []
+     *   seed      deterministic variation seed                default 7
+     * Returns the array of created handles (skipped placements omitted).
+     */
+    wallRun(ax, az, bx, bz, palette, opts = {}) {
+      const {
+        spacing = 1.6, inset = 0.6, jitter = 0.12, rotJitter = 0.12,
+        face = "wall", clear = [], seed = 7, endMargin = null,
+      } = opts;
+      const dx = bx - ax, dz = bz - az, L = Math.hypot(dx, dz);
+      if (L < 1e-3) return [];
+      const ux = dx / L, uz = dz / L;          // along-wall unit
+      const nx = -uz, nz = ux;                 // left-hand normal
+      const sgn = Math.sign(inset || 1);
+      const norm = _normPalette(palette);
+      const wallAng = Math.atan2(ux, uz);
+      const inAng = Math.atan2(nx * sgn, nz * sgn);
+      const baseRot = typeof face === "number" ? face
+        : face === "in" ? inAng
+        : face === "out" ? inAng + Math.PI
+        : wallAng;
+      const em = endMargin ?? spacing * 0.5;
+      const usable = L - em * 2;
+      if (usable < 0) return [];
+      const count = Math.max(1, Math.floor(usable / spacing) + 1);
+      const step = count > 1 ? usable / (count - 1) : 0;
+      const nudge = { x: nx * sgn, z: nz * sgn };
+      const out = [];
+      for (let i = 0; i < count; i++) {
+        const s = seed + i * 3.7;
+        const t = em + step * i;
+        const jN = (rand(s) - 0.5) * 2 * jitter;
+        const jT = (rand(s + 1) - 0.5) * 2 * jitter;
+        const px = ax + ux * (t + jT) + nx * (inset + jN);
+        const pz = az + uz * (t + jT) + nz * (inset + jN);
+        const rot = baseRot + (rand(s + 2) - 0.5) * 2 * rotJitter;
+        const entry = _pick(norm, rand(s + 3));
+        const h = _tryPlace(entry, px, pz, rot, s + 4, clear, nudge);
+        if (h) out.push(h);
+      }
+      return out;
+    },
+
+    /**
+     * WALL-RUN by ROOM + SIDE — the ergonomic form. `room` is a {x0,z0,x1,z1}
+     * (what kit.room returns); `side` is "n"|"s"|"e"|"w". Computes the wall
+     * segment and forces `inset` to point INTO the room, then delegates to
+     * wallRun. All wallRun opts pass through (`inset` magnitude respected).
+     */
+    wallRunSide(room, side, palette, opts = {}) {
+      const { x0, z0, x1, z1 } = room;
+      const ins = Math.abs(opts.inset ?? 0.6);
+      let ax, az, bx, bz, signed;
+      if (side === "s")      { ax = x0; az = z0; bx = x1; bz = z0; signed =  ins; }
+      else if (side === "n") { ax = x0; az = z1; bx = x1; bz = z1; signed = -ins; }
+      else if (side === "e") { ax = x1; az = z0; bx = x1; bz = z1; signed =  ins; }
+      else                   { ax = x0; az = z0; bx = x0; bz = z1; signed = -ins; } // "w"
+      return kit.wallRun(ax, az, bx, bz, palette, { ...opts, inset: signed });
+    },
+
+    /**
+     * FLANK: a mirrored pair (or pair of receding rows) either side of a focal
+     * point, facing inward — the cheapest way to read "intentional." opts:
+     *   dir      angle of the separation axis, 0 = the x-axis   default 0
+     *   gap      distance from centre to each item              default 1.6
+     *   rows     items per side (a receding row if >1)          default 1
+     *   rowStep  spacing between rows (perpendicular to dir)    default 1.2
+     *   face     "in" (toward focal) | "out" | fixed number     default "in"
+     *   clear    keep-clear zones                               default []
+     *   seed     variation seed                                 default 11
+     * Both sides share the same palette pick & build-seed per row, so the pair
+     * is a true mirror. Returns the array of handles.
+     */
+    flank(fx, fz, palette, opts = {}) {
+      const {
+        dir = 0, gap = 1.6, rows = 1, rowStep = 1.2,
+        face = "in", seed = 11, clear = [],
+      } = opts;
+      const dux = Math.sin(dir), duz = Math.cos(dir);   // separation unit
+      const pux = duz, puz = -dux;                      // receding (perp) unit
+      const norm = _normPalette(palette);
+      const out = [];
+      for (let r = 0; r < rows; r++) {
+        const s = seed + r * 7;
+        const entry = _pick(norm, rand(s));             // shared → mirrored pair
+        for (const sg of [1, -1]) {
+          const bx = fx + dux * gap * sg + pux * rowStep * r;
+          const bz = fz + duz * gap * sg + puz * rowStep * r;
+          const toC = Math.atan2(fx - bx, fz - bz);     // face the focal point
+          const rot = typeof face === "number" ? face
+            : face === "out" ? toC + Math.PI : toC;
+          const nudge = { x: dux * sg, z: duz * sg };   // push outward if blocked
+          const h = _tryPlace(entry, bx, bz, rot, s + 3, clear, nudge);
+          if (h) out.push(h);
+        }
+      }
+      return out;
+    },
+
+    /**
+     * CLUSTER / still-life: a purposeful pile within one footprint, sorted so
+     * the biggest/tallest pieces sit at the BACK and the smallest at the FRONT.
+     * opts:
+     *   count      how many pieces                              default 4
+     *   footprint  radius of the pile (world units)             default 1.1
+     *   backDir    angle the pile recedes toward (its "back")   default 0
+     *   spread     lateral scatter as a fraction of footprint   default 0.7
+     *   clear      keep-clear zones                             default []
+     *   seed       variation seed                               default 5
+     * Returns the array of handles. Height variation comes for free from the
+     * PROP_FOOT-based sort — feed it a mix (e.g. crateStack + barrel + sack).
+     */
+    cluster(cx, cz, palette, opts = {}) {
+      const {
+        count = 4, footprint = 1.1, backDir = 0, spread = 0.7,
+        seed = 5, clear = [],
+      } = opts;
+      const bux = Math.sin(backDir), buz = Math.cos(backDir);   // back unit
+      const pux = buz, puz = -bux;                              // lateral unit
+      const norm = _normPalette(palette);
+      const picks = [];
+      for (let i = 0; i < count; i++) picks.push(_pick(norm, rand(seed + i * 2.3)));
+      picks.sort((a, b) => b.foot - a.foot);                    // big → back
+      const out = [];
+      for (let i = 0; i < picks.length; i++) {
+        const s = seed + i * 4.1;
+        const frac = count > 1 ? i / (count - 1) : 0;           // 0 back .. 1 front
+        const along = (0.5 - frac) * footprint * 1.4;           // + toward back
+        const lat = (rand(s) - 0.5) * 2 * footprint * spread;
+        const px = cx + bux * along + pux * lat;
+        const pz = cz + buz * along + puz * lat;
+        const rot = rand(s + 1) * Math.PI * 2;
+        const nudge = { x: pux * (rand(s + 2) < 0.5 ? 1 : -1), z: puz * (rand(s + 2) < 0.5 ? 1 : -1) };
+        const h = _tryPlace(picks[i], px, pz, rot, s + 3, clear, nudge);
+        if (h) out.push(h);
+      }
+      return out;
+    },
+
+    /**
+     * FOCAL COMPOSITION around a landmark, in one call: a central landmark, a
+     * mirrored flanking pair, and a low scatter ring at its base. opts:
+     *   landmark      prop name or (x,z,o)=>handle              default "statue"
+     *   landmarkOpts  opts passed to the landmark builder       default {}
+     *   flankProp     palette for the flanking pair             default "urn"
+     *   flankGap      centre→flank distance                     default 1.5
+     *   flankDir      separation axis angle (0 = x-axis)        default 0
+     *   flankFace     "in" | "out" | number                    default "in"
+     *   scatterProp   palette for the base scatter              default "rubble"
+     *   scatterCount  scatter pieces around the base            default 3
+     *   scatterRing   scatter radius                            default 1.8
+     *   clear         keep-clear zones                          default []
+     *   seed          variation seed                            default 3
+     * Returns { center, flanks:[...], scatter:[...] }.
+     */
+    focal(cx, cz, opts = {}) {
+      const {
+        landmark = "statue", landmarkOpts = {}, seed = 3,
+        flankProp = "urn", flankGap = 1.5, flankDir = 0, flankFace = "in",
+        scatterProp = "rubble", scatterCount = 3, scatterRing = 1.8,
+        clear = [],
+      } = opts;
+      const out = { center: null, flanks: [], scatter: [] };
+      out.center = typeof landmark === "function"
+        ? landmark(cx, cz, { ...landmarkOpts, seed })
+        : kit[landmark](cx, cz, { ...landmarkOpts, seed });
+      out.flanks = kit.flank(cx, cz, flankProp, {
+        dir: flankDir, gap: flankGap, face: flankFace, seed: seed + 20, clear,
+      });
+      // keep the scatter off the landmark's own footprint too
+      const baseClear = clear.concat([{ x: cx, z: cz, r: 0.8 }]);
+      const norm = _normPalette(scatterProp);
+      for (let i = 0; i < scatterCount; i++) {
+        const s = seed + 40 + i * 5.5;
+        const ang = (i / scatterCount) * Math.PI * 2 + rand(s) * 0.6;
+        const dist = scatterRing * (0.7 + rand(s + 1) * 0.5);
+        const px = cx + Math.cos(ang) * dist, pz = cz + Math.sin(ang) * dist;
+        const entry = _pick(norm, rand(s + 2));
+        const h = _tryPlace(entry, px, pz, rand(s + 3) * Math.PI * 2, s + 4, baseClear, null);
+        if (h) out.scatter.push(h);
+      }
+      return out;
+    },
+
+    /**
+     * CORNER-ANCHOR: tuck a cluster into a room corner, receding into the
+     * corner so the tall pieces brace the walls. `which` is "nw"|"ne"|"sw"|"se".
+     * opts: margin (inset from the walls, default 0.8) plus all cluster opts
+     * (count, footprint, spread, clear, seed). Returns the cluster's handles.
+     */
+    corner(room, which, palette, opts = {}) {
+      const { margin = 0.8 } = opts;
+      const { x0, z0, x1, z1 } = room;
+      const cx = which.includes("w") ? x0 + margin : x1 - margin;
+      const cz = which.includes("s") ? z0 + margin : z1 - margin;
+      const bx = which.includes("w") ? -1 : 1;         // point back into the corner
+      const bz = which.includes("s") ? -1 : 1;
+      return kit.cluster(cx, cz, palette, {
+        footprint: 1.0, count: 3, spread: 0.6, ...opts,
+        backDir: Math.atan2(bx, bz),
+      });
+    },
+
+    /**
+     * LEADING LINE: flank a path A→B on both sides to funnel the eye toward an
+     * objective/exit at B. Like a two-sided wallRun. opts:
+     *   spacing   step down the line                            default 2.2
+     *   offset    half-width of the alley                       default 1.2
+     *   converge  narrow the alley toward B (a forced-perspective default false
+     *             funnel that pulls the eye onward)
+     *   face      "in" (toward the alley) | "out" | number      default "in"
+     *   jitter    along-line seeded jitter                      default 0.1
+     *   clear     keep-clear zones                              default []
+     *   seed      variation seed                                default 13
+     * Returns the array of handles.
+     */
+    leadingLine(ax, az, bx, bz, palette, opts = {}) {
+      const {
+        spacing = 2.2, offset = 1.2, converge = false, seed = 13,
+        face = "in", clear = [], jitter = 0.1,
+      } = opts;
+      const dx = bx - ax, dz = bz - az, L = Math.hypot(dx, dz);
+      if (L < 1e-3) return [];
+      const ux = dx / L, uz = dz / L;
+      const nx = -uz, nz = ux;
+      const norm = _normPalette(palette);
+      const count = Math.max(1, Math.floor(L / spacing));
+      const out = [];
+      for (let i = 0; i <= count; i++) {
+        const t = (i / count) * L;
+        const off = converge ? offset * (1 - 0.6 * (t / L)) : offset;
+        for (const sg of [1, -1]) {
+          const s = seed + i * 6.1 + (sg > 0 ? 0 : 3);
+          const jt = (rand(s) - 0.5) * 2 * jitter;
+          const px = ax + ux * (t + jt) + nx * off * sg;
+          const pz = az + uz * (t + jt) + nz * off * sg;
+          const toLine = Math.atan2(-nx * sg, -nz * sg);   // face inward across the alley
+          const rot = typeof face === "number" ? face
+            : face === "out" ? toLine + Math.PI : toLine;
+          const entry = _pick(norm, rand(s + 2));
+          const nudge = { x: nx * sg, z: nz * sg };
+          const h = _tryPlace(entry, px, pz, rot, s + 4, clear, nudge);
+          if (h) out.push(h);
+        }
+      }
+      return out;
     },
   };
 
