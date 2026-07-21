@@ -100,10 +100,12 @@ class Game {
     this.checkpoint = new THREE.Vector3();
 
     this._ray = new THREE.Raycaster();
+    this._camRay = new THREE.Raycaster(); // camera-collision whisker (vertical levels)
     this._tmpV = new THREE.Vector3();
     this.noise = null; // NoiseRings, rebuilt per level
     this._camPos = new THREE.Vector3();
     this._camOff = new THREE.Vector3();
+    this._camOff2 = new THREE.Vector3(); // scratch dir for the camera whisker
     this.camDist = 1;   // zoom (0.5 close … 2.0 far)
     this.camYaw = 0;    // orbit rotation about the player
 
@@ -197,6 +199,19 @@ class Game {
     const d = this.camDist, s = Math.sin(this.camYaw), c = Math.cos(this.camYaw);
     // base offset (0, 12.5, 6.3) rotated about Y and scaled by zoom
     return this._camOff.set(-6.3 * d * s, 12.5 * d, 6.3 * d * c);
+  }
+
+  // VERTICALITY — lowest raised-deck height directly above (px,pz) that the blob
+  // is UNDER (deck.y clears its head by `headroom`). Infinity = open sky above.
+  // This is what tells the camera to duck below a catwalk/awning/roof.
+  _ceilingAbove(px, pz, feetY, headroom = 0.9) {
+    const plats = this.level && this.level.platforms;
+    if (!plats || !plats.length) return Infinity;
+    let ceil = Infinity;
+    for (const p of plats) {
+      if (px >= p.x0 && px <= p.x1 && pz >= p.z0 && pz <= p.z1 && p.y > feetY + headroom && p.y < ceil) ceil = p.y;
+    }
+    return ceil;
   }
 
   _initCameraControls() {
@@ -923,16 +938,48 @@ class Game {
     this.rt.updateLights(this.scene);
     this.rt.updateDynamic();
 
-    // camera follows with a little velocity lead, at the current zoom + orbit
+    // camera follows with a little velocity lead, at the current zoom + orbit.
+    // Height tracks the blob's ELEVATION (groundY) so a raised catwalk doesn't
+    // drop it off-screen; on flat ground groundY=0 → byte-identical to before.
     const off = this._camOffset();
     const lead = 0.4;
-    this._camPos.set(
-      player.pos.x + off.x + player.vel.x * lead * 0.2,
-      off.y,
-      player.pos.z + off.z + player.vel.z * lead * 0.2
-    );
+    const elev = player.groundY || 0;
+    const lookX = player.pos.x + player.vel.x * lead * 0.15;
+    const lookY = 0.4 + elev;
+    const lookZ = player.pos.z + player.vel.z * lead * 0.15;
+    let camX = player.pos.x + off.x + player.vel.x * lead * 0.2;
+    let camY = off.y + elev;
+    let camZ = player.pos.z + off.z + player.vel.z * lead * 0.2;
+    // CAMERA-UNDER-CEILINGS: if a raised deck/awning/roof is directly overhead,
+    // the high boom would look down THROUGH it — slide the camera DOWN its own
+    // view ray to sit just below that ceiling so the blob stays visible. Then a
+    // whisker pulls it in past any WALL between it and the blob. (Only vertical
+    // levels have platforms, so flat levels skip all of this — no regression.)
+    if (this.level.platforms && this.level.platforms.length) {
+      const ceilY = this._ceilingAbove(player.pos.x, player.pos.z, player.groundY);
+      if (ceilY < camY - 0.1) {
+        const denom = camY - lookY;                          // full boom vertical span
+        const ratio = denom > 1e-3 ? Math.max(0.06, (ceilY - 0.6 - lookY) / denom) : 1;
+        camX = player.pos.x + off.x * ratio + player.vel.x * lead * 0.2;
+        camZ = player.pos.z + off.z * ratio + player.vel.z * lead * 0.2;
+        camY = lookY + denom * ratio;                        // == ceilY-0.6, on the same ray
+      }
+      // wall whisker: never let the (now lower) camera sit behind a wall
+      const dx = camX - lookX, dy = camY - lookY - 0.2, dz = camZ - lookZ;
+      const cd = Math.hypot(dx, dy, dz);
+      if (cd > 0.2) {
+        this._camRay.set(this._tmpDir.set(lookX, lookY + 0.2, lookZ), this._camOff2.set(dx, dy, dz).normalize());
+        this._camRay.far = cd - 0.1;
+        const hit = this._camRay.intersectObjects(this.level.occluders, false)[0];
+        if (hit) {
+          const f = Math.max(0.08, (hit.distance - 0.3) / cd);
+          camX = lookX + dx * f; camY = (lookY + 0.2) + dy * f; camZ = lookZ + dz * f;
+        }
+      }
+    }
+    this._camPos.set(camX, camY, camZ);
     this.camera.position.lerp(this._camPos, 1 - Math.pow(0.001, dt));
-    this.camera.lookAt(player.pos.x + player.vel.x * lead * 0.15, 0.4, player.pos.z + player.vel.z * lead * 0.15);
+    this.camera.lookAt(player.pos.x + player.vel.x * lead * 0.15, lookY, player.pos.z + player.vel.z * lead * 0.15);
 
     // camera-obstruction hint: if the blob is hidden behind geometry (a tall
     // building/wall between camera and player) for a few seconds, teach the
