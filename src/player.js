@@ -39,6 +39,7 @@ export class Player {
     this.scene = scene;
     this.fx = overlay || scene; // transparent HUD-in-world effects go here (plain forward pass)
     this.fxOpacity = 1;         // global multiplier from the Effects-opacity setting
+    this._litSmooth = 0;        // time-smoothed litness → continuous shadow-speed
     const geo = new THREE.IcosahedronGeometry(PLAYER_R, 2);
     this.base = geo.getAttribute("position").array.slice();
     this.mesh = new THREE.Mesh(
@@ -247,9 +248,15 @@ export class Player {
     // — as fast as it moves carrying the beacon — and near-silent; out in the
     // light it turns sluggish and loud. `lit` is 0 (pitch dark) → 1 (fully
     // exposed), supplied from the light gem.
-    const lit = ctx.litness || 0;
-    this.litness = lit;
-    const shadowSpeedMul = SHADOW_SPEED - lit * (SHADOW_SPEED - LIT_SPEED); // dark→SHADOW_SPEED, lit→LIT_SPEED
+    // how-lit-am-I drives speed, but the raw value SNAPS when line-of-sight to a
+    // light flips on/off (that's what read as a "step"). Ease it over time so the
+    // speed is a smooth continuous function of lighting, then map it with a
+    // smoothstep through reasonable bounds (SHADOW_SPEED dark → LIT_SPEED lit).
+    const litTarget = ctx.litness || 0;
+    this._litSmooth += (litTarget - this._litSmooth) * Math.min(1, dt * 3.5);
+    this.litness = this._litSmooth;
+    const e = this._litSmooth * this._litSmooth * (3 - 2 * this._litSmooth); // smoothstep
+    const shadowSpeedMul = SHADOW_SPEED - e * (SHADOW_SPEED - LIT_SPEED);
     let mul = shadowSpeedMul;
     // the beacon guarantees a fast floor even out in the blazing open
     if (this.carrySpeedMul > 1) mul = Math.max(mul, this.carrySpeedMul);

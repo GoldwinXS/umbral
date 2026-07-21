@@ -80,6 +80,15 @@ export function makeKit(scene) {
     return _hazeTex;
   }
 
+  // split a span [a,b] into solid runs around the door gaps [[g0,g1],...]
+  function gapsCut(a, b, gaps) {
+    const gs = (gaps || []).slice().sort((p, q) => p[0] - q[0]);
+    const spans = []; let cur = a;
+    for (const [g0, g1] of gs) { if (g0 > cur) spans.push([cur, Math.min(g0, b)]); cur = Math.max(cur, g1); }
+    if (cur < b) spans.push([cur, b]);
+    return spans;
+  }
+
   const kit = {
     mats,
     bag,
@@ -98,6 +107,45 @@ export function makeKit(scene) {
     /** Wall segment helper (axis-aligned). */
     wall(w, h, d, x, z, y = h / 2) {
       return kit.solid(w, h, d, x, z, mats.wall, 0, y);
+    },
+
+    /**
+     * A watertight room with CLEAN corners. Builds the floor (+ optional moss/
+     * crystal surface) and four walls. The N/S walls own the corners (they span
+     * the full outer width); the E/W walls inset BETWEEN them — so no two wall
+     * boxes ever overlap, which is what made corners show a doubled-rectangle
+     * seam. `h` sets wall height (verticality — a room can be a tall hall or a
+     * low courtyard wall); `wallMat` overrides the material.
+     *
+     * doors: { n, s, e, w } — each an array of [from,to] gap ranges in WORLD
+     * coords (x for n/s walls, z for e/w walls).
+     * Returns { x0, z0, x1, z1 } for chaining/connecting.
+     */
+    room(x0, z0, x1, z1, { doors = {}, surface, floorMat, wallMat = mats.wall, h = 3.2, t = 0.4 } = {}) {
+      const ht = t / 2;
+      kit.floor(x1 - x0, z1 - z0, (x0 + x1) / 2, (z0 + z1) / 2, floorMat);
+      if (surface) kit.surface(x0, z0, x1, z1, surface);
+      const hRun = (z, a, b, gaps) => { for (const [p, q] of gapsCut(a, b, gaps)) if (q - p > 0.02) kit.solid(q - p, h, t, (p + q) / 2, z, wallMat); };
+      const vRun = (x, a, b, gaps) => { for (const [p, q] of gapsCut(a, b, gaps)) if (q - p > 0.02) kit.solid(t, h, q - p, x, (p + q) / 2, wallMat); };
+      hRun(z1, x0 - ht, x1 + ht, doors.n);   // north — spans full width, owns corners
+      hRun(z0, x0 - ht, x1 + ht, doors.s);   // south — owns corners
+      vRun(x1, z0 + ht, z1 - ht, doors.e);   // east  — inset between N/S
+      vRun(x0, z0 + ht, z1 - ht, doors.w);   // west  — inset
+      return { x0, z0, x1, z1 };
+    },
+
+    /**
+     * A connector between rooms: floor (+ surface) and only the two LONG side
+     * walls — the short ends stay open so it joins the rooms through their door
+     * gaps. Horizontal if wider than deep, else vertical.
+     */
+    corridor(x0, z0, x1, z1, { surface, floorMat, wallMat = mats.wall, h = 3.2, t = 0.4 } = {}) {
+      const w = x1 - x0, d = z1 - z0, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+      kit.floor(w, d, cx, cz, floorMat);
+      if (surface) kit.surface(x0, z0, x1, z1, surface);
+      if (w >= d) { kit.solid(w, h, t, cx, z0, wallMat); kit.solid(w, h, t, cx, z1, wallMat); }
+      else { kit.solid(t, h, d, x0, cz, wallMat); kit.solid(t, h, d, x1, cz, wallMat); }
+      return { x0, z0, x1, z1 };
     },
 
     /** Cylinder: mesh + occluder + circle collider. */
