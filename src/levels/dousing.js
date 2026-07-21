@@ -2,26 +2,44 @@ import * as THREE from "three";
 import { makeKit } from "../levelKit.js";
 
 /**
- * LEVEL — THE LAMPWAY (a dousing tutorial-mission).
+ * MISSION 2 — THE LAMPWAY  (level index 1) — the DOUSE mission.
  *
- * A lamplighters' service route behind Lanternspire's outer wall. Hush is
- * given three void vials and taught, in three clear steps, what they are
- * for: torches pin a Vesper's watch to one bright spot; douse the torch and
- * the watch goes blind. The shatter is also a small thunder of its own — it
- * can call a guard as surely as light unmakes you. One creature down this
- * route cares nothing for any of that: a Snuffed, blind and lampless,
- * hunting by sound alone. Silence beats it; a thrown vial does not.
+ * A lamplighters' service route behind Lanternspire's outer wall. Hush is given
+ * three void vials and taught DOUSE in beats, then the verb is TURNED:
+ *   E1 KI    — THE FIRST DARK YOU MAKE : the clean douse (a lit, watched door);
+ *              the shatter-as-thunder hazard is NAMED but not yet bitten.
+ *   E2 SHŌ   — THE FORK : DOUSE conjugated by where it is legal — south a Vesper
+ *              trusts its torch (DOUSE), north a blind Snuffed listens (NEVER).
+ *   E3 SHŌ   — THE STAGING : a safe rehearsal of the loud douse (no guard to
+ *              punish it) so the cost is FELT before it matters.
+ *   E4 TEN   — THE OVER-LIT VAULT : the Turn. Dousing is FORCED, LOUD, and the
+ *              guard is standing in the pool — the tool that saves you betrays you.
+ *   E5 KETSU — THE WAKING LAMPS : take the relic, the lampway wakes, outrun it.
+ *              The campaign's first beacon-flight (steal → world wakes → run).
  *
- * START HALL → CHOKE (douse #1, a Vesper's lit door) → HUB, which forks:
- *   north = SNUFFED CORRIDOR (silence, no light, no vials)
- *   south = LIT CORRIDOR (douse #2, a Vesper strung the whole hall)
- * both rejoin at a STAGING room → RELIC CHAMBER (douse #3, a GREAT lantern
- * guards the pedestal) → take the relic (it wakes the lamps behind you) →
- * ESCAPE CORRIDOR → the rift.
- *
- * Floors and surface plates are tiled with NO overlap (overlapping coplanar
- * plates z-fight). Every room is fully walled with gaps only at doorways.
+ * Two enemy types only: Vespers (lit, cone-sighted) and the Snuffed (blind,
+ * sound-hunting). Geometry is watertight (kit.room/corridor, audited). The
+ * whole level is dressed as a working lamplighters' route through the prop +
+ * placement systems — no bare cover boxes. Palette LAW: amber/orange/red is the
+ * Vigil's; violet is Hush's alone (never on a Vigil object).
  */
+
+// TUNE — the knobs we reach for. Change feel here, not in the body. All values
+// [KEPT] from the audited conversion unless flagged.
+const TUNE = {
+  moon: 0.55,                                          // ambient darkness
+  torchChoke:   { intensity: 7,  range: 9,  scale: 1 },   // small — CHOKE #1 (E1)
+  torchLit:     { intensity: 8,  range: 9,  scale: 1 },   // small — LIT throat (E2 south)
+  torchHub:     { intensity: 6,  range: 7,  scale: 1 },   // small — hub ambience
+  greatStaging: { intensity: 14, range: 11, scale: 2.0 }, // GREAT — staging (E3, safe rehearsal)
+  greatRelic:   { intensity: 13, range: 11, scale: 1.8 }, // GREAT — relic (E4, forced douse)
+  vChoke:   { speed: 1.1, pause: 1.4, range: 8 },      // E1 · choke Vesper
+  vLit:     { speed: 1.2, pause: 1.3, range: 8 },      // E2 · lit-throat Vesper
+  sUp:      { speed: 1.0, pause: 2.0, blind: true },   // E2 · the SNUFFED (blind)
+  vRelic:   { speed: 1.2, pause: 1.3, range: 9 },      // E4 · relic-guard Vesper (far-turn dwell = pause)
+  vExtract: { speed: 1.3, pause: 1.0, range: 9 },      // E5 · extraction Vesper
+};
+
 export function buildDousing() {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x04050a);
@@ -34,12 +52,8 @@ export function buildDousing() {
 
   const H = 3.2;
 
-  // ================= ROOMS (watertight, clean-corner, via kit.room/corridor) =
-  // Each cell's floor + surface + walls build together; door gaps are the old
-  // hWall/vWall gaps translated 1:1 into doors:{n,s,e,w}. Every cell is a
-  // single surface, so `surface:` rides on the room. Corridors wall only their
-  // two long sides; the open short ends join rooms through their door gaps.
-  // Default kit height/thickness (3.2 / 0.4) already match this level.
+  // ================= ROOMS (watertight, clean-corner, via kit.room/corridor) = [KEPT]
+  // Room bounds, door gaps, surfaces — all 1:1 from the audited conversion.
   kit.room(-40, -4, -32, 4, { doors: { e: [[-1.5, 1.5]] }, surface: "moss" });                   // A START HALL
   kit.corridor(-32, -1.5, -28, 1.5, { surface: "moss" });                                         // AB
   kit.room(-28, -9, -14, 9, { doors: { w: [[-1.5, 1.5]], e: [[-1.5, 1.5]] }, surface: "moss" });  // B CHOKE ROOM
@@ -56,50 +70,156 @@ export function buildDousing() {
   kit.extraction(62, 0);
   kit.trim(3.4, 0.2, 62, 2.4, 5.7, 0, 0x39f0c0, 2.0);
 
-  // ================= LANTERNS (a mix — small pools + two GREAT lanterns) ======
-  kit.torch(-15, 0, { intensity: 7, range: 9, scale: 1 });      // small — CHOKE #1
-  kit.torch(17, -5, { intensity: 8, range: 9, scale: 1 });      // small — CHOKE #2
-  kit.torch(0, 0, { intensity: 6, range: 7, scale: 1 });        // small — hub ambience
-  kit.torch(29, 4, { intensity: 14, range: 11, scale: 2.0 });   // GREAT — staging ambience
-  kit.torch(44, 0, { intensity: 13, range: 11, scale: 1.8 });   // GREAT — CHOKE #3 (relic guard)
+  // ================= LANTERNS (small pools + two GREAT lanterns) ============== [KEPT]
+  kit.torch(-15, 0, TUNE.torchChoke);      // small — CHOKE #1 (E1 lit door)
+  kit.torch(17, -5, TUNE.torchLit);        // small — LIT throat (E2 south)
+  kit.torch(0, 0, TUNE.torchHub);          // small — hub ambience
+  kit.torch(29, 4, TUNE.greatStaging);     // GREAT — staging ambience (E3)
+  kit.torch(44, 0, TUNE.greatRelic);       // GREAT — relic guard (E4, forced douse)
 
-  // ================= VOID VIAL CACHES (refills along the route) ===============
-  // capB sits in Room B BEFORE the lit door + its torch — you grab vials, then
-  // meet the light you spend them on (not on the far side of the obstacle).
-  kit.cache("capB", -25, 4, 2);   // choke room, near the entrance — before the lit door
-  kit.cache("capU", 17, 5, 1);    // Snuffed corridor — a quiet find, no light needed
+  // ================= VOID VIAL CACHES ========================================= [KEPT]
+  kit.cache("capB", -25, 4, 2);   // choke room, BEFORE the lit door — arm, then meet the light
+  kit.cache("capU", 17, 5, 1);    // Snuffed corridor — a quiet find, no light to spend on
   kit.cache("capF", 29, -4, 2);   // staging — refill before the relic chamber
 
-  // ================= cover / obstacles (break sightlines, give hiding spots) ==
-  kit.solid(1.7, 1.3, 1.7, -23, -5, kit.mats.block, 0.2);  // choke room crate
-  kit.solid(1.6, 1.3, 1.6, -18, 6, kit.mats.block, -0.2);  // choke room crate
-  kit.solid(2.0, 1.3, 1.4, -5, 6, kit.mats.block, 0);      // hub cover
-  kit.solid(1.4, 1.3, 2.0, 5, -6, kit.mats.block, 0);      // hub cover
-  kit.pillar(0.6, H, -6, -7);                              // hub pillar
-  kit.solid(1.6, 1.3, 1.6, 28, -6, kit.mats.block, 0.15);  // staging crate
-  kit.solid(1.6, 1.3, 1.6, 30, 6, kit.mats.block, -0.15);  // staging crate
-  kit.pillar(0.55, H, 46, 6);                              // relic chamber pillar
-  kit.pillar(0.55, H, 42, -6);                             // relic chamber pillar
+  // ================= GUARDS ==================================================== [KEPT]
+  // Exactly two enemy types: Vespers (cone-sighted) and the Snuffed (blind).
+  kit.guard([[-15, -4], [-15, 4]], TUNE.vChoke);   // E1 · choke Vesper (watches the lit door)
+  kit.guard([[13, -5], [21, -5]], TUNE.vLit);      // E2 · lit-throat Vesper (trusts torch (17,-5))
+  kit.guard([[13, 5], [21, 5]], TUNE.sUp);         // E2 · the SNUFFED — silence only
+  kit.guard([[44, -5], [44, 5]], TUNE.vRelic);     // E4 · relic-guard Vesper (walks the pool)
+  kit.guard([[60, -4], [60, 4]], TUNE.vExtract);   // E5 · extraction Vesper
 
-  // ================= GUARDS =====================================================
-  // exactly two enemy types: normal Vespers (lit, cone-sighted) and Snuffed
-  // (blind({blind:true}), lightless, sound-hunting only)
-  kit.guard([[-15, -4], [-15, 4]], { speed: 1.1, pause: 1.4, range: 8 });   // 1 · choke room Vesper
-  kit.guard([[13, -5], [21, -5]], { speed: 1.2, pause: 1.3, range: 8 });    // 2 · lit corridor Vesper (choke #2)
-  kit.guard([[13, 5], [21, 5]], { speed: 1.0, pause: 2.0, blind: true });   // 3 · the SNUFFED — silence only
-  kit.guard([[44, -5], [44, 5]], { speed: 1.2, pause: 1.3, range: 9 });     // 4 · relic-guard Vesper (choke #3)
-  kit.guard([[60, -4], [60, 4]], { speed: 1.3, pause: 1.0, range: 9 });     // 5 · extraction-chamber Vesper
-
-  // ================= relic ======================================================
+  // ================= relic ===================================================== [KEPT]
   kit.scepterPedestal(50, 0);
-  kit.trim(5, 0.2, 53.7, 3.0, 0, Math.PI / 2, 0xffd76a, 2.0); // on the wall behind the pedestal
+  kit.trim(5, 0.2, 53.7, 3.0, 0, Math.PI / 2, 0xffd76a, 2.0); // amber wall trim behind pedestal
 
-  // ================= inscriptions (lore) =========================================
-  kit.inscription(0, 2.4, 9.6, "THE LAMPS REMEMBER EVERY HAND THAT FED THEM", 0, "#ffb46a");
-  kit.inscription(17, 2.2, 6.7, "IT DOES NOT SEE. IT LISTENS.", 0, "#7a6bb0");
-  kit.inscription(38.4, 2.4, 3.2, "TAKE ONLY WHAT THE DARK WILL CARRY", -Math.PI / 2, "#ffd76a");
+  // ==========================================================================
+  // ENVIRONMENTAL STORYTELLING + COVER (composed via the placement system).
+  // Every bare kit.solid cover box is replaced by a purposeful pile; the route
+  // reads as a lamplighters' supply chain (barrels/crates/carts) with tended
+  // (amber, lit) vs derelict (dark, dead) throats. Keep-clear discipline: cover
+  // colliders never intrude a door lane, patrol line, spawn, or a pickup.
+  // ==========================================================================
 
-  // ================= dormant alarm lamps (the wake, after the theft) ============
+  // ===== E1 · KI — "THE FIRST DARK YOU MAKE"  [MODIFIED — from A START + B CHOKE] =====
+  // The lamplighters' staging: START HALL is a supply depot; the CHOKE's lit
+  // east door is a tended threshold (offering braziers + amber banner) so
+  // "lit = watched = theirs" reads before the prompt.
+  {
+    // START HALL — rhythmic supply wall of oil barrels + lamp crates along the back wall.
+    const clearStart = [
+      { x: -37, z: -1, r: 2.2 },                        // spawn pad
+      { x0: -32, z0: -1.5, x1: -28, z1: 1.5, pad: 0.4 },// east door lane (A→AB)
+    ];
+    kit.wallRunSide({ x0: -40, z0: -4, x1: -32, z1: 4 }, "n",
+      [{ prop: "barrel", w: 2 }, { prop: "crate", w: 1 }, "sack"],
+      { spacing: 1.4, inset: 0.7, clear: clearStart, seed: 3 });
+
+    // CHOKE — the two KEPT cover spots become composed piles (positions [KEPT]).
+    kit.crateStack(-23, -5, { seed: 3 });               // KEPT (-23,-5)
+    kit.crateStack(-18, 6, { seed: 5 });                // KEPT (-18,6)
+    // tended lit door: an offering pair + amber banner (decor — direct calls, no
+    // collider, kept out of the ~3-wide door gap visually).
+    kit.brazier(-14.4, -2.2, { lit: false, seed: 2 });
+    kit.brazier(-14.4, 2.2, { lit: false, seed: 4 });
+    kit.banner(-14.35, 2.4, 0, -Math.PI / 2, { w: 1.1, color: 0xffb46a, seed: 6 });
+  }
+
+  // ===== E2 · SHŌ — "THE FORK: WHERE THE DARK IS SAFE"  [MODIFIED — from C HUB + U/L] =====
+  // The two throats read before the prompt: SOUTH lit = tended (braziers/urns/
+  // amber banner); NORTH dark = derelict (dead lanterns, rubble, broken column,
+  // chains). The contrast IS the tell.
+  {
+    const clearHub = [
+      { x0: -1.5, z0: -10, x1: 1.5, z1: 10, pad: 0.4 },// central through-lane
+      { x0: 7, z0: 3, x1: 10, z1: 7, pad: 0.3 },       // upper door mouth (KEPT cover at (-5,6)/(5,-6) sits west of the mouths)
+      { x0: 7, z0: -7, x1: 10, z1: -3, pad: 0.3 },     // lower door mouth
+      { x: 0, z: 0, r: 1.6 },                          // hub torch + centre
+    ];
+    kit.pillar(0.6, H, -6, -7);                        // KEPT hub pillar
+    kit.cluster(-5, 6, ["crateStack", "barrel"], { count: 3, footprint: 1.1, clear: clearHub, seed: 12 }); // KEPT (-5,6)
+    kit.cluster(5, -6, ["sack", { prop: "crate", w: 2 }], { count: 3, footprint: 1.1, clear: clearHub, seed: 14 }); // KEPT (5,-6)
+
+    // SOUTH throat (lit) — tended maintenance corridor. inset pulled to 0.3 so the
+    // run clears the Vesper's z=-5 patrol line (spec inset 0.4 grazed it — (tune)).
+    kit.wallRun(11, -6.6, 23, -6.6, [{ prop: "brazier", opts: { lit: false }, w: 2 }, "urn"],
+      { spacing: 3.2, inset: 0.3, clear: [{ x0: 13, z0: -5, x1: 21, z1: -5, pad: 0.6 }], seed: 16 });
+    kit.banner(17, 2.4, -6.85, 0, { w: 1.0, color: 0xffb46a, seed: 18 }); // amber over the lit hall
+
+    // NORTH throat (dark) — the forgotten passage where the blind thing wanders.
+    kit.wallRun(11, 6.6, 23, 6.6, [{ prop: "deadLantern", w: 3 }, "rubble", "brokenColumn"],
+      { spacing: 2.8, inset: 0.3, clear: [
+        { x0: 13, z0: 5, x1: 21, z1: 5, pad: 0.6 },    // S-up (Snuffed) patrol line
+        { x: 17, z: 5, r: 1.0 },                       // capU cache
+      ], seed: 20 });
+    kit.chains(13.5, 6.7, { y: 3.0, len: 1.4, seed: 8 });
+    kit.chains(20.5, 6.7, { y: 3.0, len: 1.4, seed: 9 });
+  }
+
+  // ===== E3 · SHŌ — "THE STAGING, WHERE NOISE COSTS"  [MODIFIED — from F STAGING] =====
+  // The depot: a working yard under one great work-lamp — carts of barrels, crate
+  // stacks, sacks. No guard here: a safe rehearsal of the loud douse. Cover only
+  // survives on the shadowed south edge + corners.
+  {
+    const clearStage = [
+      { x0: 24, z0: -1.5, x1: 38, z1: 1.5, pad: 0.4 }, // through / rejoin lane
+      { x: 29, z: 4, r: 1.4 },                         // great lantern
+      { x: 29, z: -4, r: 1.0 },                        // capF cache
+      { x0: 24, z0: 3, x1: 26.5, z1: 7 },              // west upper door mouth (throat rejoin)
+      { x0: 24, z0: -7, x1: 26.5, z1: -3 },            // west lower door mouth (throat rejoin)
+    ];
+    kit.cluster(31.5, 6.5, ["cart", { prop: "crateStack", w: 2, foot: 0.8 }, "barrel"],
+      { count: 4, footprint: 1.4, backDir: Math.atan2(1, 1), clear: clearStage, seed: 22 }); // loaded NE corner yard
+    kit.corner({ x0: 24, z0: -9, x1: 34, z1: 9 }, "se",
+      ["barrel", "sack", { prop: "crate", w: 2 }], { count: 3, clear: clearStage, seed: 24 });
+    kit.cluster(27.5, -6.5, ["sack", "crate", "barrel"],
+      { count: 3, footprint: 1.0, backDir: Math.PI, clear: clearStage, seed: 26 }); // KEPT (28,-6) south-edge cover
+  }
+
+  // ===== E4 · TEN — "THE OVER-LIT VAULT"  [MODIFIED — from G RELIC CHAMBER] =====
+  // The shrine: the relic under the route's most-tended lamp. Lamp-priest statues
+  // flank the pedestal, offerings at its foot, an amber banner behind — the great
+  // lantern is the shrine's eternal flame you must snuff to take what it guards.
+  {
+    const clearRelic = [
+      { x0: 44, z0: -5, x1: 44, z1: 5, pad: 0.7 },     // V-relic line + great lantern pool
+      { x0: 38, z0: -1.5, x1: 54, z1: 1.5, pad: 0.3 }, // pedestal approach — keep the crossing legible
+      { x: 50, z: 0, r: 1.4 },                         // pedestal
+    ];
+    kit.pillar(0.55, H, 46, 6);    // KEPT relic-chamber cover pillar (the only cover)
+    kit.pillar(0.55, H, 42, -6);   // KEPT relic-chamber cover pillar
+    // two lamp-priest statues framing the KEPT pedestal, split on the z-axis
+    // (dir:0). Spec said Math.PI/2, but that seats them ON the approach lane at
+    // z=0 — flipped to frame it N/S instead — (tune).
+    kit.flank(50, 0, "statue", { gap: 2.4, dir: 0, face: "in", clear: clearRelic, seed: 30 });
+    // offerings at the altar foot (decor — direct, off the crossing lane)
+    kit.urn(49.2, 2.0, { scale: 0.8, seed: 31 });
+    kit.urn(50.8, -2.0, { scale: 0.8, seed: 33 });
+    kit.brazier(47.8, 2.5, { lit: false, seed: 35 });
+    kit.brazier(47.8, -2.5, { lit: false, seed: 37 });
+    kit.banner(53.5, 2.6, 0, -Math.PI / 2, { w: 1.1, color: 0xffd76a, seed: 39 }); // amber behind the pedestal
+  }
+
+  // ===== E5 · KETSU — "THE WAKING LAMPS"  [KEPT logic, MODIFIED dressing] =====
+  // The gate lamps that light against you: dead-lantern gateposts frame the rift
+  // (they flare on the theft — KEPT logic), a funnel of offering urns down the
+  // escape corridor pulls the run onward.
+  {
+    kit.flank(62, 0, "deadLantern", { gap: 2.0, dir: 0, clear: [{ x: 62, z: 0, r: 1.4 }], seed: 40 }); // gateposts N/S of the rift (dir:0 — (tune))
+    // funnel urns down the escape. A NARROW centre-strip clear (not the whole
+    // lane) so the run frames the corridor without every piece being rejected.
+    kit.leadingLine(54.5, 0, 60, 0, { prop: "urn", opts: { scale: 0.8 } },
+      { spacing: 2.4, offset: 1.2, face: "in",
+        clear: [{ x0: 54, z0: -0.4, x1: 66, z1: 0.4, pad: 0.1 }], seed: 42 });
+  }
+
+  // ================= inscriptions (lore) ====================================== [KEPT]
+  kit.inscription(0, 2.4, 9.6, "THE LAMPS REMEMBER EVERY HAND THAT FED THEM", 0, "#ffb46a"); // hub (amber = Vigil)
+  kit.inscription(17, 2.2, 6.7, "IT DOES NOT SEE. IT LISTENS.", 0, "#7a6bb0");               // NORTH throat — describes the Snuffed
+  kit.inscription(38.4, 2.4, 3.2, "TAKE ONLY WHAT THE DARK WILL CARRY", -Math.PI / 2, "#ffd76a"); // relic entry (amber)
+
+  // ================= dormant alarm lamps (the wake, after the theft) ========== [KEPT]
   for (const [x, z] of [[56, 0], [62, 4]]) {
     const l = new THREE.PointLight(0xff8866, 0, 12);
     l.position.set(x, 3.0, z);
@@ -115,12 +235,11 @@ export function buildDousing() {
     bag.dormant.push({ light: l, fixture, target: 8 });
   }
 
-  // ================= ambient (low key — pools & shadow must read) ================
-  const moon = new THREE.DirectionalLight(0x8ea0cc, 0.55);
+  // ================= ambient (low key — pools & shadow must read) ============= [KEPT]
+  const moon = new THREE.DirectionalLight(0x8ea0cc, TUNE.moon);
   moon.position.set(-14, 22, 8);
   moon.userData.rtRadius = 0.05;
   scene.add(moon, moon.target);
-  // faint fills, well clear of the spawn and of the guarded choke lines
   for (const [x, y, z] of [[-24, 7, 4], [0, 8, 0], [49, 8, 5]]) {
     const f = new THREE.PointLight(0x7088b0, 3.4, 14);
     f.position.set(x, y, z);
@@ -128,7 +247,7 @@ export function buildDousing() {
     scene.add(f);
   }
 
-  // ================= checkpoints ==================================================
+  // ================= checkpoints ============================================== [KEPT]
   kit.checkpoint(-36, 0, 3);
   kit.checkpoint(-21, 0, 3.5);
   kit.checkpoint(0, 0, 3);
@@ -137,7 +256,7 @@ export function buildDousing() {
   kit.checkpoint(46, 0, 3.5);
   kit.checkpoint(62, 0, 3);
 
-  // ================= triggers / teaching =========================================
+  // ================= triggers / teaching ====================================== [KEPT positions]
   kit.trigger("start", -34, 0, 2.5);
   kit.trigger("chokeB", -24, 0, 5);
   kit.trigger("hub", 0, 0, 6);
@@ -149,14 +268,16 @@ export function buildDousing() {
 
   bag.stage = 0;
   bag.objective = "Find a way through the Lampway";
-  bag.onStart = (game) => game.hud.prompt("Cold glass rides your palm — void, waiting to be spent.", 4);
+  // Prompts are terse + mechanic-focused: one short line naming the verb/objective.
+  // The world-building lives in the props/composition/inscriptions, not the HUD.
+  bag.onStart = (game) => game.hud.prompt("Void vials ride your palm — spend them on the light.", 4);
   bag.onTrigger = (id, game) => {
     const p = game.hud;
     switch (id) {
       case "start":
         if (bag.stage === 0) {
           bag.stage = 1;
-          p.prompt("You are Hush, smaller now, but still the dark between the lamps. Three void vials ride your palm — ahead, torchlight will betray you.", 5);
+          p.prompt("Shadow hides you. Head east.", 3.5);
         }
         break;
       case "chokeB":
@@ -164,47 +285,47 @@ export function buildDousing() {
           bag.stage = 2;
           game.setObjective("Douse the torch and slip through");
           p.prompt(game.isTouch
-            ? "Torchlight pins that door, and something watches it. Tap <b>◍</b> to hurl a vial and shatter the flame — the dark it leaves will hide you. But breaking glass is its own small thunder; it can call a watcher as surely as light unmakes you."
-            : "Torchlight pins that door, and something watches it. Press <span class='keycap'>Q</span> to hurl a vial and shatter the flame — the dark it leaves will hide you. But breaking glass is its own small thunder; it can call a watcher as surely as light unmakes you.", 6);
+            ? "Torchlight pins the door — tap <b>◍</b> to douse it. The shatter is its own thunder."
+            : "Torchlight pins the door — press <span class='keycap'>Q</span> to douse it. The shatter is its own thunder.", 5);
         }
         break;
       case "hub":
         if (bag.stage === 2) {
           bag.stage = 3;
           game.setObjective("Choose your way east");
-          p.prompt("Two ways lead on. South: a lit throat, and a Vesper who trusts its own torch. North: true dark — but something blind still listens there.", 5);
+          p.prompt("Two ways east: south lit, north dark.", 3.5);
         }
         break;
       case "upperWarn":
         if (!bag._upperSeen) {
           bag._upperSeen = true;
-          p.prompt("This one they call <b>Snuffed</b>. No torch feeds it, no cone betrays its ground — it hunts by ear alone. Keep to the moss, and do not spend a vial anywhere near it; the shatter is exactly what it listens for.", 5.5);
+          p.prompt("The Snuffed hunts by ear — stay silent, never douse near it.", 4);
         }
         break;
       case "lowerWarn":
         if (!bag._lowerSeen) {
           bag._lowerSeen = true;
-          p.prompt("Another flame, another watcher, the whole hall lit end to end. Douse it as before, and the corridor goes quiet as a held breath.", 4.5);
+          p.prompt("A lit hall — douse the torch and pass.", 3.5);
         }
         break;
       case "convergence":
         if (bag.stage === 3) {
           bag.stage = 4;
           game.setObjective("Reach the relic chamber");
-          p.prompt("Both ways remember the same door. Ahead, a vault kept far too bright.", 4);
+          p.prompt("Ahead, a vault kept too bright.", 3.5);
         }
         break;
       case "relicRoom":
         if (bag.stage === 4) {
           bag.stage = 5;
           game.setObjective("Take the relic beyond the light");
-          p.prompt("One great lantern guards the last stretch to the pedestal, and the watcher beneath it trusts that light completely. Douse it, and the relic is yours to take.", 5.5);
+          p.prompt("Douse the great lantern on the guard's turn, then take the relic.", 4);
         }
         break;
       case "escapeCorr":
         if (game.scepterTaken && !bag._escapeSeen) {
           bag._escapeSeen = true;
-          p.prompt("The rift is close. Outrun what the light has already told them.", 3.5);
+          p.prompt("The rift is close — run.", 3);
         }
         break;
     }
@@ -214,7 +335,8 @@ export function buildDousing() {
     game.guardSpeedMul = 1.3;
     game.sfx.alarm();
     game.setObjective("Escape to the rift!");
-    game.hud.prompt("<b>The relic wakes and blazes in your hands</b> — every lamp down the Lampway now knows your shape. Run, Hush. <b>RUN.</b>", 3.5);
+    // one brief beacon line for the beacon-flight beat (the mission's KETSU).
+    game.hud.prompt("The relic blazes — every lamp knows your shape now. <b>RUN.</b>", 3.5);
   };
 
   bag.update = (t, dt, game) => {

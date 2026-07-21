@@ -117,9 +117,14 @@ export function buildTutorial() {
     kit.banner(1, 2.4, 12.05, Math.PI, { w: 1.2, color: 0xffb46a, seed: 31 }); // tended amber banner over the pool
   }
 
-  // ================= E3 · TEN — "THE RESONANCE GAP" ==========================
-  // The Turn. Bands of crystal wall the path; a landmark on the moss island is
-  // the thing you blink TOWARD. Cold unlit braziers: flame is rationed.
+  // ================= E3 · TEN — "THE RESONANCE GAP" (+ the WICKSTONE) =========
+  // The Turn. Bands of crystal wall the path; the safe moss island between them
+  // holds Hush's first relic — you blink to it, take it, blink on. The Wickstone
+  // (amber = stolen Vigil light) gates the win and fires the first memory
+  // (bag.onAlarm). Its glow is dimmed so the island stays a viable dark step.
+  const wick = kit.scepterPedestal(25.5, 6);          // on the island, off the z0..3 lane
+  wick.core.material.emissive.set(0xffd76a);
+  wick.light.intensity = 1.2; wick.light.distance = 4; // a faint relic glow, not a detection pool
   {
     const clear = [
       { x0: 16, z0: 0, x1: 34, z1: 3, pad: 0.4 },         // the z0..3 landing lane
@@ -127,21 +132,18 @@ export function buildTutorial() {
       { x0: 30, z0: -9, x1: 32, z1: 12, pad: 0.4 },       // V-e line x≈31
       { x0: 21, z0: -9, x1: 24, z1: 12 },                 // band 1 — keep clear (leap it)
       { x0: 27, z0: -9, x1: 30, z1: 12 },                 // band 2 — keep clear
+      { x: 25.5, z: 6, r: 1.1 },                          // keep dressing off the plinth
     ];
-    kit.statue(25.5, 10.2, { scale: 1.0, h: 2.7, seed: 41 });        // blink-target landmark
-    kit.flank(25.5, 8.4, { prop: "urn", opts: { scale: 0.8 } }, { gap: 1.2, dir: Math.PI / 2, clear, seed: 45 });
-    kit.rubble(25.5, -7.2, { radius: 0.9, seed: 42 });              // low marker at a band lip
-    kit.brazier(17.4, 10.6, { lit: false, seed: 43 });             // cold — flame is rationed
+    kit.flank(25.5, 6, { prop: "urn", opts: { scale: 0.8 } }, { gap: 1.4, dir: 0, face: "in", clear, seed: 45 }); // frame the relic
+    kit.statue(25.5, 11, { scale: 0.9, h: 2.4, seed: 41 });        // a watcher at the island's back
+    kit.rubble(25.5, -7.2, { radius: 0.9, seed: 42 });             // low marker at a band lip
+    kit.brazier(17.4, 10.6, { lit: false, seed: 43 });            // cold — flame is rationed
     kit.brazier(32.6, -7.6, { lit: false, seed: 44 });
   }
 
-  // ================= E4 · KETSU — "THE WICKSTONE" ============================
-  // Hush's first relic on a low plinth (amber = stolen Vigil light), off the
-  // z=1.5 lane so its collider never blocks the rift. Taking it fires the first
-  // memory (LORE Beat 1) via bag.onAlarm and gates the win. Dead-lantern gate.
-  const wick = kit.scepterPedestal(35.4, 2.4);
-  wick.core.material.emissive.set(0xffd76a);         // ensure amber
-  kit.deadLantern(35.0, 0.35, { seed: 51 });         // the gate of dead lamps
+  // ================= E4 · KETSU — "THE GATE OF DEAD LAMPS" ====================
+  // The rift, framed by two of the very dead lamps Hush was thrown among.
+  kit.deadLantern(35.0, 0.35, { seed: 51 });
   kit.deadLantern(35.2, 2.75, { seed: 52 });
   kit.inscription(38.0, 2.0, 1.5, "THE ASH REMEMBERS WHAT THE FLAME FORGOT", -Math.PI / 2, "#ffb46a");
   void exitRoom;
@@ -168,8 +170,7 @@ export function buildTutorial() {
   kit.trigger("fogWall", -32, 1.5, 2.6);
   kit.trigger("soundRoom", -6, 1.5, 2.6);    // E2 entry — LISTEN
   kit.trigger("towerHide", 1, 2, 3.0);       // E2 near the pools — HIDE from light
-  kit.trigger("blinkRoom", 17, 1.5, 2.6);    // E3 — the Turn
-  kit.trigger("wickRoom", 33, 1.5, 2.2);     // E4 — take the Wickstone
+  kit.trigger("blinkRoom", 17, 1.5, 2.6);    // E3 — the Turn (+ the Wickstone on the island)
 
   bag.stage = 0;
   bag.objective = "Wake, and follow the ashway";
@@ -179,39 +180,32 @@ export function buildTutorial() {
       case "moved":
         if (bag.stage === 0) {
           bag.stage = 1;
-          p.prompt("In <b>shadow</b> you are unseen — swift and silent. Head up into the hall, then east.");
+          p.prompt("In <b>shadow</b> you are unseen. Follow the hall east.");
         }
         break;
       case "fogWall":
-        p.prompt("West, the hall runs on into <b>mist</b> — the rest of the Ashway, a world not yet yours to walk. Wherever fog stands like this, the way is shut. Turn back east.", 4);
+        p.prompt("<b>Fog</b> is a wall — the way west is shut. Go east.", 4);
         break;
       case "soundRoom":
         if (bag.stage === 1) {
           bag.stage = 2;
           game.setObjective("Cross the singing floor");
-          p.prompt("Hard <b>crystal</b> RINGS loud — watch the sound ripple out and draw the Vesper. Soft <b>moss</b> is silent. <b>Listen</b> to your own step.");
+          p.prompt("<b>Crystal</b> rings loud and draws them. <b>Moss</b> is silent.");
         }
         break;
       case "towerHide":
         if (bag.stage === 2 && !bag.towerTaught) {
           bag.towerTaught = true;
-          p.prompt("The <b>light towers</b> expose you even here. Keep to the dark moss edges — <b>hide</b> in what the flame does not reach.", 4);
+          p.prompt("<b>Light</b> exposes you — keep to the dark edges.", 4);
         }
         break;
       case "blinkRoom":
         if (bag.stage === 2) {
           bag.stage = 3;
-          game.setObjective("Shadowstep the resonant gap");
+          game.setObjective("Shadowstep to the Wickstone");
           p.prompt(game.isTouch
-            ? "The crystal you learned to fear now <b>walls the path</b>. There is no way round — so do not touch it. <b>Shadowstep</b> over each band onto the moss between: aim and tap <b>⤞</b>, timing the two sweeps."
-            : "The crystal you learned to fear now <b>walls the path</b>. There is no way round — so do not touch it. <b>Shadowstep</b> over each band onto the moss between: aim and press <span class='keycap'>SPACE</span>, timing the two sweeps.");
-        }
-        break;
-      case "wickRoom":
-        if (bag.stage === 3) {
-          bag.stage = 4;
-          game.setObjective("Take the Wickstone");
-          p.prompt("A shard of stolen light rests on the plinth — the <b>Wickstone</b>. Take it.", 4);
+            ? "No way round the loud floor. <b>Shadowstep</b> the bands to the <b>Wickstone</b> — aim and tap <b>⤞</b>."
+            : "No way round the loud floor. <b>Shadowstep</b> the bands to the <b>Wickstone</b> — aim and press <span class='keycap'>SPACE</span>.");
         }
         break;
     }
@@ -220,8 +214,8 @@ export function buildTutorial() {
   // Taking the Wickstone (interact at the plinth) fires this — no threats to
   // rouse in the primer; it is purely Hush's first flash of memory.
   bag.onAlarm = (game) => {
-    game.setObjective("Enter the rift");
-    game.hud.prompt("You remember… a vast <b>black tide</b>, and men with <b>hooks of light</b> wading into it.", 5);
+    game.setObjective("Escape through the rift");
+    game.hud.prompt("You remember — a black tide, and men with hooks of light.", 5);
   };
 
   bag.update = (t, dt, game) => {
