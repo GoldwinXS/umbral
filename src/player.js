@@ -57,7 +57,7 @@ export class Player {
     // light. Added here (before the RT compiles the scene) at intensity 0, ramped
     // in update() when carrySpeedMul>1. `_beaconGlow` is the 0→1 transition.
     this._beaconGlow = 0;
-    this.beaconLight = new THREE.PointLight(0xffd8a0, 0, 10);
+    this.beaconLight = new THREE.PointLight(0xffd8a0, 0, 14);
     this.beaconLight.userData.rtRadius = 0.3;
     scene.add(this.beaconLight);
 
@@ -427,8 +427,8 @@ export class Player {
     if (bg > 0.01) {
       const em = this.mesh.material.emissive;
       em.setRGB(0.141 + bg * (1.0 - 0.141), 0.063 + bg * (0.84 - 0.063), 0.251 + bg * (0.42 - 0.251));
-      this.mesh.material.emissiveIntensity = 0.55 + bg * 3.6 + Math.sin(t * 8) * 0.15 * bg;
-      this.beaconLight.intensity = bg * 6.5 * (0.92 + Math.sin(t * 8) * 0.08);
+      this.mesh.material.emissiveIntensity = 0.55 + bg * 7.6 + Math.sin(t * 8) * 0.3 * bg;
+      this.beaconLight.intensity = bg * 13.5 * (0.92 + Math.sin(t * 8) * 0.08);
       this.beaconLight.position.set(this.pos.x, this.pos.y + 0.25, this.pos.z);
     } else if (this.beaconLight.intensity !== 0) {
       this.beaconLight.intensity = 0;
