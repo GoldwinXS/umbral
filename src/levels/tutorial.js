@@ -1,19 +1,34 @@
 import * as THREE from "three";
 import { makeKit } from "../levelKit.js";
+import { lampMidden, vigilShrine, barredVista } from "./_dressing.js";
 
 /**
- * LEVEL 0 — THE ASHWAY (tutorial). One winding PATHWAY, left → right, matching
- * the hand-drawn plan:
- *   Start (moss, pokes up off the path) → drop to the path; a FOG-WALL dead-end
- *   to the far left teaches "fog = a wall you can't pass"
- *   → SOUND room: two light towers to skirt, a loud CRYSTAL shortcut straight
- *     ahead vs silent MOSS detours, one slow Vesper looping the room
- *   → BLINK room: shadowstep across two bands of resonant floor while TWO
- *     Vespers sweep past each other in opposite directions
- *   → the rift.
- * Floors and surface plates are tiled with NO overlap (overlapping coplanar
- * plates z-fight). Light, sound, and the shadowstep are all this level teaches.
+ * MISSION 1 — THE ASHWAY  (level index 0) — THE PRIMER.
+ *
+ * Teaches the four nouns-and-verbs of the whole game as four clean beats, and
+ * lets the last one TURN (per docs/REDESIGN_1-4.md):
+ *   E1 KI    — WAKING IN THE ASH : HIDE (dark = unseen) + SNEAK; the fog = wall.
+ *   E2 SHŌ   — THE SOUND FLOOR   : LISTEN (crystal rings, moss silent) + HIDE
+ *              from the tower pools; one slow Vesper.
+ *   E3 TEN   — THE RESONANCE GAP : the Turn. Crystal has meant "do not step" —
+ *              now the path is MADE of it and BLINK makes the forbidden floor
+ *              the floor you cross. Two counter-sweeping Vespers.
+ *   E4 KETSU — THE WICKSTONE     : take Hush's first relic, the memory flash,
+ *              step into the rift (LORE Beat 1 payoff).
+ *
+ * Night is total and free here — the only level where ambient dark alone hides
+ * you everywhere, on purpose. Geometry is watertight (kit.room/corridor, audited).
  */
+
+// TUNE — the knobs we actually reach for. Change feel here, not in the body.
+const TUNE = {
+  moon: 0.55,                                       // ambient darkness (lower = darker)
+  towerN: { intensity: 10, range: 9, scale: 1.7 },  // great lantern, SOUND room
+  towerS: { intensity: 6, range: 7 },               // lesser lantern
+  vSound: { speed: 1.0, pause: 1.8, range: 8 },      // the one SOUND-room Vesper
+  vBlink: { speed: 1.1, pause: 1.0, range: 8 },      // the two BLINK-room Vespers
+};
+
 export function buildTutorial() {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x04050a);
@@ -23,117 +38,116 @@ export function buildTutorial() {
   bag.name = "THE ASHWAY";
   bag.spawn.set(-28, 0.42, 10);
 
-  // ================= ROOMS (watertight, clean-corner, via kit.room/corridor) ==
-  // Floor + surface + walls build together; the old hand-placed W() segments and
-  // their gaps map 1:1 to doors:{n,s,e,w}. SOUND and BLINK keep their tiled
-  // multi-surface plates explicit (their kit.room builds only a plain floor).
-  // Default kit height/thickness (3.2 / 0.4) match this level's old W() walls.
-
+  // ================= GEOMETRY (watertight, clean-corner kit.room/corridor) =====
   // START room x[-32,-24] z[6,14]; gap toward the path at x[-29,-27]
   kit.room(-32, 6, -24, 14, { doors: { s: [[-29, -27]] }, surface: "moss" });
-  // start corridor x[-29,-27] z[3,6]
-  kit.corridor(-29, 3, -27, 6, { surface: "moss" });
-  // PATH x[-48,-8] z[0,3]: solid on the z=0 side, gap x[-29,-27] toward the start
-  // corridor, OPEN east into SOUND, capped west at the fogged dead-end
+  kit.corridor(-29, 3, -27, 6, { surface: "moss" });                       // start corridor
+  // PATH x[-48,-8] z[0,3]: gap to start corridor, OPEN east into SOUND, west cap
   kit.room(-48, 0, -8, 3, { doors: { n: [[-29, -27]], e: [[0, 3]] }, surface: "moss" });
-  // the hallway CONTINUES west into the mist — a world beyond reach. The fog
-  // wall bars it; the corridor and its west cap are visible past the barrier.
-  const fogA = kit.fogWall(-34, 1.5, 2.6, { rot: Math.PI / 2, h: 3.0 });
+  const fogA = kit.fogWall(-34, 1.5, 2.6, { rot: Math.PI / 2, h: 3.0 });   // the barred west
   // SOUND room x[-8,10] z[-9,12]; west + east door gaps z[0,3]
   kit.room(-8, -9, 10, 12, { doors: { w: [[0, 3]], e: [[0, 3]] } });
-  // a LARGE loud crystal floor filling the centre (lit by the towers) with only
-  // a thin MOSS border — creep the middle, or hug the silent dark edges.
-  kit.surface(-8, -9, -5.5, 12, "moss");       // moss edge W
-  kit.surface(7.5, -9, 10, 12, "moss");        // moss edge E
-  kit.surface(-5.5, 9.5, 7.5, 12, "moss");     // moss edge N
-  kit.surface(-5.5, -9, 7.5, -6.5, "moss");    // moss edge S
-  kit.surface(-5.5, -6.5, 7.5, 9.5, "crystal"); // the big resonant floor
-  // sound corridor x[10,16] z[0,3]
-  kit.corridor(10, 0, 16, 3, { surface: "moss" });
+  kit.surface(-8, -9, -5.5, 12, "moss");        // moss border (silent, safe)
+  kit.surface(7.5, -9, 10, 12, "moss");
+  kit.surface(-5.5, 9.5, 7.5, 12, "moss");
+  kit.surface(-5.5, -9, 7.5, -6.5, "moss");
+  kit.surface(-5.5, -6.5, 7.5, 9.5, "crystal"); // the big resonant floor (loud)
+  kit.corridor(10, 0, 16, 3, { surface: "moss" });                         // sound corridor
   // BLINK room x[16,34] z[-9,12]; west + east door gaps z[0,3]
   kit.room(16, -9, 34, 12, { doors: { w: [[0, 3]], e: [[0, 3]] } });
   kit.surface(16, -9, 21, 12, "moss");
-  kit.surface(21, -9, 24, 12, "crystal");     // band 1
-  kit.surface(24, -9, 27, 12, "moss");        // island
-  kit.surface(27, -9, 30, 12, "crystal");     // band 2
+  kit.surface(21, -9, 24, 12, "crystal");       // band 1 (leap it)
+  kit.surface(24, -9, 27, 12, "moss");          // the safe island between blinks
+  kit.surface(27, -9, 30, 12, "crystal");       // band 2
   kit.surface(30, -9, 34, 12, "moss");
-  // exit alcove x[34,38] z[0,3]: OPEN west into BLINK, capped east
-  kit.room(34, 0, 38, 3, { doors: { w: [[0, 3]] }, surface: "moss" });
+  // EXIT alcove x[34,38] z[0,3]: OPEN west into BLINK, capped east
+  const exitRoom = kit.room(34, 0, 38, 3, { doors: { w: [[0, 3]] }, surface: "moss" });
   kit.extraction(36, 1.5);
   kit.trim(2.6, 0.2, 36, 2.4, 0.05, 0, 0x39f0c0, 2.2);
 
-  // ================= light towers (SOUND) =====================================
-  const towerN = kit.torch(1, 7, { intensity: 10, range: 9, scale: 1.7 }); // a great lantern
-  const towerS = kit.torch(1, -2, { intensity: 6, range: 7 });             // a lesser one
+  // light towers (SOUND room)
+  const towerN = kit.torch(1, 7, TUNE.towerN);   // a great lantern
+  const towerS = kit.torch(1, -2, TUNE.towerS);  // a lesser one
 
-  // ================= guards ===================================================
-  // SOUND: one slow Vesper sweeping the loud centre — so the safe line is the
-  // dark, silent edges (or a slow creep across the middle when its gaze turns)
-  kit.guard([[1, -5], [1, 8]], { speed: 1.0, pause: 1.8, range: 8 });
-  // BLINK (final room): TWO Vespers sweeping in OPPOSITE directions
-  kit.guard([[19, -7], [19, 10]], { speed: 1.1, pause: 1.0, range: 8 });   // starts heading +z
-  kit.guard([[31, 10], [31, -7]], { speed: 1.1, pause: 1.0, range: 8 });   // starts heading -z
+  // guards
+  kit.guard([[1, -5], [1, 8]], TUNE.vSound);              // SOUND: one slow sweep
+  kit.guard([[19, -7], [19, 10]], TUNE.vBlink);           // BLINK: counter-sweep, +z
+  kit.guard([[31, 10], [31, -7]], TUNE.vBlink);           // BLINK: counter-sweep, -z
 
-  // ================= DRESSING (props) =========================================
-  // Rules: never intrude the central z[0,3] walking lane or a door gap; keep
-  // colliders off the guard lines (sound x=1; blink x=19 / x=31) and off spawn.
-  // Cover props (crate/barrel/column/statue/…) push colliders; urn/banner/
-  // chains/brazier/deadLantern are pure decor.
+  // ================= E1 · KI — "WAKING IN THE ASH" ============================
+  // The lamp-midden: where the Vigil dumps snuffed lamps — the pile Hush wakes
+  // from. Dead lanterns + rubble + a broken column, a tipped hauling cart.
+  {
+    const clear = [
+      { x: -28, z: 10, r: 2.4 },                          // spawn
+      { x0: -29, z0: 3, x1: -27, z1: 14, pad: 0.4 },      // start-corridor lane
+      { x0: -34, z0: 0.9, x1: -8, z1: 2.1, pad: 0.2 },    // the east walking strip
+    ];
+    lampMidden(kit, -30.5, 8.4, { backDir: Math.atan2(-1, 1), count: 5, footprint: 1.3, clear, seed: 3 });
+    kit.cart(-25.4, 7.2, { rot: 2.5, seed: 2 });          // the dumping cart, shoved aside
+    // the barred vista beyond the fog (x[-48,-34], unreachable) — intact Vigil
+    // grandeur, "the citadel goes on without you." Colliders here are harmless.
+    barredVista(kit, -42, 1.5, { clear: [], seed: 11 });
+    kit.cart(-44, 2.3, { rot: -0.5, seed: 13 });
+    kit.deadLantern(-46.6, 1.5, { seed: 16 });
+    kit.chains(-32.8, 1.5, { y: 3.0, len: 1.4, seed: 8 }); // hanging just this side of the fog
+    // the discard route east — a sparse rhythmic file of spent lamps funnelling
+    // toward the SOUND door (decor only, so it never blocks the lane)
+    kit.leadingLine(-33.5, 1.5, -9.5, 1.5, [{ prop: "urn", w: 2 }, "deadLantern"], {
+      spacing: 5.5, offset: 1.2, face: "in", seed: 9,
+      clear: [{ x0: -29, z0: 2, x1: -27, z1: 3, pad: 0.3 }],   // keep the corridor mouth clear
+    });
+  }
 
-  // START room x[-32,-24] z[6,14] — the safe threshold. Cover hugs the walls,
-  // clear of spawn (-28,10) and the north gap x[-29,-27].
-  kit.crateStack(-30.6, 8.2, { seed: 3 });
-  kit.barrel(-30.4, 12.2, { seed: 5 });
-  kit.sack(-25.2, 7.4, { seed: 2 });
-  kit.crate(-24.9, 12.4, { size: 0.8, rot: 0.5, seed: 7 });
-  kit.deadLantern(-31.3, 13.1, { seed: 1 });
-  kit.banner(-28, 2.0, 13.85, Math.PI, { w: 1.1, color: 0x2c3b6a, seed: 4 }); // south wall
+  // ================= E2 · SHŌ — "THE SOUND FLOOR" ============================
+  // Tower shrines mark the lit pools as sacred/danger; cover only on the silent
+  // dark moss edges (the reward for the long way round).
+  {
+    const clear = [
+      { x0: 0, z0: -9, x1: 2, z1: 12, pad: 0.4 },         // the Vesper's line x≈1
+      { x0: -5.5, z0: -6.5, x1: 7.5, z1: 9.5, pad: 0.2 }, // keep the crystal open/loud
+      { x0: -1.5, z0: 9.5, x1: 1.5, z1: 12 },             // N edge lane
+    ];
+    vigilShrine(kit, 1, 7, { gap: 1.7, urnScale: 0.9, clear, seed: 27 });    // great tower altar
+    vigilShrine(kit, 1, -2, { gap: 1.6, urnScale: 0.85, clear, seed: 29 });  // lesser tower altar
+    kit.corner({ x0: -8, z0: -9, x1: 10, z1: 12 }, "sw",
+      [{ prop: "crateStack", w: 2, foot: 0.8 }, "barrel", "sack"], { count: 4, clear, seed: 21 });
+    kit.corner({ x0: -8, z0: -9, x1: 10, z1: 12 }, "ne",
+      ["brokenColumn", { prop: "rubble", w: 2 }], { count: 3, clear, seed: 22 });
+    kit.banner(1, 2.4, 12.05, Math.PI, { w: 1.2, color: 0xffb46a, seed: 31 }); // tended amber banner over the pool
+  }
 
-  // PATH (reachable stretch x[-34,-8]) — decor only, snug to the north wall so
-  // the 3-wide lane stays open.
-  kit.urn(-20.5, 0.55, { scale: 1.1, tall: true, seed: 9 });
-  kit.deadLantern(-13.5, 0.45, { seed: 6 });
-  kit.chains(-32.8, 1.5, { y: 3.0, len: 1.4, seed: 8 });   // just this side of the fog
+  // ================= E3 · TEN — "THE RESONANCE GAP" ==========================
+  // The Turn. Bands of crystal wall the path; a landmark on the moss island is
+  // the thing you blink TOWARD. Cold unlit braziers: flame is rationed.
+  {
+    const clear = [
+      { x0: 16, z0: 0, x1: 34, z1: 3, pad: 0.4 },         // the z0..3 landing lane
+      { x0: 18, z0: -9, x1: 20, z1: 12, pad: 0.4 },       // V-w line x≈19
+      { x0: 30, z0: -9, x1: 32, z1: 12, pad: 0.4 },       // V-e line x≈31
+      { x0: 21, z0: -9, x1: 24, z1: 12 },                 // band 1 — keep clear (leap it)
+      { x0: 27, z0: -9, x1: 30, z1: 12 },                 // band 2 — keep clear
+    ];
+    kit.statue(25.5, 10.2, { scale: 1.0, h: 2.7, seed: 41 });        // blink-target landmark
+    kit.flank(25.5, 8.4, { prop: "urn", opts: { scale: 0.8 } }, { gap: 1.2, dir: Math.PI / 2, clear, seed: 45 });
+    kit.rubble(25.5, -7.2, { radius: 0.9, seed: 42 });              // low marker at a band lip
+    kit.brazier(17.4, 10.6, { lit: false, seed: 43 });             // cold — flame is rationed
+    kit.brazier(32.6, -7.6, { lit: false, seed: 44 });
+  }
 
-  // BEYOND THE FOG (unreachable x[-48,-34]) — a full little vista glimpsed
-  // through the mist, so the barred hall reads as a real world going on.
-  kit.statue(-42, 1.5, { scale: 1.15, h: 3.0, rot: 0.4, seed: 11 });
-  kit.brokenColumn(-45.2, 0.7, { h: 2.0, seed: 12 });
-  kit.cart(-44, 2.3, { rot: -0.5, seed: 13 });
-  kit.rubble(-38.5, 2.3, { radius: 1.0, seed: 14 });
-  kit.barrel(-37, 0.6, { seed: 15 });
-  kit.deadLantern(-46.6, 1.5, { seed: 16 });
-
-  // SOUND room — cover ONLY on the silent dark moss edges (west x≈-6.8, east
-  // x≈8.8), rewarding the long way round; nothing on the loud crystal centre
-  // or the Vesper's line (x=1). Urns flank the two towers like little shrines.
-  kit.crateStack(-6.9, 4.4, { seed: 21 });
-  kit.brokenColumn(-6.7, 8.6, { h: 1.7, seed: 22 });
-  kit.barrel(-6.8, -3.2, { seed: 23 });
-  kit.crateStack(8.8, -4.2, { seed: 24 });
-  kit.sarcophagus(8.6, 6.2, { rot: Math.PI / 2, seed: 25 });
-  kit.statue(8.7, 10.4, { scale: 0.9, h: 2.4, seed: 26 });
-  kit.urn(-0.7, 6.3, { scale: 0.9, seed: 27 });   // tower N (1,7) base
-  kit.urn(2.7, 7.7, { scale: 0.9, seed: 28 });
-  kit.urn(-0.7, -2.7, { scale: 0.8, seed: 29 });  // tower S (1,-2) base
-  kit.urn(2.7, -1.3, { scale: 0.8, seed: 30 });
-  kit.banner(-4, 2.2, 12.05, Math.PI, { w: 1.0, color: 0x243a5c, seed: 31 });
-  kit.banner(6, 2.2, 12.05, Math.PI, { w: 1.0, color: 0x243a5c, seed: 32 });
-
-  // BLINK room — only the central moss island (x[24,27]) and back corners get
-  // landmarks, well clear of the z[0,3] landing lane and the guard lines
-  // (x=19, x=31). They read as things to blink *toward*.
-  kit.statue(25.5, 10.2, { scale: 1.0, h: 2.7, seed: 41 });
-  kit.rubble(25.5, -7.2, { radius: 0.9, seed: 42 });
-  kit.brazier(17.4, 10.6, { seed: 43 });
-  kit.brazier(32.6, -7.6, { seed: 44 });
-
-  // EXIT alcove — two dead lanterns flanking the rift like a gate (decor only).
-  kit.deadLantern(35.0, 0.35, { seed: 51 });
-  kit.deadLantern(35.0, 2.65, { seed: 52 });
+  // ================= E4 · KETSU — "THE WICKSTONE" ============================
+  // Hush's first relic on a low plinth (amber = stolen Vigil light), off the
+  // z=1.5 lane so its collider never blocks the rift. Taking it fires the first
+  // memory (LORE Beat 1) via bag.onAlarm and gates the win. Dead-lantern gate.
+  const wick = kit.scepterPedestal(35.4, 2.4);
+  wick.core.material.emissive.set(0xffd76a);         // ensure amber
+  kit.deadLantern(35.0, 0.35, { seed: 51 });         // the gate of dead lamps
+  kit.deadLantern(35.2, 2.75, { seed: 52 });
+  kit.inscription(38.0, 2.0, 1.5, "THE ASH REMEMBERS WHAT THE FLAME FORGOT", -Math.PI / 2, "#ffb46a");
+  void exitRoom;
 
   // ================= ambient (low — pools & shadow must read) =================
-  const moon = new THREE.DirectionalLight(0x8ea0cc, 0.55);
+  const moon = new THREE.DirectionalLight(0x8ea0cc, TUNE.moon);
   moon.position.set(-12, 22, 8);
   moon.userData.rtRadius = 0.05;
   scene.add(moon, moon.target);
@@ -149,22 +163,23 @@ export function buildTutorial() {
   kit.checkpoint(-10, 1.5, 2);
   kit.checkpoint(13, 1.5, 2, 13, 1.5);
 
-  // ================= triggers / gentle teaching ===============================
+  // ================= triggers / four-beat teaching ============================
   kit.trigger("moved", -28, 6, 2.4);
   kit.trigger("fogWall", -32, 1.5, 2.6);
-  kit.trigger("soundRoom", -6, 1.5, 2.6);
-  kit.trigger("blinkRoom", 17, 1.5, 2.6);
-  kit.trigger("exitRoom", 33, 1.5, 2.2);
+  kit.trigger("soundRoom", -6, 1.5, 2.6);    // E2 entry — LISTEN
+  kit.trigger("towerHide", 1, 2, 3.0);       // E2 near the pools — HIDE from light
+  kit.trigger("blinkRoom", 17, 1.5, 2.6);    // E3 — the Turn
+  kit.trigger("wickRoom", 33, 1.5, 2.2);     // E4 — take the Wickstone
 
   bag.stage = 0;
-  bag.objective = "Follow the path";
+  bag.objective = "Wake, and follow the ashway";
   bag.onTrigger = (id, game) => {
     const p = game.hud;
     switch (id) {
       case "moved":
         if (bag.stage === 0) {
           bag.stage = 1;
-          p.prompt("In <b>shadow</b> you are unseen — swift and silent. Head up into the hall, then follow it east.");
+          p.prompt("In <b>shadow</b> you are unseen — swift and silent. Head up into the hall, then east.");
         }
         break;
       case "fogWall":
@@ -173,27 +188,40 @@ export function buildTutorial() {
       case "soundRoom":
         if (bag.stage === 1) {
           bag.stage = 2;
-          game.setObjective("Slip past the Vesper");
-          p.prompt("Hard <b>crystal</b> floor RINGS loud — watch the sound ripple out and draw the Vesper. Soft <b>moss</b> is silent. The <b>light towers</b> expose you: skirt the dark edges, on moss, and cross when its gaze turns away.");
+          game.setObjective("Cross the singing floor");
+          p.prompt("Hard <b>crystal</b> RINGS loud — watch the sound ripple out and draw the Vesper. Soft <b>moss</b> is silent. <b>Listen</b> to your own step.");
+        }
+        break;
+      case "towerHide":
+        if (bag.stage === 2 && !bag.towerTaught) {
+          bag.towerTaught = true;
+          p.prompt("The <b>light towers</b> expose you even here. Keep to the dark moss edges — <b>hide</b> in what the flame does not reach.", 4);
         }
         break;
       case "blinkRoom":
         if (bag.stage === 2) {
           bag.stage = 3;
-          game.setObjective("Shadowstep past the wardens");
+          game.setObjective("Shadowstep the resonant gap");
           p.prompt(game.isTouch
-            ? "Two <b>resonant bands</b>, and two Vespers passing each other. <b>Shadowstep</b> over the loud floor in silence — aim and tap <b>⤞</b>, timing each leap between them."
-            : "Two <b>resonant bands</b>, and two Vespers passing each other. <b>Shadowstep</b> over the loud floor in silence — aim and press <span class='keycap'>SPACE</span>, timing each leap between them.");
+            ? "The crystal you learned to fear now <b>walls the path</b>. There is no way round — so do not touch it. <b>Shadowstep</b> over each band onto the moss between: aim and tap <b>⤞</b>, timing the two sweeps."
+            : "The crystal you learned to fear now <b>walls the path</b>. There is no way round — so do not touch it. <b>Shadowstep</b> over each band onto the moss between: aim and press <span class='keycap'>SPACE</span>, timing the two sweeps.");
         }
         break;
-      case "exitRoom":
+      case "wickRoom":
         if (bag.stage === 3) {
           bag.stage = 4;
-          game.setObjective("Enter the rift");
-          p.prompt("The rift calls. Step in, little shadow.");
+          game.setObjective("Take the Wickstone");
+          p.prompt("A shard of stolen light rests on the plinth — the <b>Wickstone</b>. Take it.", 4);
         }
         break;
     }
+  };
+
+  // Taking the Wickstone (interact at the plinth) fires this — no threats to
+  // rouse in the primer; it is purely Hush's first flash of memory.
+  bag.onAlarm = (game) => {
+    game.setObjective("Enter the rift");
+    game.hud.prompt("You remember… a vast <b>black tide</b>, and men with <b>hooks of light</b> wading into it.", 5);
   };
 
   bag.update = (t, dt, game) => {
@@ -203,6 +231,6 @@ export function buildTutorial() {
   };
 
   bag.startVials = 0;
-  void fogA; void towerN; void towerS;
+  void fogA; void towerN; void towerS; void wick;
   return bag;
 }
