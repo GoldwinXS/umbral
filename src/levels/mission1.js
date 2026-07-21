@@ -79,6 +79,13 @@ export function buildMission1() {
   kit.floor(41, 19.5, 0, -9);
   W(0.6, 19.5, -19.6, -9);
   W(0.6, 19.5, 19.6, -9);
+  // SEAL the courtyard's true floor edges — the floor runs to x±20.5 and z-18.75,
+  // wider than the walls above, so it was open to the abyss on the west, east,
+  // and the two south flanks beside the hall door. Close them off.
+  W(0.6, 17.5, -20.5, -9.75);   // west floor edge  z[-18.5,-1] (moat stays open above)
+  W(0.6, 17.5, 20.5, -9.75);    // east floor edge
+  W(9.5, 0.6, -15.75, -18);     // south flank, west of the hall door
+  W(9.5, 0.6, 15.75, -18);      // south flank, east of the hall door
   // hedges + garden blocks for cover
   kit.solid(7, 1.2, 1.1, -10, -6, kit.mats.block, 0);
   kit.solid(1.1, 1.2, 6, -6, -12, kit.mats.block, 0);
@@ -121,7 +128,7 @@ export function buildMission1() {
   kit.mawMote("m3", 8.5, -31.5);  // reliquary corner
 
   // ================= wardens =================
-  kit.guard([[-9, 18], [9, 18]], { speed: 1.5, pause: 1.6 });                 // 0 village lane
+  kit.guard([[-9, 18], [9, 14]], { speed: 1.5, pause: 1.6 });                 // 0 village lane (east wp was inside a house)
   kit.guard([[5, 11], [5, 7], [-5, 7], [-5, 11]], { speed: 1.3, pause: 1.2 }); // 1 plaza orbit
   kit.guard([[-4, 2.2], [4, 2.2]], { speed: 1.4, pause: 1.3 });               // 2 gatehouse
   kit.guard([[14, 8], [14, 3]], { speed: 1.2, pause: 2.0 });                  // 3 postern
