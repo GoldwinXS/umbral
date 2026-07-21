@@ -30,6 +30,11 @@ export function makeKit(scene) {
     block: new THREE.MeshStandardMaterial({ color: 0x363e56, roughness: 0.8 }),
     pillar: new THREE.MeshStandardMaterial({ color: 0x3d4560, roughness: 0.65, metalness: 0.1 }),
     dark: new THREE.MeshStandardMaterial({ color: 0x171b26, roughness: 0.95 }),
+    // prop-library materials — kept dark/desaturated to match the palette above
+    wood: new THREE.MeshStandardMaterial({ color: 0x2a2018, roughness: 0.92, metalness: 0.02 }),
+    rust: new THREE.MeshStandardMaterial({ color: 0x3f2e22, roughness: 0.75, metalness: 0.45 }),
+    stone: new THREE.MeshStandardMaterial({ color: 0x2c2e36, roughness: 0.95, metalness: 0.03 }),
+    cloth: new THREE.MeshStandardMaterial({ color: 0x3a3a48, roughness: 0.97, metalness: 0.0, side: THREE.DoubleSide }),
   };
 
   const bag = {
@@ -62,6 +67,15 @@ export function makeKit(scene) {
     const k = w + "," + h + "," + d;
     if (!boxGeoCache.has(k)) boxGeoCache.set(k, new THREE.BoxGeometry(w, h, d));
     return boxGeoCache.get(k);
+  }
+
+  // Deterministic per-call jitter for the prop library: pass a seed to get a
+  // repeatable "random" value in [0,1); omit it to just fall back to Math.random
+  // (fine to call at prop-build time — only module-scope randomness is banned).
+  function rand(seed) {
+    if (seed === undefined || seed === null) return Math.random();
+    const x = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
+    return x - Math.floor(x);
   }
 
   // soft radial alpha sprite, shared by fog banks (built lazily)
@@ -213,7 +227,7 @@ export function makeKit(scene) {
      *  a bigger, taller lantern (pass higher intensity/range for a brighter one)
      *  so the map can carry a mix of small and great lanterns. */
     torch(x, z, { color = 0xffb36b, intensity = 6, range = 9, h = 2.2, scale = 1 } = {}) {
-      intensity *= 1.4; // global lantern brightness lift — the lamps burn brighter
+      intensity *= 2.2; // global lantern brightness lift — the lamps burn brighter
       const ph = h * scale;
       const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06 * scale, 0.09 * scale, ph, 8), mats.dark);
       pole.position.set(x, ph / 2, z);
@@ -511,6 +525,367 @@ export function makeKit(scene) {
         blind: opts.blind ?? false,   // a Snuffed: no light, hunts by sound
       });
       return bag.guards[bag.guards.length - 1];
+    },
+
+    // ========================================================================
+    // PROP LIBRARY — varied low-poly decorative + cover pieces built from
+    // primitives, so levels can be cluttered without going back to bare boxes.
+    //
+    // COVER props (crate, crateStack, barrel, sack, brokenColumn, rubble,
+    // statue, sarcophagus, cart) are built from real meshes added to `scene` +
+    // `bag.occluders` (they cast shadows and sit in the ray-traced BVH) and get
+    // ONE approximate collider in bag.boxes/bag.cylinders. Never rtExclude.
+    //
+    // PURE DECOR (urn, banner, chains, brazier, deadLantern) skips the
+    // collider; still added to scene + bag.occluders so it casts/occludes,
+    // except tiny emissive bits (an ember, a glow) which are rtExclude.
+    // ========================================================================
+
+    /** Wooden crate — cover. One box body + two thin rust-metal straps for a
+     *  beveled/trimmed look. `seed` varies the strap tint/offset call-to-call. */
+    crate(x, z, opts = {}) {
+      const { size = 0.9, rot = 0, seed = 0 } = opts;
+      const s = size;
+      const group = new THREE.Group();
+      group.position.set(x, 0, z);
+      group.rotation.y = rot;
+      const body = new THREE.Mesh(boxGeo(s, s, s), mats.wood);
+      body.position.set(0, s / 2, 0);
+      group.add(body);
+      const strapY = s * (0.32 + rand(seed + 1) * 0.16);
+      const strapA = new THREE.Mesh(boxGeo(s * 1.01, s * 0.08, s * 0.08), mats.rust);
+      strapA.position.set(0, strapY, 0);
+      group.add(strapA);
+      const strapB = new THREE.Mesh(boxGeo(s * 0.08, s * 0.08, s * 1.01), mats.rust);
+      strapB.position.set(0, s * 0.7, 0);
+      group.add(strapB);
+      scene.add(group);
+      bag.occluders.push(body, strapA, strapB);
+      bag.boxes.push({ x, z, hx: s / 2, hz: s / 2, rot, enabled: true });
+      return group;
+    },
+
+    /** A stack of 2-4 offset crates — cover, one bounding-box collider so the
+     *  whole pile blocks as a unit. `seed` varies count/offsets/sizes. */
+    crateStack(x, z, opts = {}) {
+      const { size = 0.85, rot = 0, count, seed = 1 } = opts;
+      const n = count ?? (3 + Math.floor(rand(seed) * 2)); // 3-4
+      const group = new THREE.Group();
+      group.position.set(x, 0, z);
+      group.rotation.y = rot;
+      const meshes = [];
+      let maxFoot = size * 0.6;
+      let y = 0;
+      for (let i = 0; i < n; i++) {
+        const s = size * (0.78 + rand(seed + i * 3.1) * 0.3);
+        const jx = (rand(seed + i * 5.7) - 0.5) * size * 0.5;
+        const jz = (rand(seed + i * 9.3) - 0.5) * size * 0.5;
+        const jr = (rand(seed + i * 2.2) - 0.5) * 0.6;
+        const b = new THREE.Mesh(boxGeo(s, s, s), mats.wood);
+        b.position.set(jx, y + s / 2, jz);
+        b.rotation.y = jr;
+        group.add(b);
+        meshes.push(b);
+        maxFoot = Math.max(maxFoot, Math.abs(jx) + s / 2, Math.abs(jz) + s / 2);
+        y += s * (0.55 + rand(seed + i * 4.4) * 0.15); // partial overlap, not a clean tower
+      }
+      scene.add(group);
+      bag.occluders.push(...meshes);
+      bag.boxes.push({ x, z, hx: maxFoot, hz: maxFoot, rot, enabled: true });
+      return group;
+    },
+
+    /** Barrel — cover. Cylinder body + 2 thin torus hoops. */
+    barrel(x, z, opts = {}) {
+      const { r = 0.42, h = 0.95, rot = 0, seed = 0 } = opts;
+      const group = new THREE.Group();
+      group.position.set(x, 0, z);
+      group.rotation.y = rot;
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 0.94, h, 10), mats.wood);
+      body.position.set(0, h / 2, 0);
+      group.add(body);
+      const hoops = [body];
+      for (const t of [0.28, 0.72]) {
+        const hoop = new THREE.Mesh(new THREE.TorusGeometry(r * 1.01, r * 0.06, 5, 14), mats.rust);
+        hoop.rotation.x = Math.PI / 2;
+        hoop.position.set(0, h * t + (rand(seed + t * 10) - 0.5) * 0.04, 0);
+        group.add(hoop);
+        hoops.push(hoop);
+      }
+      scene.add(group);
+      bag.occluders.push(...hoops);
+      bag.cylinders.push({ x, z, r, enabled: true });
+      return group;
+    },
+
+    /** Sack of grain/loot — small cover. A squashed, slightly tilted sphere
+     *  with a knotted top, cloth material. */
+    sack(x, z, opts = {}) {
+      const { r = 0.4, rot = 0, seed = 0 } = opts;
+      const group = new THREE.Group();
+      group.position.set(x, 0, z);
+      group.rotation.set(0, rot, (rand(seed) - 0.5) * 0.3);
+      const body = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 6), mats.cloth);
+      body.scale.set(1, 0.72, 1);
+      body.position.set(0, r * 0.72, 0);
+      group.add(body);
+      const knot = new THREE.Mesh(new THREE.OctahedronGeometry(r * 0.28, 0), mats.cloth);
+      knot.position.set(0, r * 1.28, 0);
+      group.add(knot);
+      scene.add(group);
+      bag.occluders.push(body, knot);
+      bag.boxes.push({ x, z, hx: r * 0.85, hz: r * 0.85, rot, enabled: true });
+      return group;
+    },
+
+    /** Urn / vase — pure decor. A Lathe-revolved profile, stone material.
+     *  `tall` gives a slender floor urn instead of a squat table vase. */
+    urn(x, z, opts = {}) {
+      const { scale = 1, rot = 0, tall = true, seed = 0 } = opts;
+      const pts = tall
+        ? [[0.02, 0], [0.22, 0.02], [0.28, 0.18], [0.16, 0.55], [0.24, 0.78], [0.19, 0.95], [0.1, 1.0]]
+        : [[0.02, 0], [0.26, 0.03], [0.3, 0.16], [0.2, 0.34], [0.24, 0.42], [0.15, 0.48]];
+      const vpts = pts.map(([px, py]) => new THREE.Vector2(px * scale, py * scale));
+      const geo = new THREE.LatheGeometry(vpts, 9);
+      const m = new THREE.Mesh(geo, mats.stone);
+      m.position.set(x, 0, z);
+      m.rotation.y = rot + rand(seed) * Math.PI * 2;
+      scene.add(m);
+      bag.occluders.push(m);
+      return m;
+    },
+
+    /** Broken column — cover. A jagged standing stump plus 1-2 fallen drum
+     *  segments scattered beside it. Tall stump = a good shadow caster. */
+    brokenColumn(x, z, opts = {}) {
+      const { r = 0.42, h = 1.6, rot = 0, seed = 0 } = opts;
+      const group = new THREE.Group();
+      group.position.set(x, 0, z);
+      group.rotation.y = rot;
+      const meshes = [];
+      const stumpH = h * (0.5 + rand(seed) * 0.4);
+      const stump = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.05, stumpH, 10), mats.stone);
+      stump.position.set(0, stumpH / 2, 0);
+      stump.rotation.z = (rand(seed + 1) - 0.5) * 0.06; // slight lean
+      group.add(stump); meshes.push(stump);
+      const drumN = 1 + Math.floor(rand(seed + 2) * 2); // 1-2 fallen drums
+      for (let i = 0; i < drumN; i++) {
+        const dh = r * (1.1 + rand(seed + 3 + i) * 0.6);
+        const drum = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.98, r * 0.98, dh, 10), mats.stone);
+        const ang = rand(seed + 5 + i) * Math.PI * 2;
+        const dist = r * 1.7 + i * r * 1.6;
+        drum.position.set(Math.cos(ang) * dist, r * 0.98, Math.sin(ang) * dist);
+        drum.rotation.z = Math.PI / 2;
+        drum.rotation.y = rand(seed + 8 + i) * Math.PI;
+        group.add(drum); meshes.push(drum);
+      }
+      scene.add(group);
+      bag.occluders.push(...meshes);
+      bag.cylinders.push({ x, z, r: r * 2.6, enabled: true }); // covers stump + nearby drums
+      return group;
+    },
+
+    /** Rubble pile — low cover. A cluster of 4-8 small angled rock chunks. */
+    rubble(x, z, opts = {}) {
+      const { radius = 0.9, n, rot = 0, seed = 0 } = opts;
+      const count = n ?? (4 + Math.floor(rand(seed) * 5)); // 4-8
+      const group = new THREE.Group();
+      group.position.set(x, 0, z);
+      group.rotation.y = rot;
+      const meshes = [];
+      for (let i = 0; i < count; i++) {
+        const rs = seed + i * 3.3;
+        const rr = 0.14 + rand(rs) * 0.22;
+        const rock = new THREE.Mesh(new THREE.OctahedronGeometry(rr, 0), mats.stone);
+        const ang = rand(rs + 1) * Math.PI * 2;
+        const dist = rand(rs + 2) * radius;
+        rock.position.set(Math.cos(ang) * dist, rr * 0.5, Math.sin(ang) * dist);
+        rock.rotation.set(rand(rs + 3) * Math.PI, rand(rs + 4) * Math.PI, rand(rs + 5) * Math.PI);
+        rock.scale.set(1, 0.7 + rand(rs + 6) * 0.4, 1);
+        group.add(rock); meshes.push(rock);
+      }
+      scene.add(group);
+      bag.occluders.push(...meshes);
+      bag.cylinders.push({ x, z, r: radius * 0.75, enabled: true });
+      return group;
+    },
+
+    /** Statue — tall cover, a great shadow caster. Stone plinth + a simple
+     *  robed/obelisk figure (tapered body + hood + head). */
+    statue(x, z, opts = {}) {
+      const { scale = 1, rot = 0, h = 2.6, seed = 0 } = opts;
+      const group = new THREE.Group();
+      group.position.set(x, 0, z);
+      group.rotation.y = rot;
+      const meshes = [];
+      const plinthW = 0.9 * scale, plinthH = 0.35 * scale;
+      const plinth = new THREE.Mesh(boxGeo(plinthW, plinthH, plinthW), mats.stone);
+      plinth.position.set(0, plinthH / 2, 0);
+      group.add(plinth); meshes.push(plinth);
+      const bodyH = h * scale - plinthH;
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.14 * scale, 0.34 * scale, bodyH, 8), mats.stone);
+      body.position.set(0, plinthH + bodyH / 2, 0);
+      body.rotation.y = rand(seed) * Math.PI;
+      group.add(body); meshes.push(body);
+      const hood = new THREE.Mesh(new THREE.ConeGeometry(0.22 * scale, 0.42 * scale, 8), mats.stone);
+      hood.position.set(0, plinthH + bodyH + 0.16 * scale, 0);
+      group.add(hood); meshes.push(hood);
+      scene.add(group);
+      bag.occluders.push(...meshes);
+      bag.boxes.push({ x, z, hx: plinthW / 2, hz: plinthW / 2, rot, enabled: true });
+      return group;
+    },
+
+    /** Sarcophagus — low, wide stone cover with a lid lip. */
+    sarcophagus(x, z, opts = {}) {
+      const { w = 1.8, d = 0.8, h = 0.7, rot = 0 } = opts;
+      const group = new THREE.Group();
+      group.position.set(x, 0, z);
+      group.rotation.y = rot;
+      const body = new THREE.Mesh(boxGeo(w, h, d), mats.stone);
+      body.position.set(0, h / 2, 0);
+      const lidH = h * 0.22;
+      const lid = new THREE.Mesh(boxGeo(w * 1.04, lidH, d * 1.08), mats.stone);
+      lid.position.set(0, h - lidH / 2 + 0.01, 0);
+      group.add(body, lid);
+      scene.add(group);
+      bag.occluders.push(body, lid);
+      bag.boxes.push({ x, z, hx: (w * 1.04) / 2, hz: (d * 1.08) / 2, rot, enabled: true });
+      return group;
+    },
+
+    /** Cart — cover. Wood box body on two side wheels + a front handle pole. */
+    cart(x, z, opts = {}) {
+      const { w = 1.4, d = 0.8, h = 0.55, rot = 0 } = opts;
+      const group = new THREE.Group();
+      group.position.set(x, 0, z);
+      group.rotation.y = rot;
+      const wheelR = h * 0.55;
+      const bodyY = wheelR * 1.15;
+      const body = new THREE.Mesh(boxGeo(w, h, d), mats.wood);
+      body.position.set(0, bodyY + h / 2, 0);
+      const meshes = [body];
+      for (const sx of [-1, 1]) {
+        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(wheelR, wheelR, 0.1, 10), mats.rust);
+        wheel.rotation.z = Math.PI / 2;
+        wheel.position.set(sx * (w / 2 - 0.05), wheelR, 0);
+        group.add(wheel); meshes.push(wheel);
+      }
+      const handle = new THREE.Mesh(boxGeo(0.08, 0.08, d * 0.9), mats.wood);
+      handle.position.set(w / 2 + d * 0.4, bodyY * 0.6, 0);
+      handle.rotation.y = 0.15;
+      group.add(body, handle); meshes.push(handle);
+      scene.add(group);
+      bag.occluders.push(...meshes);
+      bag.boxes.push({ x, z, hx: w / 2 + 0.15, hz: d / 2, rot, enabled: true });
+      return group;
+    },
+
+    /** Hanging wall banner — pure decor, no collider. A tall cloth quad with
+     *  a gentle wave baked into its vertices. Takes explicit x,y,z (mount
+     *  height matters) + rot (face direction). */
+    banner(x, y, z, rot = 0, opts = {}) {
+      const { w = 1.0, h = 2.2, color, seed = 0 } = opts;
+      const geo = new THREE.PlaneGeometry(w, h, 1, 7);
+      const pos = geo.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        const py = pos.getY(i); // -h/2..h/2
+        const t = py / h + 0.5;
+        pos.setZ(i, Math.sin(t * Math.PI * 1.6 + seed) * 0.05 * t);
+      }
+      geo.computeVertexNormals();
+      const mat = color
+        ? new THREE.MeshStandardMaterial({ color, roughness: 0.95, side: THREE.DoubleSide })
+        : mats.cloth;
+      const m = new THREE.Mesh(geo, mat);
+      m.position.set(x, y, z);
+      m.rotation.y = rot;
+      scene.add(m);
+      bag.occluders.push(m);
+      return m;
+    },
+
+    /** A couple of thin hanging chain links — pure decor, no collider. `y`
+     *  is the top mount height; the chain hangs `len` down from there. */
+    chains(x, z, opts = {}) {
+      const { y = 3.0, len = 1.2, links, seed = 0 } = opts;
+      const n = links ?? 5;
+      const group = new THREE.Group();
+      group.position.set(x, 0, z);
+      const meshes = [];
+      const step = len / n;
+      for (let i = 0; i < n; i++) {
+        const link = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, step * 0.92, 5), mats.rust);
+        link.position.set((rand(seed + i) - 0.5) * 0.02, y - step * (i + 0.5), 0);
+        link.rotation.x = (i % 2) * (Math.PI / 2);
+        group.add(link); meshes.push(link);
+      }
+      scene.add(group);
+      bag.occluders.push(...meshes);
+      return group;
+    },
+
+    /** Brazier — pure decor. A dark tripod bowl, UNLIT by default. Pass
+     *  {lit:true} for a small rtExclude ember glow, or {light:N} for a real
+     *  (small) PointLight — neither is on unless asked for. */
+    brazier(x, z, opts = {}) {
+      const { r = 0.34, h = 0.7, rot = 0, lit = false, light = 0, seed = 0 } = opts;
+      const group = new THREE.Group();
+      group.position.set(x, 0, z);
+      group.rotation.y = rot;
+      const meshes = [];
+      for (let i = 0; i < 3; i++) {
+        const a = rot + (i / 3) * Math.PI * 2 + rand(seed + i) * 0.2;
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, h, 5), mats.rust);
+        leg.position.set(Math.cos(a) * r * 0.6, h / 2, Math.sin(a) * r * 0.6);
+        leg.rotation.z = Math.cos(a) * 0.25;
+        leg.rotation.x = -Math.sin(a) * 0.25;
+        group.add(leg); meshes.push(leg);
+      }
+      const bowl = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2), mats.dark);
+      bowl.position.set(0, h, 0);
+      bowl.rotation.x = Math.PI; // concave side up
+      group.add(bowl); meshes.push(bowl);
+      scene.add(group);
+      bag.occluders.push(...meshes);
+      if (lit) {
+        const ember = new THREE.Mesh(
+          new THREE.OctahedronGeometry(r * 0.35),
+          new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xff7a2a, emissiveIntensity: 4 })
+        );
+        ember.position.set(x, h + r * 0.3, z);
+        ember.userData.rtExclude = true;
+        scene.add(ember);
+      }
+      if (light > 0) {
+        const pl = new THREE.PointLight(0xff8a3a, light, 6);
+        pl.position.set(x, h + r * 0.3, z);
+        pl.userData.rtRadius = 0.08;
+        scene.add(pl);
+      }
+      return group;
+    },
+
+    /** Dead (unlit) hanging lantern fixture — pure decor, no collider, no
+     *  light. A dark pole/bracket + cage housing, ready to be re-lit by a
+     *  level script if ever needed (it deliberately does NOT use kit.torch). */
+    deadLantern(x, z, opts = {}) {
+      const { h = 2.4, rot = 0, seed = 0 } = opts;
+      const group = new THREE.Group();
+      group.position.set(x, 0, z);
+      group.rotation.y = rot;
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, h, 6), mats.rust);
+      pole.position.set(0, h / 2, 0);
+      const cage = new THREE.Mesh(new THREE.OctahedronGeometry(0.16, 0), mats.dark);
+      cage.position.set(0, h + 0.05, 0);
+      cage.rotation.y = rand(seed) * Math.PI;
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.02, 5, 10), mats.rust);
+      ring.rotation.x = Math.PI / 2;
+      ring.position.set(0, h - 0.08, 0);
+      group.add(pole, cage, ring);
+      scene.add(group);
+      bag.occluders.push(pole, cage, ring);
+      return group;
     },
   };
 

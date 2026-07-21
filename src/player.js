@@ -289,7 +289,7 @@ export class Player {
         const surf = ctx.surfaceAt(this.pos.x, this.pos.z);
         const stance = input.sneak ? 0.45 : 1;
         // shadow muffles your steps, light makes every footfall carry
-        const lightNoise = 0.55 + lit * 0.95; // ~0.55× dark → ~1.5× lit
+        const lightNoise = 0.55 + this._litSmooth * 0.95; // ~0.55× dark → ~1.5× lit
         const radius = 8.5 * (speedNow / SPEEDS.run) * ctx.surfaceMult(surf) * stance * lightNoise;
         if (radius > 0.25) ctx.onNoise(this.pos.x, this.pos.z, radius, surf);
       }

@@ -38,9 +38,9 @@ const PROGRESS_KEY = "umbral.progress";
 // falloff on the ground plane, matching the tracer: a tight bright pool that
 // falls off to near-nothing within a few metres, so a torch across the room no
 // longer bleeds light into a dark corner.
-const VIS_ENV = 0.15;   // sky/env floor — the world is never pitch black
+const VIS_ENV = 0.2;    // sky/env floor — the world is never pitch black
 const VIS_MOON = 1.0;   // moon (directional) weight
-const VIS_NORM = 9.0;
+const VIS_NORM = 7.0;   // lower = lit areas expose you sooner (harder)
 // CUMULATIVE progression by level index — Hush only ever gets stronger. This
 // is the single source of truth (per-level bag.upgrades are ignored), so a
 // later level can never silently regress an earlier grant.
@@ -171,7 +171,7 @@ class Game {
       // a LOW, cold ambient floor — shadows must go genuinely dark so torches
       // and warden beams pool bright and the "shadow = unseen" mechanic reads.
       envColor: new THREE.Color(0x0a0e1a),
-      envIntensity: 0.28,
+      envIntensity: 0.4,
       volumetric: { enabled: true, density: 0 },
       overloadProtection: true,
     });
@@ -210,9 +210,9 @@ class Game {
     }, { passive: false });
     // desktop: right-drag = orbit
     let rx = null;
-    window.addEventListener("pointerdown", (e) => { if (e.pointerType === "mouse" && e.button === 2 && playing()) rx = e.clientX; });
+    window.addEventListener("pointerdown", (e) => { if (e.pointerType === "mouse" && e.button === 2 && playing()) { rx = e.clientX; this._rotating = true; } });
     window.addEventListener("pointermove", (e) => { if (rx != null) { this.camYaw += (e.clientX - rx) * 0.008; rx = e.clientX; } });
-    window.addEventListener("pointerup", () => { rx = null; });
+    window.addEventListener("pointerup", () => { rx = null; this._rotating = false; });
     window.addEventListener("contextmenu", (e) => { if (playing()) e.preventDefault(); });
     // touch: two-finger pinch = zoom, twist = orbit
     const pts = new Map();
@@ -227,6 +227,7 @@ class Game {
       if (e.pointerType !== "touch" || !pts.has(e.pointerId)) return;
       pts.set(e.pointerId, e);
       if (pts.size >= 2 && playing()) {
+        this._rotating = true;
         const [a, b] = two();
         const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
         const ang = Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX);
@@ -239,7 +240,7 @@ class Game {
         e.preventDefault();
       }
     }, { passive: false });
-    const drop = (e) => { pts.delete(e.pointerId); if (pts.size < 2) pd = 0; };
+    const drop = (e) => { pts.delete(e.pointerId); if (pts.size < 2) { pd = 0; this._rotating = false; } };
     window.addEventListener("pointerup", drop);
     window.addEventListener("pointercancel", drop);
   }
@@ -594,7 +595,7 @@ class Game {
         if (d >= dist || lt.intensity <= 0.001) continue;
         if (!this.los(lp.x, lp.y, lp.z, px, 0.5, pz)) continue;
         const win = 1 - (d / dist) * (d / dist);      // smooth cutoff at range
-        raw += lt.intensity * win / (1 + d * d);       // inverse-square core
+        raw += lt.intensity * win / (1 + 0.45 * d * d); // pool widened to match the rendered light
       }
     }
 
@@ -679,6 +680,10 @@ class Game {
 
     if (input.consume("pause")) { this.pause(); return; }
     if (input.consume("mute")) { this.settings.sound = !this.settings.sound; this.settings.apply(); }
+
+    // while orbiting the camera (right-drag / two-finger twist), lock movement so
+    // a stray thumb/drag doesn't walk the blob when you meant to rotate
+    if (this._rotating) { input.move.x = 0; input.move.z = 0; if (input.joy) input.joy.active = false; }
 
     // keyboard camera: , / . orbit, - / = zoom
     const k = input.keys;
