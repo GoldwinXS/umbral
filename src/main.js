@@ -850,8 +850,10 @@ class Game {
           // the beacon ignites: it makes you FAST but blazing — the escape is
           // an outrun, not a sneak
           player.carrySpeedMul = 2.4;
-          if (sc.light) { sc.light.intensity = 14; sc.light.distance = 16; }
-          if (sc.core) sc.core.material.emissiveIntensity = 7;
+          // the relic is CONSUMED into Hush — hide it and kill the pedestal
+          // light; the player's own beacon (player.beaconLight) now carries it.
+          if (sc.group) sc.group.visible = false;
+          if (sc.light) sc.light.intensity = 0;
           if (level.onAlarm) level.onAlarm(this);
           else this.setObjective("Escape to the rift!");
         }

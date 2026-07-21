@@ -454,10 +454,13 @@ export class Player {
       this.engulfTarget = null;
     }
 
-    // eyes smoulder red while hungry (maw charged), flaring on a devour
+    // eyes smoulder red while hungry (maw charged), flaring on a devour.
+    // BEACON INVERSION: when the body blazes with light, the eyes go DARK so
+    // they read as two shadow-pupils against the glow (light-monster's eyes).
     const hunger = this.mawCharges > 0 ? 1 : 0;
     this._eyeColor.lerp(hunger ? this.eyeHungry : this.eyeCalm, Math.min(1, dt * 6));
-    const eyeGlow = 4 + hunger * (1.2 + Math.sin(t * 5) * 0.6) + this.eyeFlash * 8 + this.blinkAnim * 3;
+    const eyeGlow = (4 + hunger * (1.2 + Math.sin(t * 5) * 0.6) + this.eyeFlash * 8 + this.blinkAnim * 3)
+      * (1 - this._beaconGlow * 0.94);
     for (const e of this.eyes) {
       e.material.emissive.copy(this._eyeColor);
       e.material.emissiveIntensity = eyeGlow;
