@@ -16,11 +16,12 @@ import * as THREE from "three";
 export const SURFACES = {
   moss:     { mult: 0.3,  color: 0x10302a, rough: 1.0,  metal: 0.0 },
   obsidian: { mult: 0.65, color: 0x1b1e26, rough: 0.85, metal: 0.05 },
-  // crystal was glossy-metallic (rough .24 / metal .8), which threw shifting
-  // white specular hotspots off every torch as you moved. Matte it: still a
-  // cool bluish "singing" floor, but no mirror-glare. (Reflective POOLS are a
-  // separate, deliberate mechanic.)
-  crystal:  { mult: 1.5,  color: 0x46607c, rough: 0.7,  metal: 0.1 },
+  // crystal reads better with a wet SHEEN than dead-matte, but full gloss
+  // (the old rough .24 / metal .8) threw shifting white specular hotspots off
+  // every torch. This is the middle ground: a soft, damp crystalline highlight
+  // that catches the tower light, no mirror-glare. (Traced mirror reflections
+  // are a separate graphics-preset lever — off in "balanced", on in "beauty".)
+  crystal:  { mult: 1.5,  color: 0x46607c, rough: 0.5,  metal: 0.32 },
 };
 
 export function makeKit(scene) {

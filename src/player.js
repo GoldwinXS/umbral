@@ -52,6 +52,15 @@ export class Player {
     this.mesh.position.y = PLAYER_R;
     scene.add(this.mesh);
 
+    // BEACON: while carrying a stolen relic, Hush stops being a shadow-thing and
+    // becomes a LIGHT — the blob blazes amber and casts a real, moving point
+    // light. Added here (before the RT compiles the scene) at intensity 0, ramped
+    // in update() when carrySpeedMul>1. `_beaconGlow` is the 0→1 transition.
+    this._beaconGlow = 0;
+    this.beaconLight = new THREE.PointLight(0xffd8a0, 0, 10);
+    this.beaconLight.userData.rtRadius = 0.3;
+    scene.add(this.beaconLight);
+
     // eyes — rasterized glow only (rtExclude), they track the facing direction.
     // Calm violet normally; they smoulder RED while the maw is charged (hungry).
     this.eyeCalm = new THREE.Color(0xb9a0ff);
@@ -406,6 +415,23 @@ export class Player {
       // flicker while invulnerable
       this.mesh.material.emissiveIntensity = this.invuln > 0
         ? 0.55 + Math.sin(t * 30) * 0.4 : 0.55;
+    }
+
+    // BEACON transformation — shadow-monster → light-monster while carrying a
+    // relic (carrySpeedMul>1). The blob's emissive lerps from its dark violet
+    // toward blazing amber and a real point light kindles at its body; both fade
+    // back if the beacon is ever dropped. Overrides the emissive set just above.
+    const beaconOn = this.carrySpeedMul > 1 ? 1 : 0;
+    this._beaconGlow += (beaconOn - this._beaconGlow) * Math.min(1, dt * 2.2);
+    const bg = this._beaconGlow;
+    if (bg > 0.01) {
+      const em = this.mesh.material.emissive;
+      em.setRGB(0.141 + bg * (1.0 - 0.141), 0.063 + bg * (0.84 - 0.063), 0.251 + bg * (0.42 - 0.251));
+      this.mesh.material.emissiveIntensity = 0.55 + bg * 3.6 + Math.sin(t * 8) * 0.15 * bg;
+      this.beaconLight.intensity = bg * 6.5 * (0.92 + Math.sin(t * 8) * 0.08);
+      this.beaconLight.position.set(this.pos.x, this.pos.y + 0.25, this.pos.z);
+    } else if (this.beaconLight.intensity !== 0) {
+      this.beaconLight.intensity = 0;
     }
 
     // engulf: the blob reaches out a dark sac, swells to swallow the warden,
