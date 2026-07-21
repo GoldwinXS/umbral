@@ -283,7 +283,7 @@ class Game {
     click("btnNext", () => {
       hideAll();
       const next = this.levelIndex + 1;
-      if (next < LEVELS.length && next <= this.progress.unlocked) this.loadLevel(next);
+      if (next < LEVELS.length && next <= this.progress.unlocked) this.loadLevel(next, this._carry);
       else this._toTitle();
     });
     click("btnReplay", () => { hideAll(); this.loadLevel(this.levelIndex); });
@@ -343,7 +343,7 @@ class Game {
     this.scene = null;
   }
 
-  loadLevel(index) {
+  loadLevel(index, carry = null) {
     bootMsg.textContent = "shaping the dark…";
     boot.classList.remove("hidden");
     this.isTouch = document.body.classList.contains("coarse"); // reflects the control-mode setting
@@ -397,6 +397,18 @@ class Game {
     if (up.growthCap) this.player.growthCap = up.growthCap;
     if (up.maxHealthCap) this.player.maxHealthCap = up.maxHealthCap;
     if (up.maxHealth) { this.player.maxHealth = up.maxHealth; this.player.health = up.maxHealth; }
+
+    // PERSISTENCE across levels — applied ONLY when ADVANCING to the next level
+    // (a death-reset reloads with carry=null, so it stays a real penalty). Keep
+    // hoarded vials + devour charges; size (growth) and lives capacity
+    // (maxHealth) carry forward and only ever grow; health refills to full.
+    if (carry) {
+      this.player.vialCount = Math.max(this.player.vialCount, carry.vials);
+      this.player.mawCharges = Math.min(3, Math.max(this.player.mawCharges, carry.maw));
+      this.player.growth = Math.min(this.player.growthCap, Math.max(this.player.growth, carry.growth));
+      this.player.maxHealth = Math.max(this.player.maxHealth, carry.maxHealth);
+      this.player.health = this.player.maxHealth;
+    }
 
     this.wardens = bag.guards.map((spec) => new Warden(this.scene, spec, this.overlayScene));
     this.eyes = (bag.eyes || []).map((spec) => new GreatEye(this.scene, spec));
@@ -511,9 +523,15 @@ class Game {
     this.input.clearActions();
   }
 
+  _captureCarry() {
+    const p = this.player;
+    return { vials: p.vialCount, maw: p.mawCharges, growth: p.growth, health: p.health, maxHealth: p.maxHealth };
+  }
+
   _win() {
     if (this.state !== "playing") return;
     this.state = "win";
+    this._carry = this._captureCarry(); // snapshot to persist into the next level
     this.sfx.win();
     const t = this.elapsed;
     const rating = this.alerts === 0 && this.kos === 0 && this.caughtCount === 0 ? "GHOST"

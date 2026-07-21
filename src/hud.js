@@ -87,10 +87,16 @@ export class Hud {
     else if (this._gem > seenAt) { gs.textContent = "dim — visible"; gs.style.color = "#c8a86a"; }
     else { gs.textContent = "in shadow — unseen"; gs.style.color = "#5fd6b8"; }
 
-    // life pips track the blob's remaining mass
-    const pips = this.el.lifePips.children;
+    // life pips track the blob's remaining mass — the row grows/shrinks to the
+    // current max (default 3; extra pips appear once devouring has bulked Hush up)
+    const pipBox = this.el.lifePips;
+    const want = Math.max(1, game.player.maxHealth);
+    while (pipBox.children.length < want) pipBox.appendChild(pipBox.children[0].cloneNode(true));
+    while (pipBox.children.length > want) pipBox.removeChild(pipBox.lastChild);
+    const pips = pipBox.children;
     for (let i = 0; i < pips.length; i++) {
       pips[i].classList.toggle("on", i < game.player.health);
+      pips[i].classList.toggle("extra", i >= 3); // pips beyond the base 3
     }
 
     // tools

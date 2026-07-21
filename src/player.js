@@ -404,12 +404,15 @@ export class Player {
       if (this.regenT > 6) { this.regenT = 0; this.health++; }
     }
 
-    // body scale tracks remaining life + devour growth (unless mid-fall)
+    // body scale tracks remaining life + devour growth (unless mid-fall). Above
+    // the default 3 lives the blob keeps GROWING — every extra life fattens it,
+    // so a well-fed Hush is visibly a bigger creature.
     if (this.falling <= 0) {
       const lifeT = this.health >= 3 ? 1 : this.health === 2 ? 0.8 : 0.65;
+      const bigLife = 1 + Math.max(0, this.maxHealth - 3) * 0.18; // >3 lives → larger
       // a gulp: quick swell then settle
       const gulp = 1 + this.devourAnim * (this.devourAnim > 0.5 ? -0.12 : 0.22);
-      const target = lifeT * (1 + this.growth) * gulp;
+      const target = lifeT * bigLife * (1 + this.growth) * gulp;
       this.scale += (target - this.scale) * Math.min(1, dt * 8);
       this.mesh.scale.setScalar(this.scale);
       // flicker while invulnerable
@@ -471,8 +474,13 @@ export class Player {
     const arr = posAttr.array;
     const base = this.base;
     const fx = this.facing.x, fz = this.facing.y;
-    const stretch = 1 + this.speedFrac * 0.38 + this.blinkAnim * 0.5;
-    const squash = 1 - this.speedFrac * 0.18 - this.blinkAnim * 0.25;
+    // SNAKE MORPH: the bigger Hush grows, the more a moving body ELONGATES —
+    // a small blob just leans into its step, a well-fed one thins out into a
+    // pouring blob-snake. At rest (speedFrac→0) it stays a round blob. `bigness`
+    // rises with devour-growth and extra lives.
+    const bigness = Math.min(1.4, this.growth * 1.8 + Math.max(0, this.maxHealth - 3) * 0.14);
+    const stretch = 1 + this.speedFrac * (0.38 + bigness * 1.6) + this.blinkAnim * 0.5;
+    const squash = 1 - this.speedFrac * (0.18 + bigness * 0.34) - this.blinkAnim * 0.25;
     const breathe = 1 + Math.sin(t * 2.1) * 0.03;
     for (let i = 0; i < arr.length; i += 3) {
       const bx = base[i], by = base[i + 1], bz = base[i + 2];
