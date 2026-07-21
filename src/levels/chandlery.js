@@ -104,10 +104,8 @@ export function buildChandlery() {
   // two rows of blazing light-vats flanking a shadowed central spine
   const vatRowZ = [22, 14, 6];
   for (const z of vatRowZ) {
-    kit.reflectPool(-9, z, 1.8);
     kit.torch(-9, z, { intensity: 10, range: 6.5 }); // tighter pool → the center spine stays dark
     kit.trim(2.2, 1.3, -9, 1.7, z + 1.6, 0, 0xff8a3c, 3.2);
-    kit.reflectPool(9, z, 1.8);
     kit.torch(9, z, { intensity: 10, range: 6.5 });
     kit.trim(2.2, 1.3, 9, 1.7, z + 1.6, 0, 0xff8a3c, 3.2);
     kit.fogPatch(-10.5, z - 1.5, -7.5, z + 1.5, { conceal: 0.15, density: 0.09 }); // god-rays

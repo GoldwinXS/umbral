@@ -364,12 +364,16 @@ class Game {
     this._depthScene = new THREE.Scene();
     const depthMat = new THREE.MeshBasicMaterial({ colorWrite: false });
     for (const o of bag.occluders) {
-      // Only TALL geometry (walls, cover, pillars) should occlude overlay effects.
-      // Flat floors (h 0.2) and surface plates (h 0.06) sit right under the
-      // ground-hugging effects (rings/reticle at y≈0.05) and would z-fight them
-      // into the floor ("effects below the ground") — skip them.
-      const gh = o.geometry && o.geometry.parameters ? o.geometry.parameters.height : 99;
-      if (gh <= 0.4) continue;
+      // Only STRUCTURAL geometry (walls/pillars, tagged fxOcclude by kit.solid/
+      // kit.pillar) should occlude overlay effects. Clutter PROPS must NOT — a
+      // small barrel/urn/crate would otherwise punch a gap in the ground-level
+      // sound rings sweeping past it (they show through only where geometry is
+      // genuinely closer). Floors/surfaces are untagged too, so they also skip
+      // (they'd z-fight the ground-hugging rings/reticle at y≈0.05). A directly
+      // built tall wall box (h ≥ 1.5, not through kit.solid) still qualifies.
+      const gp = o.geometry && o.geometry.parameters;
+      const tallBox = o.geometry && o.geometry.type === "BoxGeometry" && gp && gp.height >= 1.5;
+      if (!o.userData.fxOcclude && !tallBox) continue;
       const m = new THREE.Mesh(o.geometry, depthMat);
       m.position.copy(o.position); m.quaternion.copy(o.quaternion); m.scale.copy(o.scale);
       this._depthScene.add(m);
@@ -462,7 +466,13 @@ class Game {
     if (result === "dead") {
       this.caughtCount++;
       this.sfx.caught();
-      this._respawn();
+      // All lives spent: the whole heist resets from the level's start with ZERO
+      // progress kept. Deferred to the next frame (_step) because we're currently
+      // deep inside a warden's update() — reloading the scene here would dispose
+      // it out from under the code still running. loadLevel() builds a FRESH
+      // player + level, so scepterTaken/carry is cleared and the objective is NOT
+      // still in hand (otherwise the extraction check would fire on respawn).
+      this._pendingReset = true;
     } else {
       this.sfx.hitFlesh();
       // the knockback + a moment of confusion buys the escape: hunting
@@ -675,6 +685,16 @@ class Game {
   // ---------------- per-frame ----------------
 
   _step(dt, t) {
+    // A pending full-reset (all lives lost) — do it here, at a safe frame
+    // boundary, before touching any now-stale scene refs. loadLevel rebuilds
+    // everything from the level start with no carried objective.
+    if (this._pendingReset) {
+      this._pendingReset = false;
+      this.hud.prompt("Caught. The dark unravels — and gathers again at the threshold.", 3.5);
+      this.loadLevel(this.levelIndex);
+      return;
+    }
+
     const { input, level, player } = this;
     input.poll();
 

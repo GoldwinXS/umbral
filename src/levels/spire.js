@@ -89,7 +89,6 @@ export function buildSpire() {
   kit.torch(9, 27, { intensity: 8, range: 11 });
   kit.torch(9, 35, { intensity: 8, range: 11 });
   kit.torch(-9, 31, { intensity: 2.2, range: 5, color: 0x6a5aa0 });
-  kit.reflectPool(5, 32, 1.8);
   kit.solid(1.4, 5, 1.4, -2, 32, kit.mats.pillar, 0.15);
   kit.solid(1.6, 8.5, 1.6, 7, 26, kit.mats.pillar, 0.3);
   kit.mawMote("maw1", -8, 34);

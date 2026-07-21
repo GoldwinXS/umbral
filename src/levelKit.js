@@ -112,6 +112,7 @@ export function makeKit(scene) {
       const m = new THREE.Mesh(boxGeo(w, h, d), mat);
       m.position.set(x, y, z);
       m.rotation.y = rot;
+      m.userData.fxOcclude = true; // walls/structural cover hide overlay effects
       scene.add(m);
       bag.occluders.push(m);
       bag.boxes.push({ x, z, hx: w / 2, hz: d / 2, rot, enabled: true });
@@ -166,6 +167,7 @@ export function makeKit(scene) {
     pillar(r, h, x, z, mat = mats.pillar) {
       const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 18), mat);
       m.position.set(x, h / 2, z);
+      m.userData.fxOcclude = true; // structural pillar hides overlay effects
       scene.add(m);
       bag.occluders.push(m);
       bag.cylinders.push({ x, z, r, enabled: true });

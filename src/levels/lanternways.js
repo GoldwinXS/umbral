@@ -89,7 +89,6 @@ export function buildLanternWays() {
   kit.torch(6, 1, { intensity: 12, range: 10 });
   kit.torch(0, -3, { intensity: 11, range: 9 });
   kit.pillar(1.3, 1.2, 0, 6, kit.mats.pillar);       // the plaza fountain
-  kit.reflectPool(0, 9.5, 2.1);                      // watches for a thief's reflection
   kit.solid(2, 1.2, 2, -4, 8, kit.mats.block, 0.2);
   kit.solid(2, 1.2, 2, 4, 3.5, kit.mats.block, -0.2);
   kit.cache("plazaCache", 15.5, 6, 2);

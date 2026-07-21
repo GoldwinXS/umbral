@@ -77,8 +77,6 @@ export function buildVault() {
   kit.torch(9, 9, { intensity: 7, range: 11 });
   kit.torch(-9, -2, { intensity: 7, range: 11 });
   kit.torch(9, -2, { intensity: 7, range: 11 });
-  kit.reflectPool(-6, 4, 2.0);
-  kit.reflectPool(6, 4, 2.0);
   // cover
   kit.solid(2.2, 1.2, 2.2, -4, 8, kit.mats.block, 0.2);
   kit.solid(2.2, 1.2, 2.2, 4, 0, kit.mats.block, -0.2);
