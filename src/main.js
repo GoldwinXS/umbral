@@ -126,7 +126,25 @@ class Game {
   // ---------------- setup ----------------
 
   _initRenderer() {
-    const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
+    // "high-performance" forces the discrete GPU and can FAIL to get a context on
+    // some laptops / sandboxed or locked-down browsers even when a plain context
+    // works fine (a friend's machine ran another WebGL game but not this one).
+    // So try progressively more permissive options before giving up.
+    const attempts = [
+      { antialias: false, powerPreference: "high-performance" },
+      { antialias: false, powerPreference: "default" },
+      { antialias: false, powerPreference: "low-power", failIfMajorPerformanceCaveat: false },
+    ];
+    let renderer, lastErr;
+    for (const opts of attempts) {
+      try { renderer = new THREE.WebGLRenderer(opts); break; }
+      catch (e) { lastErr = e; }
+    }
+    if (!renderer) {
+      const err = new Error("WebGL could not start on this browser/computer.");
+      err.webgl = true; err.cause = lastErr;
+      throw err;
+    }
     renderer.setPixelRatio(1);
     renderer.setSize(window.innerWidth || 1280, window.innerHeight || 720);
     document.getElementById("app").appendChild(renderer.domElement);
@@ -929,5 +947,8 @@ try {
 } catch (err) {
   console.error(err);
   boot.classList.remove("hidden");
-  boot.innerHTML = `<div class="err"><b>Failed to start.</b>\n\n${err && err.message ? err.message : err}\n\nSee the console for details.</div>`;
+  const isWebGL = (err && err.webgl) || /webgl|context/i.test(String(err && err.message));
+  boot.innerHTML = isWebGL
+    ? `<div class="err"><b>3D graphics (WebGL) couldn't start.</b>\n\nUmbral renders with WebGL, and your browser couldn't create it — almost always because <b>hardware acceleration is turned off</b>.\n\n<b>Chrome / Edge:</b> Settings → System → turn ON “Use hardware acceleration when available”, then fully quit and reopen the browser.\n\nIf that doesn't help: update your graphics drivers, or open <b>chrome://gpu</b> to see what's blocked. A WebGL2-capable GPU is required.</div>`
+    : `<div class="err"><b>Failed to start.</b>\n\n${err && err.message ? err.message : err}\n\nSee the console for details.</div>`;
 }
