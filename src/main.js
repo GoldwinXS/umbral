@@ -12,6 +12,7 @@ import { SURFACES } from "./levelKit.js";
 import { NoiseRings } from "./noiseRings.js";
 import { buildTutorial } from "./levels/tutorial.js";
 import { buildDousing } from "./levels/dousing.js";
+import { buildSwallow } from "./levels/swallow.js";
 import { buildMission1 } from "./levels/mission1.js";
 import { buildLanternWays } from "./levels/lanternways.js";
 import { buildVault } from "./levels/vault.js";
@@ -21,6 +22,7 @@ import { buildChandlery } from "./levels/chandlery.js";
 const LEVELS = [
   { name: "THE ASHWAY", build: buildTutorial },
   { name: "THE LAMPWAY", build: buildDousing },
+  { name: "THE GORGE", build: buildSwallow },
   { name: "BRIGHTWARD", build: buildMission1 },
   { name: "THE LANTERN-WAYS", build: buildLanternWays },
   { name: "THE CHANDLERY", build: buildChandlery },
@@ -45,11 +47,12 @@ const VIS_NORM = 9.0;
 const POWER = [
   {},                                                                  // 0 Ashway
   {},                                                                  // 1 Lampway (dousing)
-  {},                                                                  // 2 Brightward
-  { blinkRange: 6.5 },                                                 // 3 Lantern-Ways
-  { blinkRange: 6.5, growthCap: 0.55 },                                // 4 Chandlery
-  { blinkRange: 7, growthCap: 0.55, maxHealthCap: 7, maxHealth: 4 },   // 5 Spire Ascent
-  { blinkRange: 7, growthCap: 0.6, maxHealthCap: 7, maxHealth: 4 },    // 6 Reliquary (finale)
+  {},                                                                  // 2 The Gorge (swallow)
+  {},                                                                  // 3 Brightward
+  { blinkRange: 6.5 },                                                 // 4 Lantern-Ways
+  { blinkRange: 6.5, growthCap: 0.55 },                                // 5 Chandlery
+  { blinkRange: 7, growthCap: 0.55, maxHealthCap: 7, maxHealth: 4 },   // 6 Spire Ascent
+  { blinkRange: 7, growthCap: 0.6, maxHealthCap: 7, maxHealth: 4 },    // 7 Reliquary (finale)
 ];
 
 const boot = document.getElementById("boot");
@@ -360,6 +363,12 @@ class Game {
     this._depthScene = new THREE.Scene();
     const depthMat = new THREE.MeshBasicMaterial({ colorWrite: false });
     for (const o of bag.occluders) {
+      // Only TALL geometry (walls, cover, pillars) should occlude overlay effects.
+      // Flat floors (h 0.2) and surface plates (h 0.06) sit right under the
+      // ground-hugging effects (rings/reticle at y≈0.05) and would z-fight them
+      // into the floor ("effects below the ground") — skip them.
+      const gh = o.geometry && o.geometry.parameters ? o.geometry.parameters.height : 99;
+      if (gh <= 0.4) continue;
       const m = new THREE.Mesh(o.geometry, depthMat);
       m.position.copy(o.position); m.quaternion.copy(o.quaternion); m.scale.copy(o.scale);
       this._depthScene.add(m);
