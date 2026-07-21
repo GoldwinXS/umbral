@@ -15,7 +15,7 @@ export const DEFAULTS = {
   adaptive: true,     // governor steers quality toward targetFps
   targetFps: 55,
   sound: true,
-  overlayOpacity: 1.0, // multiplier for in-world effects (sound rings, reticles…)
+  overlayOpacity: 0.2, // multiplier for in-world effects (sound rings, reticles…); 0.2 is the new "100%"
   touch: null,        // null = auto-detect; true = on-screen controls, false = desktop
 };
 
@@ -32,6 +32,10 @@ export class Settings {
     let saved = {};
     try { saved = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (_) {}
     Object.assign(this, DEFAULTS, saved);
+    // effects-opacity scale was recentred so 0.2 is the new "100%": snap any
+    // stale higher saved value (old default 1.0, old range up to 1.5) down into
+    // the new range so nobody is stuck with the old too-strong effects.
+    if (!(this.overlayOpacity <= 0.4)) this.overlayOpacity = DEFAULTS.overlayOpacity;
     // resolve auto → detected touch capability (only if never chosen)
     if (this.touch === null || this.touch === undefined) {
       this.touch = !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
@@ -135,7 +139,7 @@ export class Settings {
     slider("Canvas resolution", "resolution", 0.4, 1.0, 0.05, (v) => Math.round(v * 100) + "%", "Render buffer size vs native display");
     slider("Denoise passes", "denoise", 0, 5, 1, (v) => String(v), "Shadow smoothing iterations");
     slider("Target FPS", "targetFps", 30, 60, 5, (v) => String(v), "For the adaptive governor");
-    slider("Effects opacity", "overlayOpacity", 0.2, 1.5, 0.05, (v) => Math.round(v * 100) + "%", "Sound rings, reticles & other on-screen effects");
+    slider("Effects opacity", "overlayOpacity", 0.04, 0.4, 0.02, (v) => Math.round(v / 0.2 * 100) + "%", "Sound rings, reticles & other on-screen effects");
     toggle("Temporal AA", "taa", "Smooths edges, slight lag");
     toggle("Volumetric light beams", "volumetric", "Visible light shafts through haze");
     toggle("Reflections", "reflections", "Traced gloss on crystal floors — costly");
