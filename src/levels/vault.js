@@ -31,28 +31,16 @@ export function buildVault() {
 
   const H = 3.4, TH = 0.5;
 
-  // ---- watertight room helpers (walls with door gaps) ----
-  const gapsCut = (a, b, gaps) => {
-    const gs = (gaps || []).slice().sort((p, q) => p[0] - q[0]);
-    const spans = []; let cur = a;
-    for (const [g0, g1] of gs) { if (g0 > cur) spans.push([cur, Math.min(g0, b)]); cur = Math.max(cur, g1); }
-    if (cur < b) spans.push([cur, b]);
-    return spans;
-  };
-  const hWall = (z, x0, x1, gaps) => { for (const [a, b] of gapsCut(x0, x1, gaps)) if (b - a > 0.02) kit.wall(b - a, H, TH, (a + b) / 2, z); };
-  const vWall = (x, z0, z1, gaps) => { for (const [a, b] of gapsCut(z0, z1, gaps)) if (b - a > 0.02) kit.wall(TH, H, b - a, x, (a + b) / 2); };
-  const floorRect = (x0, z0, x1, z1, mat) => kit.floor(x1 - x0, z1 - z0, (x0 + x1) / 2, (z0 + z1) / 2, mat);
+  // Walls now come from kit.room/kit.corridor (clean corners). Shared edges are
+  // drawn by exactly ONE room; the neighbour passes a full-span door on that
+  // side so the wall isn't doubled. H/TH keep this level's taller, thicker walls.
 
   // base slab so no seam ever reads as the void
   kit.floor(44, 60, -6, 8, kit.mats.dark, -0.18);
 
   // ================= A · START HALL (x -7..7, z 26..34) =================
-  floorRect(-7, 26, 7, 34);
-  kit.surface(-7, 26, 7, 34, "obsidian");
-  hWall(34, -7, 7);
-  hWall(26, -7, 7, [[-2, 2]]);                 // north → obvious corridor
-  vWall(7, 26, 34);
-  vWall(-7, 26, 34, [[28, 31]]);               // west → the side door (easy to miss)
+  // z=26 door → obvious corridor B; west door → the side-door stair E
+  kit.room(-7, 26, 7, 34, { doors: { s: [[-2, 2]], w: [[28, 31]] }, surface: "obsidian", h: H, t: TH });
   kit.extraction(0, 31);
   kit.trim(3.4, 0.2, 0, 2.4, 33.8, 0, 0x39f0c0, 2.0);
   kit.torch(0, 28, { intensity: 4, range: 7 });
@@ -61,17 +49,13 @@ export function buildVault() {
   kit.inscription(0, 2.4, 25.9, "KEEP THE FIRES FED", 0, "#ffb46a"); // Vigil liturgy, above the tempting way
 
   // ================= B · OBVIOUS CORRIDOR (x -3..3, z 14..26) ============
-  floorRect(-3, 14, 3, 26);
-  kit.surface(-3, 14, 3, 26, "obsidian");
-  vWall(-3, 14, 26); vWall(3, 14, 26);
+  kit.corridor(-3, 14, 3, 26, { surface: "obsidian", h: H, t: TH });
   kit.torch(0, 20, { intensity: 5, range: 8 });
 
   // ================= C · GREAT COURTYARD (x -13..13, z -6..14) ===========
-  floorRect(-13, -6, 13, 14);
-  kit.surface(-13, -6, 13, 14, "crystal");     // the whole floor sings — loud
-  hWall(14, -13, 13, [[-2, 2]]);               // south (corridor door)
-  vWall(13, -6, 14); vWall(-13, -6, 14);       // sides (west solid vs cellar)
-  hWall(-6, -13, 13, [[-2, 2]]);               // north → reliquary door (under the Pharos)
+  // z=14 door → corridor B; z=-6 door → reliquary D; WEST edge (x=-13) owned by
+  // the cellar's east wall (full-span door here so it isn't doubled)
+  kit.room(-13, -6, 13, 14, { doors: { n: [[-2, 2]], s: [[-2, 2]], w: [[-6, 14]] }, surface: "crystal", h: H, t: TH });
   // bright, exposed, watched — the tempting death
   kit.torch(-9, 9, { intensity: 7, range: 11 });
   kit.torch(9, 9, { intensity: 7, range: 11 });
@@ -92,11 +76,9 @@ export function buildVault() {
   kit.guard([[8, 7], [-8, 7]], { speed: 1.5, pause: 0.8 });
 
   // ================= D · RELIQUARY CHAMBER (x -9..9, z -18..-6) ==========
-  floorRect(-9, -18, 9, -6);
-  kit.surface(-9, -18, 9, -6, "crystal");
-  vWall(9, -18, -6);
-  vWall(-9, -18, -6, [[-13, -9]]);             // west → rear passage (the cellar's exit)
-  hWall(-18, -9, 9);
+  // west door → rear passage; NORTH edge (z=-6) owned by the courtyard's south
+  // wall (full-span door here so it isn't doubled)
+  kit.room(-9, -18, 9, -6, { doors: { n: [[-9, 9]], w: [[-13, -9]] }, surface: "crystal", h: H, t: TH });
   kit.scepterPedestal(0, -12);                 // THE FIRST EMBER
   kit.trim(5, 0.2, 0, 3.0, -17.8, 0, 0xffd76a, 2.2);
   kit.torch(-5, -8, { intensity: 5, range: 7 });
@@ -104,31 +86,21 @@ export function buildVault() {
   kit.guard([[-5, -14], [5, -14]], { speed: 1.3, pause: 1.8 });
 
   // ================= E · SIDE-DOOR STAIR (x -13..-7, z 28..32) ===========
-  floorRect(-13, 28, -7, 32);
-  kit.surface(-13, 28, -7, 32, "moss");
-  hWall(32, -13, -7); hWall(28, -13, -7);
-  vWall(-13, 28, 32, [[28.6, 31]]);            // west → cellar-upper
+  // n/s capped; WEST edge (x=-13) owned by the upper cellar (its pit door
+  // z[28.6,31]); EAST edge (x=-7) owned by the Start hall's west wall
+  kit.room(-13, 28, -7, 32, { doors: { w: [[28, 32]], e: [[28, 32]] }, surface: "moss", h: H, t: TH });
   kit.hole(-14, 28.6, -12, 31);                // the pit itself — shadowstep it
   kit.inscription(-10, 1.6, 31.7, "the pit below", 0, "#7a6bb0");
 
   // ================= CELLAR (the bleeding undercroft) ===================
-  // upper cellar: x -24..-13, z 14..32
-  floorRect(-24, 14, -13, 32);
-  kit.surface(-24, 14, -13, 32, "moss");
-  vWall(-24, 14, 32);
-  vWall(-13, 14, 32, [[28.6, 31]]);            // east → stair door (rest solid)
-  hWall(32, -24, -13);
-  hWall(14, -24, -13, [[-20, -16]]);           // south → lower cellar
-  // lower cellar: x -24..-13, z -18..14
-  floorRect(-24, -18, -13, 14);
-  kit.surface(-24, -18, -13, 14, "moss");
-  vWall(-24, -18, 14);
-  vWall(-13, -18, 14, [[-13, -9]]);            // east: solid vs courtyard + rear-passage door
-  hWall(-18, -24, -13);
-  // rear passage: x -13..-9, z -14..-8
-  floorRect(-13, -14, -9, -8);
-  kit.surface(-13, -14, -9, -8, "moss");
-  hWall(-14, -13, -9); hWall(-8, -13, -9);
+  // upper cellar x[-24,-13] z[14,32]: east door → stair pit; z=14 door → lower cellar
+  kit.room(-24, 14, -13, 32, { doors: { e: [[28.6, 31]], s: [[-20, -16]] }, surface: "moss", h: H, t: TH });
+  // lower cellar x[-24,-13] z[-18,14]: NORTH edge owned by upper cellar; east
+  // wall is solid vs the courtyard with a single door → rear passage
+  kit.room(-24, -18, -13, 14, { doors: { n: [[-24, -13]], e: [[-13, -9]] }, surface: "moss", h: H, t: TH });
+  // rear passage x[-13,-9] z[-14,-8]: n/s capped; long sides open (west→lower
+  // cellar, east→reliquary), each through the shared z[-13,-9] door
+  kit.room(-13, -14, -9, -8, { doors: { w: [[-14, -8]], e: [[-14, -8]] }, surface: "moss", h: H, t: TH });
   // dim cellar light + fog cover
   kit.torch(-18, 24, { intensity: 3, range: 6, color: 0x9a7bff });
   kit.torch(-18, -2, { intensity: 3, range: 6, color: 0x9a7bff });

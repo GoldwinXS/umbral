@@ -35,22 +35,16 @@ export function buildChandlery() {
 
   const H = 3.4, TH = 0.5;
 
-  // ---- watertight room helpers (walls with door gaps) ----
-  const gapsCut = (a, b, gaps) => { const gs = (gaps || []).slice().sort((p, q) => p[0] - q[0]); const spans = []; let cur = a; for (const [g0, g1] of gs) { if (g0 > cur) spans.push([cur, Math.min(g0, b)]); cur = Math.max(cur, g1); } if (cur < b) spans.push([cur, b]); return spans; };
-  const hWall = (z, x0, x1, gaps) => { for (const [a, b] of gapsCut(x0, x1, gaps)) if (b - a > 0.02) kit.wall(b - a, H, TH, (a + b) / 2, z); };
-  const vWall = (x, z0, z1, gaps) => { for (const [a, b] of gapsCut(z0, z1, gaps)) if (b - a > 0.02) kit.wall(TH, H, b - a, x, (a + b) / 2); };
-  const floorRect = (x0, z0, x1, z1, mat) => kit.floor(x1 - x0, z1 - z0, (x0 + x1) / 2, (z0 + z1) / 2, mat);
+  // Rooms now come from kit.room/kit.corridor (clean corners). Each shared edge
+  // is drawn by exactly one room; the neighbour passes a full-span door there so
+  // the wall isn't doubled. H/TH keep this level's taller, thicker walls.
 
   // dark base slab so no seam ever reads as the void
   kit.floor(56, 68, -7, 9, kit.mats.dark, -0.18);
 
   // ================= A · START HALL (x -6..6, z 28..38) =================
-  floorRect(-6, 28, 6, 38);
-  kit.surface(-6, 28, 6, 38, "obsidian");
-  hWall(38, -6, 6);                       // south, outer
-  vWall(6, 28, 38);                       // east, outer
-  vWall(-6, 28, 38, [[30, 33]]);          // west → undercroft access (hidden road)
-  hWall(28, -6, 6, [[-2, 2]]);            // north → the Chandlery hall (obvious road)
+  // z=38 & east outer; z=28 door → the Chandlery hall; west door → undercroft access
+  kit.room(-6, 28, 6, 38, { doors: { s: [[-2, 2]], w: [[30, 33]] }, surface: "obsidian", h: H, t: TH });
   bag.spawn.set(0, 0.42, 35);
   kit.extraction(-3, 36);
   kit.trim(3.0, 0.2, -3, 2.2, 37.6, 0, 0x39f0c0, 1.8);
@@ -59,20 +53,15 @@ export function buildChandlery() {
   kit.inscription(0, 2.4, 27.85, "KEEP THE FIRES FED", 0, "#ffb46a");
 
   // ================= B · UNDERCROFT ACCESS (x -18..-6, z 30..33) =========
-  floorRect(-18, 30, -6, 33);
-  kit.surface(-18, 30, -6, 33, "moss");
-  hWall(33, -18, -6);                     // north, outer
-  hWall(30, -18, -6);                     // south, outer
-  // east/west open — doors owned by the rooms either side
+  // access corridor — long side walls only (z=30, z=33); both ends open, joining
+  // the Start hall (east) and the undercroft (west) through their door gaps
+  kit.corridor(-18, 30, -6, 33, { surface: "moss", h: H, t: TH });
 
   // ================= C · UNDERCROFT — Snuffed maintenance tunnels ========
   // (x -30..-18, z -8..33)
-  floorRect(-30, -8, -18, 33);
-  kit.surface(-30, -8, -18, 33, "moss");
-  vWall(-18, -8, 33, [[10, 14], [30, 33]]); // east: vent shortcut into the hall + the access door
-  vWall(-30, -8, 33);                       // west, outer
-  hWall(33, -30, -18);                      // south, outer
-  hWall(-8, -30, -18, [[-26, -22]]);        // north → the Chandlery's relic chamber
+  // east doors: vent shortcut z[10,14] into the hall + the access door z[30,33];
+  // z=-8 door → the relic chamber; west & z=33 outer
+  kit.room(-30, -8, -18, 33, { doors: { e: [[10, 14], [30, 33]], s: [[-26, -22]] }, surface: "moss", h: H, t: TH });
   kit.torch(-24, 26, { intensity: 3, range: 6, color: 0xaa4422 });
   kit.torch(-24, 10, { intensity: 3, range: 6, color: 0xaa4422 });
   kit.torch(-24, -4, { intensity: 3, range: 6, color: 0xaa4422 });
@@ -93,13 +82,9 @@ export function buildChandlery() {
 
   // ================= D · THE CHANDLERY HALL — molten vats ================
   // (x -18..16, z -2..28) — the dramatic set piece
-  floorRect(-18, -2, 16, 28);
-  kit.surface(-18, -2, 16, 28, "crystal");   // it sings underfoot; don't dawdle
-  hWall(28, -18, -6);                        // south flank (Start owns the door segment)
-  hWall(28, 6, 16);                          // south flank
-  vWall(16, -2, 28);                         // east, outer
-  hWall(-2, -18, 16, [[-3, 3]]);             // north → relic chamber
-  // west wall owned by the undercroft (vent gap at z 10..14) — nothing built here
+  // z=28 flanks the Start hall (which owns the x[-6,6] door segment); z=-2 door →
+  // relic chamber; WEST edge owned by the undercroft (its vent door z[10,14]); east outer
+  kit.room(-18, -2, 16, 28, { doors: { n: [[-6, 6]], s: [[-3, 3]], w: [[-2, 28]] }, surface: "crystal", h: H, t: TH });
 
   // two rows of blazing light-vats flanking a shadowed central spine
   const vatRowZ = [22, 14, 6];
@@ -133,13 +118,11 @@ export function buildChandlery() {
   kit.guard([[-4, 25], [4, 25]], { speed: 1.3, pause: 1.2 });
 
   // ================= E · RELIC CHAMBER (x -30..16, z -20..-2) ============
-  floorRect(-30, -20, 16, -2);
+  // z=-20 & e/w outer; the z=-2 edge is owned by the hall's south wall (over
+  // x[-18,16]) and stays open west of that (the undercroft landing) — full-span door
+  kit.room(-30, -20, 16, -2, { doors: { n: [[-30, 16]] }, h: H, t: TH });
   kit.surface(-30, -20, -18, -2, "moss");     // the undercroft's landing
   kit.surface(-18, -20, 16, -2, "obsidian");  // the chamber proper
-  vWall(-30, -20, -2);                        // west, outer
-  vWall(16, -20, -2);                         // east, outer
-  hWall(-20, -30, 16);                        // north, outer
-  // south boundary at z=-2 is owned by the hall's north wall — no rebuild
   kit.scepterPedestal(0, -11);                // THE LIGHT-HEART
   kit.trim(5, 0.2, 0, 3.0, -19.8, 0, 0xffd76a, 2.2);
   kit.torch(-6, -8, { intensity: 6, range: 9 });

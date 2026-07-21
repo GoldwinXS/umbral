@@ -32,86 +32,26 @@ export function buildDousing() {
   bag.spawn.set(-37, 0.42, -1);
   bag.bounds = { x0: -41, z0: -11, x1: 67, z1: 11 };
 
-  const H = 3.2, TH = 0.4;
+  const H = 3.2;
 
-  // ---- watertight room helpers (walls with door gaps), same shape as the
-  // helpers used in vault.js / lanternways.js / chandlery.js ----
-  const gapsCut = (a, b, gaps) => {
-    const gs = (gaps || []).slice().sort((p, q) => p[0] - q[0]);
-    const spans = []; let cur = a;
-    for (const [g0, g1] of gs) { if (g0 > cur) spans.push([cur, Math.min(g0, b)]); cur = Math.max(cur, g1); }
-    if (cur < b) spans.push([cur, b]);
-    return spans;
-  };
-  const hWall = (z, x0, x1, gaps) => { for (const [a, b] of gapsCut(x0, x1, gaps)) if (b - a > 0.02) kit.wall(b - a, H, TH, (a + b) / 2, z); };
-  const vWall = (x, z0, z1, gaps) => { for (const [a, b] of gapsCut(z0, z1, gaps)) if (b - a > 0.02) kit.wall(TH, H, b - a, x, (a + b) / 2); };
-  const floorRect = (x0, z0, x1, z1, mat) => kit.floor(x1 - x0, z1 - z0, (x0 + x1) / 2, (z0 + z1) / 2, mat);
-
-  // ================= FLOORS (one per cell, exactly abutting — no overlap) ====
-  floorRect(-40, -4, -32, 4);     // A   START HALL      x[-40,-32] z[-4,4]
-  floorRect(-32, -1.5, -28, 1.5); // AB  corridor         x[-32,-28] z[-1.5,1.5]
-  floorRect(-28, -9, -14, 9);     // B   CHOKE ROOM       x[-28,-14] z[-9,9]
-  floorRect(-14, -1.5, -10, 1.5); // BC  corridor         x[-14,-10] z[-1.5,1.5]
-  floorRect(-10, -10, 10, 10);    // C   HUB              x[-10,10]  z[-10,10]
-  floorRect(10, 3, 24, 7);        // U   upper (Snuffed)  x[10,24]   z[3,7]
-  floorRect(10, -7, 24, -3);      // L   lower (douse #2) x[10,24]   z[-7,-3]
-  floorRect(24, -9, 34, 9);       // F   STAGING          x[24,34]   z[-9,9]
-  floorRect(34, -1.5, 38, 1.5);   // FG  corridor         x[34,38]   z[-1.5,1.5]
-  floorRect(38, -10, 54, 10);     // G   RELIC CHAMBER    x[38,54]   z[-10,10]
-  floorRect(54, -1.5, 58, 1.5);   // GH  escape corridor  x[54,58]   z[-1.5,1.5]
-  floorRect(58, -6, 66, 6);       // H   EXTRACTION       x[58,66]   z[-6,6]
-
-  // ================= SURFACE PLATES (tiled, non-overlapping, 1:1 w/ floors) ==
-  kit.surface(-40, -4, -32, 4, "moss");    // start — silent, dark
-  kit.surface(-32, -1.5, -28, 1.5, "moss");
-  kit.surface(-28, -9, -14, 9, "moss");    // choke room — silent once doused
-  kit.surface(-14, -1.5, -10, 1.5, "moss");
-  kit.surface(-10, -10, 10, 10, "moss");   // hub — safe breathing room
-  kit.surface(10, 3, 24, 7, "moss");       // Snuffed corridor — MUST stay silent
-  kit.surface(10, -7, 24, -3, "moss");     // lit corridor — silent once doused
-  kit.surface(24, -9, 34, 9, "moss");      // staging
-  kit.surface(34, -1.5, 38, 1.5, "moss");
-  kit.surface(38, -10, 54, 10, "crystal"); // relic chamber sings — the finale is loud
-  kit.surface(54, -1.5, 58, 1.5, "moss");  // escape — quiet dash
-  kit.surface(58, -6, 66, 6, "moss");
-
-  // ================= WALLS =====================================================
-  // A · START HALL x[-40,-32] z[-4,4] — dead west/north/south, door east
-  hWall(4, -40, -32); hWall(-4, -40, -32);
-  vWall(-40, -4, 4);
-  vWall(-32, -4, 4, [[-1.5, 1.5]]);
-  // AB corridor
-  hWall(1.5, -32, -28); hWall(-1.5, -32, -28);
-  // B · CHOKE ROOM x[-28,-14] z[-9,9] — dead north/south, doors west+east
-  hWall(9, -28, -14); hWall(-9, -28, -14);
-  vWall(-28, -9, 9, [[-1.5, 1.5]]);
-  vWall(-14, -9, 9, [[-1.5, 1.5]]);
-  // BC corridor
-  hWall(1.5, -14, -10); hWall(-1.5, -14, -10);
-  // C · HUB x[-10,10] z[-10,10] — dead north/south, door west, TWO doors east (fork)
-  hWall(10, -10, 10); hWall(-10, -10, 10);
-  vWall(-10, -10, 10, [[-1.5, 1.5]]);
-  vWall(10, -10, 10, [[3, 7], [-7, -3]]);
-  // U · upper (Snuffed) corridor x[10,24] z[3,7]
-  hWall(7, 10, 24); hWall(3, 10, 24);
-  // L · lower (douse #2) corridor x[10,24] z[-7,-3]
-  hWall(-3, 10, 24); hWall(-7, 10, 24);
-  // F · STAGING x[24,34] z[-9,9] — dead north/south, TWO doors west (fork rejoin), door east
-  hWall(9, 24, 34); hWall(-9, 24, 34);
-  vWall(24, -9, 9, [[3, 7], [-7, -3]]);
-  vWall(34, -9, 9, [[-1.5, 1.5]]);
-  // FG corridor
-  hWall(1.5, 34, 38); hWall(-1.5, 34, 38);
-  // G · RELIC CHAMBER x[38,54] z[-10,10] — dead north/south, door west+east
-  hWall(10, 38, 54); hWall(-10, 38, 54);
-  vWall(38, -10, 10, [[-1.5, 1.5]]);
-  vWall(54, -10, 10, [[-1.5, 1.5]]);
-  // GH escape corridor
-  hWall(1.5, 54, 58); hWall(-1.5, 54, 58);
-  // H · EXTRACTION x[58,66] z[-6,6] — dead north/south/east, door west
-  hWall(6, 58, 66); hWall(-6, 58, 66);
-  vWall(58, -6, 6, [[-1.5, 1.5]]);
-  vWall(66, -6, 6);
+  // ================= ROOMS (watertight, clean-corner, via kit.room/corridor) =
+  // Each cell's floor + surface + walls build together; door gaps are the old
+  // hWall/vWall gaps translated 1:1 into doors:{n,s,e,w}. Every cell is a
+  // single surface, so `surface:` rides on the room. Corridors wall only their
+  // two long sides; the open short ends join rooms through their door gaps.
+  // Default kit height/thickness (3.2 / 0.4) already match this level.
+  kit.room(-40, -4, -32, 4, { doors: { e: [[-1.5, 1.5]] }, surface: "moss" });                   // A START HALL
+  kit.corridor(-32, -1.5, -28, 1.5, { surface: "moss" });                                         // AB
+  kit.room(-28, -9, -14, 9, { doors: { w: [[-1.5, 1.5]], e: [[-1.5, 1.5]] }, surface: "moss" });  // B CHOKE ROOM
+  kit.corridor(-14, -1.5, -10, 1.5, { surface: "moss" });                                         // BC
+  kit.room(-10, -10, 10, 10, { doors: { w: [[-1.5, 1.5]], e: [[3, 7], [-7, -3]] }, surface: "moss" }); // C HUB (fork east)
+  kit.corridor(10, 3, 24, 7, { surface: "moss" });                                                // U upper (Snuffed)
+  kit.corridor(10, -7, 24, -3, { surface: "moss" });                                              // L lower (douse #2)
+  kit.room(24, -9, 34, 9, { doors: { w: [[3, 7], [-7, -3]], e: [[-1.5, 1.5]] }, surface: "moss" }); // F STAGING (fork rejoin)
+  kit.corridor(34, -1.5, 38, 1.5, { surface: "moss" });                                           // FG
+  kit.room(38, -10, 54, 10, { doors: { w: [[-1.5, 1.5]], e: [[-1.5, 1.5]] }, surface: "crystal" }); // G RELIC CHAMBER
+  kit.corridor(54, -1.5, 58, 1.5, { surface: "moss" });                                           // GH escape
+  kit.room(58, -6, 66, 6, { doors: { w: [[-1.5, 1.5]] }, surface: "moss" });                      // H EXTRACTION
 
   kit.extraction(62, 0);
   kit.trim(3.4, 0.2, 62, 2.4, 5.7, 0, 0x39f0c0, 2.0);

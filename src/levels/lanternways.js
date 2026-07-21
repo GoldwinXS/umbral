@@ -30,9 +30,9 @@ export function buildLanternWays() {
   const H = 3.4, TH = 0.5;
 
   // ---- watertight room helpers (walls with door gaps) ----
-  const gapsCut = (a, b, gaps) => { const gs=(gaps||[]).slice().sort((p,q)=>p[0]-q[0]); const spans=[]; let cur=a; for (const [g0,g1] of gs){ if(g0>cur) spans.push([cur,Math.min(g0,b)]); cur=Math.max(cur,g1);} if(cur<b) spans.push([cur,b]); return spans; };
-  const hWall = (z, x0, x1, gaps) => { for (const [a,b] of gapsCut(x0,x1,gaps)) if (b-a>0.02) kit.wall(b-a, H, TH, (a+b)/2, z); };
-  const vWall = (x, z0, z1, gaps) => { for (const [a,b] of gapsCut(z0,z1,gaps)) if (b-a>0.02) kit.wall(TH, H, b-a, x, (a+b)/2); };
+  // Rooms now come from kit.room/kit.corridor (clean corners). Each shared edge
+  // is drawn by exactly one room; the neighbour passes a full-span door there.
+  // floorRect stays for the canal, whose floor is a hole-punched patchwork.
   const floorRect = (x0, z0, x1, z1, mat) => kit.floor(x1-x0, z1-z0, (x0+x1)/2, (z0+z1)/2, mat);
 
   // base dark slab under the whole footprint — seams never read as void
@@ -45,35 +45,26 @@ export function buildLanternWays() {
   };
 
   // ================= A · START HALL (x -6..6, z 30..40) =================
-  floorRect(-6, 30, 6, 40);
-  kit.surface(-6, 30, 6, 40, "moss");
-  hWall(40, -6, 6);
-  vWall(-6, 30, 40);
-  vWall(6, 30, 40);
-  // north wall shared with the Hub (drawn there)
+  // z=40 solid; the z=30 edge toward the Hub is owned by the Hub's wall
+  kit.room(-6, 30, 6, 40, { doors: { s: [[-6, 6]] }, surface: "moss", h: H, t: TH });
   kit.torch(0, 35, { intensity: 4, range: 6 });
   kit.checkpoint(0, 36, 3);
   kit.trigger("start", 0, 34, 3);
 
   // ================= B · HUB / THE FORK (x -14..14, z 18..30) ============
-  floorRect(-14, 18, 14, 30);
-  kit.surface(-14, 18, 14, 30, "moss");
-  hWall(30, -14, 14, [[-2, 2]]);       // south → start hall
-  vWall(14, 18, 30);                    // east: dead wall, no route
-  // west wall (→ alley) drawn by the alley room; north wall (→ plaza) drawn by the plaza
+  // z=30 door → start hall; east is a dead wall; the WEST edge is owned by the
+  // alley and the z=18 edge by the plaza (full-span doors so neither is doubled)
+  kit.room(-14, 18, 14, 30, { doors: { n: [[-2, 2]], s: [[-14, 14]], w: [[18, 30]] }, surface: "moss", h: H, t: TH });
   kit.inscription(0, 2.5, 17.9, "KEEP THE FIRES FED", 0, "#ffb46a");
   kit.checkpoint(0, 24, 3);
   kit.trigger("hub", 0, 24, 5);
 
   // ================= C · GREAT PLAZA (x -20..20, z -6..18) ===============
-  floorRect(-20, -6, 20, 18);
+  // z=18 door → hub; z=-6 door → the lane; e/w solid. Three tiled surface bands.
+  kit.room(-20, -6, 20, 18, { doors: { n: [[-3, 3]], s: [[-3, 3]] }, h: H, t: TH });
   kit.surface(-20, -6, -12, 18, "moss");    // west shadow lane behind tenements
   kit.surface(-12, -6, 12, 18, "crystal");  // the open square — sings underfoot
   kit.surface(12, -6, 20, 18, "moss");      // east shadow lane behind tenements
-  hWall(18, -20, 20, [[-3, 3]]);            // south → hub
-  hWall(-6, -20, 20, [[-3, 3]]);            // north → the lane, toward the concourse
-  vWall(-20, -6, 18);
-  vWall(20, -6, 18);
   // tenement rows carving the dark side-lanes
   tenement(-16, 13, 3.4, 4.6, 8.5);
   tenement(-16, 3, 3.4, 4.6, 4.5);
@@ -103,12 +94,8 @@ export function buildLanternWays() {
   kit.trigger("plaza", 0, 12, 4);
 
   // ================= D · ALLEY (x -34..-14, z 2..30) ======================
-  floorRect(-34, 2, -14, 30);
-  kit.surface(-34, 2, -14, 30, "moss");
-  hWall(30, -34, -14);                       // south: dead wall
-  vWall(-34, 2, 30);                         // west: dead wall
-  vWall(-14, 2, 30, [[22, 26]]);             // east → hub
-  hWall(2, -34, -14, [[-26, -22]]);          // north → canal
+  // z=30 & west are dead walls; east door → hub; z=2 door → canal
+  kit.room(-34, 2, -14, 30, { doors: { e: [[22, 26]], s: [[-26, -22]] }, surface: "moss", h: H, t: TH });
   tenement(-28, 24, 6, 4.4, 8.5);
   tenement(-19, 16, 5, 5, 5);
   tenement(-29, 10, 7, 4.2, 6.5);
@@ -131,9 +118,11 @@ export function buildLanternWays() {
   kit.surface(-33, -16, -15, -8, "moss");     // north bank — silent landing
   kit.surface(-34, -16, -33, 2, "crystal");   // west ledge — a loud shortcut, watched
   kit.surface(-15, -16, -14, 2, "crystal");   // east ledge — a loud shortcut, watched
-  vWall(-34, -16, 2);                         // west: dead wall
-  vWall(-14, -16, 2);                         // east: dead wall
-  // south wall shared with the alley; north wall drawn by the concourse
+  // the canal floor is a hole-punched patchwork, so kit.room can't own it (it
+  // would pave the hole). Keep the two side walls explicit; the z=2 edge is
+  // owned by the alley and the z=-16 edge by the concourse.
+  kit.wall(TH, H, 18, -34, -7);               // west: dead wall
+  kit.wall(TH, H, 18, -14, -7);               // east: dead wall
   kit.torch(-24, 0.5, { intensity: 3, range: 6, color: 0x9a7bff });
   kit.torch(-24, -14, { intensity: 3, range: 6, color: 0x9a7bff });
   kit.inscription(-33.9, 2.3, -7, "You remember drowning was never the worst part of water.", Math.PI / 2, "#9a86d8");
@@ -145,20 +134,14 @@ export function buildLanternWays() {
   kit.trigger("canal", -24, -1, 4);
 
   // ================= F · THE LANE (x -3..3, z -16..-6) ====================
-  floorRect(-3, -16, 3, -6);
-  kit.surface(-3, -16, 3, -6, "obsidian");
-  vWall(-3, -16, -6);
-  vWall(3, -16, -6);
-  // south wall shared with the plaza; north wall drawn by the concourse
+  // the lane — a vertical connector; long side walls only, both ends open
+  // (z=-6 → plaza, z=-16 → concourse)
+  kit.corridor(-3, -16, 3, -6, { surface: "obsidian", h: H, t: TH });
   kit.checkpoint(0, -11, 2.5, 0, -11);
 
   // ================= G · CONCOURSE + RIFT (x -34..20, z -40..-16) ========
-  floorRect(-34, -40, 20, -16);
-  kit.surface(-34, -40, 20, -16, "moss");
-  hWall(-16, -34, 20, [[-26, -22], [-3, 3]]); // south: canal door + lane door
-  hWall(-40, -34, 20);                        // north: dead wall
-  vWall(-34, -40, -16);
-  vWall(20, -40, -16);
+  // z=-16 carries the canal door + lane door; z=-40, east, west are dead walls
+  kit.room(-34, -40, 20, -16, { doors: { n: [[-26, -22], [-3, 3]] }, surface: "moss", h: H, t: TH });
   kit.extraction(-7, -34);
   kit.trim(4, 0.2, -7, 2.6, -39.6, 0, 0x39f0c0, 2.2);
   kit.fogPatch(-14, -38, -2, -28, { conceal: 0.65, density: 0.05 });

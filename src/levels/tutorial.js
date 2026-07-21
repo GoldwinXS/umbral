@@ -23,64 +23,42 @@ export function buildTutorial() {
   bag.name = "THE ASHWAY";
   bag.spawn.set(-28, 0.42, 10);
 
-  const W = (w, d, x, z) => kit.wall(w, 3.2, d, x, z); // wall helper, h = 3.2
+  // ================= ROOMS (watertight, clean-corner, via kit.room/corridor) ==
+  // Floor + surface + walls build together; the old hand-placed W() segments and
+  // their gaps map 1:1 to doors:{n,s,e,w}. SOUND and BLINK keep their tiled
+  // multi-surface plates explicit (their kit.room builds only a plain floor).
+  // Default kit height/thickness (3.2 / 0.4) match this level's old W() walls.
 
-  // ================= FLOORS (one per cell, exactly abutting — no overlap) =====
-  kit.floor(8, 8, -28, 10);      // START      x[-32,-24] z[6,14]  (now SOUTH of path)
-  kit.floor(2, 3, -28, 4.5);     // start corr x[-29,-27] z[3,6]
-  kit.floor(40, 3, -28, 1.5);    // PATH       x[-48,-8]  z[0,3]   (extends W past the fog)
-  kit.floor(18, 21, 1, 1.5);     // SOUND      x[-8,10]   z[-9,12]
-  kit.floor(6, 3, 13, 1.5);      // sound corr x[10,16]   z[0,3]
-  kit.floor(18, 21, 25, 1.5);    // BLINK      x[16,34]   z[-9,12]
-  kit.floor(4, 3, 36, 1.5);      // exit alcove x[34,38]  z[0,3]
-
-  // ================= SURFACE PLATES (tiled, non-overlapping) ==================
-  kit.surface(-32, 6, -24, 14, "moss");      // start room (south of path)
-  kit.surface(-29, 3, -27, 6, "moss");       // start corridor
-  kit.surface(-48, 0, -8, 3, "moss");        // path (continues west past the fog)
-  // SOUND room: a LARGE loud crystal floor filling the centre (lit by the
-  // towers) with only a thin MOSS border. Cross the middle and you must creep to
-  // stay quiet — or hug the silent, dark edges the long way round.
+  // START room x[-32,-24] z[6,14]; gap toward the path at x[-29,-27]
+  kit.room(-32, 6, -24, 14, { doors: { s: [[-29, -27]] }, surface: "moss" });
+  // start corridor x[-29,-27] z[3,6]
+  kit.corridor(-29, 3, -27, 6, { surface: "moss" });
+  // PATH x[-48,-8] z[0,3]: solid on the z=0 side, gap x[-29,-27] toward the start
+  // corridor, OPEN east into SOUND, capped west at the fogged dead-end
+  kit.room(-48, 0, -8, 3, { doors: { n: [[-29, -27]], e: [[0, 3]] }, surface: "moss" });
+  // the hallway CONTINUES west into the mist — a world beyond reach. The fog
+  // wall bars it; the corridor and its west cap are visible past the barrier.
+  const fogA = kit.fogWall(-34, 1.5, 2.6, { rot: Math.PI / 2, h: 3.0 });
+  // SOUND room x[-8,10] z[-9,12]; west + east door gaps z[0,3]
+  kit.room(-8, -9, 10, 12, { doors: { w: [[0, 3]], e: [[0, 3]] } });
+  // a LARGE loud crystal floor filling the centre (lit by the towers) with only
+  // a thin MOSS border — creep the middle, or hug the silent dark edges.
   kit.surface(-8, -9, -5.5, 12, "moss");       // moss edge W
   kit.surface(7.5, -9, 10, 12, "moss");        // moss edge E
   kit.surface(-5.5, 9.5, 7.5, 12, "moss");     // moss edge N
   kit.surface(-5.5, -9, 7.5, -6.5, "moss");    // moss edge S
   kit.surface(-5.5, -6.5, 7.5, 9.5, "crystal"); // the big resonant floor
-  kit.surface(10, 0, 16, 3, "moss");          // sound corridor
-  // BLINK room: two vertical resonant bands with moss strips between
+  // sound corridor x[10,16] z[0,3]
+  kit.corridor(10, 0, 16, 3, { surface: "moss" });
+  // BLINK room x[16,34] z[-9,12]; west + east door gaps z[0,3]
+  kit.room(16, -9, 34, 12, { doors: { w: [[0, 3]], e: [[0, 3]] } });
   kit.surface(16, -9, 21, 12, "moss");
   kit.surface(21, -9, 24, 12, "crystal");     // band 1
   kit.surface(24, -9, 27, 12, "moss");        // island
   kit.surface(27, -9, 30, 12, "crystal");     // band 2
   kit.surface(30, -9, 34, 12, "moss");
-  kit.surface(34, 0, 38, 3, "moss");          // exit alcove
-
-  // ================= WALLS ====================================================
-  // START room x[-32,-24] z[6,14] (south of path), NORTH gap x[-29,-27]
-  W(8.4, 0.4, -28, 14.2);                            // south
-  W(0.4, 8.4, -32.2, 10); W(0.4, 8.4, -23.8, 10);   // sides
-  W(3, 0.4, -30.5, 6); W(3, 0.4, -25.5, 6);          // north, gap x[-29,-27]
-  // start corridor sides (z 3..6)
-  W(0.4, 3.4, -29.2, 4.5); W(0.4, 3.4, -26.8, 4.5);
-  // PATH x[-48,-8] z[0,3]: north solid; SOUTH gap for the corridor x[-29,-27]
-  W(40.4, 0.4, -28, -0.2);                            // north (solid)
-  W(19, 0.4, -38.5, 3.2); W(19, 0.4, -17.5, 3.2);    // south, gap x[-29,-27]
-  // the hallway CONTINUES west into the mist — a world beyond reach. The fog
-  // wall bars it; the corridor and its far wall are visible past the barrier.
-  W(0.4, 3.4, -48.2, 1.5);                            // far west cap (dim, distant)
-  const fogA = kit.fogWall(-34, 1.5, 2.6, { rot: Math.PI / 2, h: 3.0 });
-  // SOUND room x[-8,10] z[-9,12], W gap z[0,3] (path), E gap z[0,3] (corridor)
-  W(18.4, 0.4, 1, -9.2); W(18.4, 0.4, 1, 12.2);
-  W(0.4, 9, -8.2, -4.5); W(0.4, 9, -8.2, 7.5);       // west, gap z[0,3]
-  W(0.4, 9, 10.2, -4.5); W(0.4, 9, 10.2, 7.5);       // east, gap z[0,3]
-  // sound corridor N/S
-  W(6, 0.4, 13, 0); W(6, 0.4, 13, 3);
-  // BLINK room x[16,34] z[-9,12], W gap z[0,3], E gap z[0,3]
-  W(18.4, 0.4, 25, -9.2); W(18.4, 0.4, 25, 12.2);
-  W(0.4, 9, 15.8, -4.5); W(0.4, 9, 15.8, 7.5);       // west, gap z[0,3]
-  W(0.4, 9, 34.2, -4.5); W(0.4, 9, 34.2, 7.5);       // east, gap z[0,3]
-  // exit alcove
-  W(4, 0.4, 36, 0); W(4, 0.4, 36, 3); W(0.4, 3.4, 38.2, 1.5);
+  // exit alcove x[34,38] z[0,3]: OPEN west into BLINK, capped east
+  kit.room(34, 0, 38, 3, { doors: { w: [[0, 3]] }, surface: "moss" });
   kit.extraction(36, 1.5);
   kit.trim(2.6, 0.2, 36, 2.4, 0.05, 0, 0x39f0c0, 2.2);
 

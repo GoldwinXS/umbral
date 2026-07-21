@@ -32,65 +32,23 @@ export function buildSwallow() {
   bag.spawn.set(-17, 0.42, 0);
   bag.bounds = { x0: -21, z0: -12, x1: 63, z1: 12 };
 
-  const H = 3.2, TH = 0.4;
+  const H = 3.2;
 
-  // ---- watertight room helpers (walls with door gaps), same shape as the
-  // helpers used in dousing.js / vault.js / spire.js ----
-  const gapsCut = (a, b, gaps) => {
-    const gs = (gaps || []).slice().sort((p, q) => p[0] - q[0]);
-    const spans = []; let cur = a;
-    for (const [g0, g1] of gs) { if (g0 > cur) spans.push([cur, Math.min(g0, b)]); cur = Math.max(cur, g1); }
-    if (cur < b) spans.push([cur, b]);
-    return spans;
-  };
-  const hWall = (z, x0, x1, gaps) => { for (const [a, b] of gapsCut(x0, x1, gaps)) if (b - a > 0.02) kit.wall(b - a, H, TH, (a + b) / 2, z); };
-  const vWall = (x, z0, z1, gaps) => { for (const [a, b] of gapsCut(z0, z1, gaps)) if (b - a > 0.02) kit.wall(TH, H, b - a, x, (a + b) / 2); };
-  const floorRect = (x0, z0, x1, z1, mat) => kit.floor(x1 - x0, z1 - z0, (x0 + x1) / 2, (z0 + z1) / 2, mat);
-
-  // ================= FLOORS (one per cell, exactly abutting — no overlap) ====
-  floorRect(-20, -4, -12, 4);     // A   START HALL      x[-20,-12] z[-4,4]
-  floorRect(-12, -1.5, -8, 1.5);  // AB  corridor         x[-12,-8]  z[-1.5,1.5]
-  floorRect(-8, -8, 14, 8);       // B   DEVOUR ROOM      x[-8,14]   z[-8,8]
-  floorRect(14, -1.5, 18, 1.5);   // BC  corridor         x[14,18]   z[-1.5,1.5]
-  floorRect(18, -11, 50, 11);     // C   THE GORGE        x[18,50]   z[-11,11]
-  floorRect(50, -1.5, 54, 1.5);   // CD  corridor         x[50,54]   z[-1.5,1.5]
-  floorRect(54, -6, 62, 6);       // D   EXTRACTION       x[54,62]   z[-6,6]
-
-  // ================= SURFACE PLATES (tiled, non-overlapping) =================
-  kit.surface(-20, -4, -12, 4, "moss");    // start — silent, dark
-  kit.surface(-12, -1.5, -8, 1.5, "moss");
-  kit.surface(-8, -8, 14, 8, "moss");      // devour room — silent, ideal for a rear approach
-  kit.surface(14, -1.5, 18, 1.5, "moss");
-  // THE GORGE — one floor cell, three tiled bands (all exactly abut, no gaps/overlap)
+  // ================= ROOMS (watertight, clean-corner, via kit.room/corridor) =
+  // Floor + surface + walls build together; door gaps are the old hWall/vWall
+  // gaps translated 1:1. THE GORGE keeps its three tiled surface bands explicit
+  // (kit.room builds only its plain floor + walls). Default kit height/thickness
+  // (3.2 / 0.4) already match this level.
+  kit.room(-20, -4, -12, 4, { doors: { e: [[-1.5, 1.5]] }, surface: "moss" });                  // A START HALL
+  kit.corridor(-12, -1.5, -8, 1.5, { surface: "moss" });                                         // AB
+  kit.room(-8, -8, 14, 8, { doors: { w: [[-1.5, 1.5]], e: [[-1.5, 1.5]] }, surface: "moss" });   // B DEVOUR ROOM
+  kit.corridor(14, -1.5, 18, 1.5, { surface: "moss" });                                          // BC
+  kit.room(18, -11, 50, 11, { doors: { w: [[-1.5, 1.5]], e: [[-1.5, 1.5]] } });                  // C THE GORGE
   kit.surface(18, -11, 28, 11, "moss");     // west  — Snuffed zone, MUST stay silent
   kit.surface(28, -11, 38, 11, "obsidian"); // mid   — second Vesper, moderate noise
   kit.surface(38, -11, 50, 11, "crystal");  // east  — Pharos + pedestal, the finale sings
-  kit.surface(50, -1.5, 54, 1.5, "moss");
-  kit.surface(54, -6, 62, 6, "moss");       // escape — quiet dash
-
-  // ================= WALLS =====================================================
-  // A · START HALL x[-20,-12] z[-4,4] — dead west/north/south, door east
-  hWall(4, -20, -12); hWall(-4, -20, -12);
-  vWall(-20, -4, 4);
-  vWall(-12, -4, 4, [[-1.5, 1.5]]);
-  // AB corridor
-  hWall(1.5, -12, -8); hWall(-1.5, -12, -8);
-  // B · DEVOUR ROOM x[-8,14] z[-8,8] — dead north/south, doors west+east
-  hWall(8, -8, 14); hWall(-8, -8, 14);
-  vWall(-8, -8, 8, [[-1.5, 1.5]]);
-  vWall(14, -8, 8, [[-1.5, 1.5]]);
-  // BC corridor
-  hWall(1.5, 14, 18); hWall(-1.5, 14, 18);
-  // C · THE GORGE x[18,50] z[-11,11] — dead north/south, door west+east
-  hWall(11, 18, 50); hWall(-11, 18, 50);
-  vWall(18, -11, 11, [[-1.5, 1.5]]);
-  vWall(50, -11, 11, [[-1.5, 1.5]]);
-  // CD corridor
-  hWall(1.5, 50, 54); hWall(-1.5, 50, 54);
-  // D · EXTRACTION x[54,62] z[-6,6] — dead north/south/east, door west
-  hWall(6, 54, 62); hWall(-6, 54, 62);
-  vWall(54, -6, 6, [[-1.5, 1.5]]);
-  vWall(62, -6, 6);
+  kit.corridor(50, -1.5, 54, 1.5, { surface: "moss" });                                          // CD
+  kit.room(54, -6, 62, 6, { doors: { w: [[-1.5, 1.5]] }, surface: "moss" });                     // D EXTRACTION
 
   kit.extraction(58, 0);
   kit.trim(3.4, 0.2, 61.7, 2.4, 0, Math.PI / 2, 0x39f0c0, 2.0);

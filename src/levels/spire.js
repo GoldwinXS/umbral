@@ -31,27 +31,25 @@ export function buildSpire() {
 
   const H = 3.4, TH = 0.5;
 
-  // ---- watertight room helpers (walls with door gaps) ----
-  const gapsCut = (a, b, gaps) => { const gs = (gaps || []).slice().sort((p, q) => p[0] - q[0]); const spans = []; let cur = a; for (const [g0, g1] of gs) { if (g0 > cur) spans.push([cur, Math.min(g0, b)]); cur = Math.max(cur, g1); } if (cur < b) spans.push([cur, b]); return spans; };
-  const hWall = (z, x0, x1, gaps) => { for (const [a, b] of gapsCut(x0, x1, gaps)) if (b - a > 0.02) kit.wall(b - a, H, TH, (a + b) / 2, z); };
-  const vWall = (x, z0, z1, gaps) => { for (const [a, b] of gapsCut(z0, z1, gaps)) if (b - a > 0.02) kit.wall(TH, H, b - a, x, (a + b) / 2); };
-  const floorRect = (x0, z0, x1, z1, mat) => kit.floor(x1 - x0, z1 - z0, (x0 + x1) / 2, (z0 + z1) / 2, mat);
+  // Walls now come from kit.room/kit.corridor (clean corners). The stacked
+  // terraces and the two stairs each build their own perimeter segment, so the
+  // old shared vWall(±13,24,80) / vWall(±9,38,66) runs are gone. H/TH keep this
+  // level's taller, thicker walls; the tall bridge canyon walls stay as kit.wall.
 
   // ================= A · FOOT OF THE SPIRE — start terrace ===============
   // x -13..13, z 66..80. North wall funnels into two mouths: outer(east,
   // bright) and inner(west, dark); the middle stays solid — no straight path.
-  floorRect(-13, 66, 13, 80);
-  kit.surface(-13, 66, 13, 80, "obsidian");
-  hWall(80, -13, 13);                          // south — spawn wall, dead end
-  hWall(66, -13, 13, [[-13, -9], [9, 13]]);     // north — two mouths, middle solid
+  // z=80 dead-end (spawn) wall; z=66 has the two stair mouths (middle solid);
+  // e/w walls are this terrace's slice of the old outer perimeter
+  kit.room(-13, 66, 13, 80, { doors: { s: [[-13, -9], [9, 13]] }, surface: "obsidian", h: H, t: TH });
   kit.torch(0, 72, { intensity: 5, range: 8 });
   kit.guard([[-6, 67], [6, 67]], { speed: 1.3, pause: 1.5, range: 11 }); // patrols below the spawn terrace, not staring at it
   kit.inscription(0, 2.6, 65.9, "KEEP THE FIRES FED", 0, "#ffb46a");
 
   // ================= B · OUTER STAIR (bright, watched) ====================
   // x 9..13, z 38..66 — blazing, fast, exposed to sighted Vespers.
-  floorRect(9, 38, 13, 66);
-  kit.surface(9, 38, 13, 66, "obsidian");
+  // outer stair — walls at x=9 (inner, against the mountain core) + x=13 (perimeter)
+  kit.corridor(9, 38, 13, 66, { surface: "obsidian", h: H, t: TH });
   kit.torch(11, 46, { intensity: 9, range: 10 });
   kit.torch(11, 60, { intensity: 8, range: 9 });
   kit.trim(0.2, 3.0, 13.2, 1.6, 52, Math.PI / 2, 0xffb46a, 1.6);
@@ -60,8 +58,8 @@ export function buildSpire() {
 
   // ================= C · INNER STAIR (dark, Snuffed-guarded) ==============
   // x -13..-9, z 38..66 — the lamps here are dead; go silent on moss or die.
-  floorRect(-13, 38, -9, 66);
-  kit.surface(-13, 38, -9, 66, "moss");
+  // inner stair — walls at x=-13 (perimeter) + x=-9 (inner, against the mountain core)
+  kit.corridor(-13, 38, -9, 66, { surface: "moss", h: H, t: TH });
   kit.torch(-11, 50, { intensity: 2.2, range: 5, color: 0x6a5aa0 });
   kit.fogPatch(-13, 40, -9, 64, { conceal: 0.72, density: 0.06, puffs: 6 });
   kit.cache("innerc1", -11, 55, 2);
@@ -71,21 +69,17 @@ export function buildSpire() {
 
   // interior mountain mass filling the non-walkable core between the stairs
   kit.solid(18, 7, 28, 0, 52, kit.mats.block);
-  vWall(9, 38, 66);
-  vWall(-9, 38, 66);
-  // outer perimeter of the whole foot+stairs+courtyard block
-  vWall(13, 24, 80);
-  vWall(-13, 24, 80);
+  // (the stairs' side walls and the outer perimeter are now built by the two
+  // stair corridors above and by terraces A/D — no separate perimeter run)
 
   // ================= D · CONVERGENCE COURTYARD =============================
   // x -13..13, z 24..38. The two stairs braid back together here. Partitioned
   // west(moss, dark alcove)/mid(obsidian)/east(crystal, loud & lit).
-  floorRect(-13, 24, 13, 38);
+  // z=38 (n) = the two stair mouths; z=24 (s) = the single bridge gate; e/w perimeter
+  kit.room(-13, 24, 13, 38, { doors: { n: [[-13, -9], [9, 13]], s: [[-2, 2]] }, h: H, t: TH });
   kit.surface(-13, 24, -4, 38, "moss");
   kit.surface(-4, 24, 4, 38, "obsidian");
   kit.surface(4, 24, 13, 38, "crystal");
-  hWall(38, -13, 13, [[-13, -9], [9, 13]]);     // south — the two stair mouths
-  hWall(24, -13, 13, [[-2, 2]]);                // north — the single bridge gate
   kit.torch(9, 27, { intensity: 8, range: 11 });
   kit.torch(9, 35, { intensity: 8, range: 11 });
   kit.torch(-9, 31, { intensity: 2.2, range: 5, color: 0x6a5aa0 });
@@ -103,13 +97,13 @@ export function buildSpire() {
   // x -13..13, z 8..24. A thin walkable spar (x -2..2) flanked on both sides
   // by true void; tall canyon walls; the Pharos rakes the crossing.
   kit.floor(4, 16, 0, 16, kit.mats.dark, -0.18);  // base slab UNDER the bridge only
-  floorRect(-2, 8, 2, 24);
+  kit.floor(4, 16, 0, 16);                        // the walkable spar x[-2,2] z[8,24]
   kit.surface(-2, 8, 2, 24, "obsidian");
   kit.hole(-13, 8, -2, 24);
   kit.hole(2, 8, 13, 24);
   kit.wall(TH, 8, 16, 13, 16);                  // east canyon wall (tall — deep chasm)
   kit.wall(TH, 8, 16, -13, 16);                 // west canyon wall
-  hWall(8, -13, 13, [[-2, 2]]);                 // north — bridge exit
+  // the bridge's north wall (z=8, door [-2,2] = the exit) is built by terrace F below
   kit.torch(0, 16, { intensity: 11, range: 16 });
   kit.fogPatch(-2, 10, 2, 22, { conceal: 0.25, density: 0.08, puffs: 5 });
   kit.greatEye(0, 7.6, { dir: Math.PI / 2, sweep: 0.9, sweepSpeed: 0.6, range: 22, coneAngle: 0.24, height: 3.2 });
@@ -117,11 +111,9 @@ export function buildSpire() {
 
   // ================= F · UPPER TERRACE ======================================
   // x -13..13, z -6..8. Post-crossing breather, then the last funnel north.
-  floorRect(-13, -6, 13, 8);
-  kit.surface(-13, -6, 13, 8, "obsidian");
-  vWall(13, -6, 8);
-  vWall(-13, -6, 8);
-  hWall(-6, -13, 13, [[-4, 4]]);                // north — narrows toward the summit
+  // z=8 (n) = the bridge's north wall (door [-2,2] = the bridge exit); z=-6 (s)
+  // narrows toward the summit (door [-4,4]); e/w perimeter
+  kit.room(-13, -6, 13, 8, { doors: { n: [[-2, 2]], s: [[-4, 4]] }, surface: "obsidian", h: H, t: TH });
   kit.torch(-6, 1, { intensity: 5, range: 8 });
   kit.torch(6, -3, { intensity: 5, range: 8 });
   kit.solid(1.4, 4.5, 1.4, -3, -2, kit.mats.pillar, 0.2);
@@ -133,11 +125,8 @@ export function buildSpire() {
 
   // ================= G · SUMMIT — the rift =================================
   // x -9..9, z -22..-6. The spire narrows to its crown.
-  floorRect(-9, -22, 9, -6);
-  kit.surface(-9, -22, 9, -6, "obsidian");
-  vWall(9, -22, -6);
-  vWall(-9, -22, -6);
-  hWall(-22, -9, 9);                            // north — the crown, dead end
+  // z=-22 (s) the crown dead-end; NORTH edge (z=-6) owned by terrace F's south wall
+  kit.room(-9, -22, 9, -6, { doors: { n: [[-9, 9]] }, surface: "obsidian", h: H, t: TH });
   kit.torch(0, -10, { intensity: 6, range: 9 });
   kit.solid(1.6, 8.5, 1.6, 3, -12, kit.mats.pillar, 0.25);
   kit.solid(1.6, 5, 1.6, -4, -16, kit.mats.pillar, -0.15);
