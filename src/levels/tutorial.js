@@ -96,6 +96,64 @@ export function buildTutorial() {
   kit.guard([[19, -7], [19, 10]], { speed: 1.1, pause: 1.0, range: 8 });   // starts heading +z
   kit.guard([[31, 10], [31, -7]], { speed: 1.1, pause: 1.0, range: 8 });   // starts heading -z
 
+  // ================= DRESSING (props) =========================================
+  // Rules: never intrude the central z[0,3] walking lane or a door gap; keep
+  // colliders off the guard lines (sound x=1; blink x=19 / x=31) and off spawn.
+  // Cover props (crate/barrel/column/statue/…) push colliders; urn/banner/
+  // chains/brazier/deadLantern are pure decor.
+
+  // START room x[-32,-24] z[6,14] — the safe threshold. Cover hugs the walls,
+  // clear of spawn (-28,10) and the north gap x[-29,-27].
+  kit.crateStack(-30.6, 8.2, { seed: 3 });
+  kit.barrel(-30.4, 12.2, { seed: 5 });
+  kit.sack(-25.2, 7.4, { seed: 2 });
+  kit.crate(-24.9, 12.4, { size: 0.8, rot: 0.5, seed: 7 });
+  kit.deadLantern(-31.3, 13.1, { seed: 1 });
+  kit.banner(-28, 2.0, 13.85, Math.PI, { w: 1.1, color: 0x2c3b6a, seed: 4 }); // south wall
+
+  // PATH (reachable stretch x[-34,-8]) — decor only, snug to the north wall so
+  // the 3-wide lane stays open.
+  kit.urn(-20.5, 0.55, { scale: 1.1, tall: true, seed: 9 });
+  kit.deadLantern(-13.5, 0.45, { seed: 6 });
+  kit.chains(-32.8, 1.5, { y: 3.0, len: 1.4, seed: 8 });   // just this side of the fog
+
+  // BEYOND THE FOG (unreachable x[-48,-34]) — a full little vista glimpsed
+  // through the mist, so the barred hall reads as a real world going on.
+  kit.statue(-42, 1.5, { scale: 1.15, h: 3.0, rot: 0.4, seed: 11 });
+  kit.brokenColumn(-45.2, 0.7, { h: 2.0, seed: 12 });
+  kit.cart(-44, 2.3, { rot: -0.5, seed: 13 });
+  kit.rubble(-38.5, 2.3, { radius: 1.0, seed: 14 });
+  kit.barrel(-37, 0.6, { seed: 15 });
+  kit.deadLantern(-46.6, 1.5, { seed: 16 });
+
+  // SOUND room — cover ONLY on the silent dark moss edges (west x≈-6.8, east
+  // x≈8.8), rewarding the long way round; nothing on the loud crystal centre
+  // or the Vesper's line (x=1). Urns flank the two towers like little shrines.
+  kit.crateStack(-6.9, 4.4, { seed: 21 });
+  kit.brokenColumn(-6.7, 8.6, { h: 1.7, seed: 22 });
+  kit.barrel(-6.8, -3.2, { seed: 23 });
+  kit.crateStack(8.8, -4.2, { seed: 24 });
+  kit.sarcophagus(8.6, 6.2, { rot: Math.PI / 2, seed: 25 });
+  kit.statue(8.7, 10.4, { scale: 0.9, h: 2.4, seed: 26 });
+  kit.urn(-0.7, 6.3, { scale: 0.9, seed: 27 });   // tower N (1,7) base
+  kit.urn(2.7, 7.7, { scale: 0.9, seed: 28 });
+  kit.urn(-0.7, -2.7, { scale: 0.8, seed: 29 });  // tower S (1,-2) base
+  kit.urn(2.7, -1.3, { scale: 0.8, seed: 30 });
+  kit.banner(-4, 2.2, 12.05, Math.PI, { w: 1.0, color: 0x243a5c, seed: 31 });
+  kit.banner(6, 2.2, 12.05, Math.PI, { w: 1.0, color: 0x243a5c, seed: 32 });
+
+  // BLINK room — only the central moss island (x[24,27]) and back corners get
+  // landmarks, well clear of the z[0,3] landing lane and the guard lines
+  // (x=19, x=31). They read as things to blink *toward*.
+  kit.statue(25.5, 10.2, { scale: 1.0, h: 2.7, seed: 41 });
+  kit.rubble(25.5, -7.2, { radius: 0.9, seed: 42 });
+  kit.brazier(17.4, 10.6, { seed: 43 });
+  kit.brazier(32.6, -7.6, { seed: 44 });
+
+  // EXIT alcove — two dead lanterns flanking the rift like a gate (decor only).
+  kit.deadLantern(35.0, 0.35, { seed: 51 });
+  kit.deadLantern(35.0, 2.65, { seed: 52 });
+
   // ================= ambient (low — pools & shadow must read) =================
   const moon = new THREE.DirectionalLight(0x8ea0cc, 0.55);
   moon.position.set(-12, 22, 8);
