@@ -39,6 +39,7 @@ export class Warden {
     this.scene = scene;
     this.overlay = overlay || scene; // transparent glow halo lives in the overlay pass
     this.spec = spec;
+    this.groundY = spec.y || 0; // VERTICALITY: the tier this warden patrols on
     this.pos = new THREE.Vector3(spec.path[0][0], 1.45, spec.path[0][1]);
     this.vel = new THREE.Vector3();
     this.angle = Math.atan2(
@@ -308,7 +309,12 @@ export class Warden {
         const adiff = Math.abs(diff);
         const inTight = adiff < spec.coneAngle * 1.05 && dist < spec.range;
         const inWide = adiff < spec.coneAngle * 1.9;
-        if ((inTight || inWide) && game.los(this.pos.x, 2.2, this.pos.z, p.x, 0.5, p.z)) {
+        // VERTICALITY: the cone has a vertical spread too — a target more than
+        // ~0.55 rad off this warden's tier (in vertical angle) is out of sight,
+        // so height is concealment up close but exposed across a distance.
+        const inV = Math.abs(Math.atan2((game.player.groundY || 0) - this.groundY, dist)) < 0.55;
+        if (inV && (inTight || inWide) &&
+            game.los(this.pos.x, this.groundY + 1.9, this.pos.z, p.x, (game.player.groundY || 0) + 0.4, p.z)) {
           sees = true;
           // how far into the seeable band you are (dim → 0, fully open → 1)
           const expN = Math.min(1, (exposure - SEEN_THRESHOLD) / (FULL_LIT - SEEN_THRESHOLD));
@@ -406,16 +412,16 @@ export class Warden {
   }
 
   _syncVisual(t, forceColor) {
-    // float bob
-    const bobY = this.state === "out" ? this.body.position.y : 1.45 + Math.sin(t * 1.8 + this.bobPhase) * 0.08;
+    // float bob (offset onto this warden's tier)
+    const bobY = this.state === "out" ? this.body.position.y : this.groundY + 1.45 + Math.sin(t * 1.8 + this.bobPhase) * 0.08;
     this.body.position.set(this.pos.x, bobY, this.pos.z);
     if (this.state !== "out") this.body.rotation.y = -this.angle;
 
     // light follows, aimed down-forward along the facing (Snuffed has none)
     if (this.light) {
       const lead = this.state === "chase" ? 3.0 : 2.4;
-      this.light.position.set(this.pos.x, 2.7, this.pos.z);
-      this.light.target.position.set(this.pos.x + this.fx * lead, 0.1, this.pos.z + this.fz * lead);
+      this.light.position.set(this.pos.x, this.groundY + 2.7, this.pos.z);
+      this.light.target.position.set(this.pos.x + this.fx * lead, this.groundY + 0.1, this.pos.z + this.fz * lead);
     }
 
     // awareness 0..1 — the sentinel KINDLES brighter and redder as it closes in

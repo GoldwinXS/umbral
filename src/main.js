@@ -615,6 +615,7 @@ class Game {
   _computePlayerVis() {
     const p = this.player.pos;
     const px = p.x, pz = p.z;
+    const pgy = this.player.groundY || 0; // sample light at the blob's tier height
     let raw = VIS_ENV;
 
     // point lights: torches, fills, dormant lamps, the scepter (all PointLights).
@@ -628,15 +629,15 @@ class Game {
         const dir = this._tmpDir.copy(lt.position).sub(lt.target ? lt.target.position : this._origin);
         if (dir.lengthSq() < 1e-6) continue;
         dir.normalize();
-        const sx = px + dir.x * 40, sy = 0.5 + dir.y * 40, sz = pz + dir.z * 40;
-        if (!this.los(sx, sy, sz, px, 0.5, pz)) continue;
+        const sx = px + dir.x * 40, sy = pgy + 0.5 + dir.y * 40, sz = pz + dir.z * 40;
+        if (!this.los(sx, sy, sz, px, pgy + 0.5, pz)) continue;
         raw += lt.intensity * VIS_MOON;
       } else {
         const lp = lt.position;
         const dist = lt.distance || 20;
         const d = Math.hypot(lp.x - px, lp.z - pz);
         if (d >= dist || lt.intensity <= 0.001) continue;
-        if (!this.los(lp.x, lp.y, lp.z, px, 0.5, pz)) continue;
+        if (!this.los(lp.x, lp.y, lp.z, px, pgy + 0.5, pz)) continue;
         const win = 1 - (d / dist) * (d / dist);      // smooth cutoff at range
         raw += lt.intensity * win / (1 + 0.45 * d * d); // pool widened to match the rendered light
       }
@@ -655,7 +656,8 @@ class Game {
       while (diff < -Math.PI) diff += Math.PI * 2;
       const adiff = Math.abs(diff);
       if (adiff > w.spec.coneAngle) continue;
-      if (!this.los(w.pos.x, 2.2, w.pos.z, px, 0.5, pz)) continue;
+      if (Math.abs(Math.atan2(pgy - (w.groundY || 0), d)) > 0.55) continue; // vertical cone (tiers)
+      if (!this.los(w.pos.x, (w.groundY || 0) + 1.9, w.pos.z, px, pgy + 0.5, pz)) continue;
       const centering = 1 - Math.min(1, adiff / w.spec.coneAngle);
       const f = 1 - d / range;
       raw += w.light.intensity * 0.25 * f * f * (0.4 + 0.6 * centering);
