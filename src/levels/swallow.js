@@ -101,15 +101,22 @@ export function buildSwallow() {
   kit.torch(33, -3, { intensity: 6, range: 8, scale: 1 });                     // small — second Vesper's stretch
   kit.torch(40, 6, { intensity: 13, range: 11, scale: 1.8 });                  // GREAT — under the Pharos
   kit.torch(46, -3, { intensity: 14, range: 11, scale: 2.0 });                 // GREAT — pedestal guard light
-  kit.torch(58, 0, { intensity: 6, range: 8, scale: 1 });                      // small — extraction
+  kit.torch(55, 4, { intensity: 6, range: 8, scale: 1 });                      // small — extraction room corner (OFF the rift at 58,0)
 
   // ================= crimson maw motes — charge the devour =====================
   kit.mawMote("maw1", -6, -5);  // devour room — tucked off the Vesper's line, in shadow
   kit.mawMote("maw2", 24, 9);   // Gorge, far NW corner — a safe top-up before the finale
 
-  // ================= decoration / light cover ===================================
-  kit.solid(1.4, 1.2, 1.4, -2, 4, kit.mats.block, 0.15);
-  kit.pillar(0.6, H, 33, 4);
+  // ================= decoration / cover (break sightlines, give hiding spots) ==
+  kit.solid(1.4, 1.2, 1.4, -2, 4, kit.mats.block, 0.15);   // devour room
+  kit.solid(1.6, 1.3, 1.6, 8, -5, kit.mats.block, -0.2);   // devour room — rear-approach cover
+  kit.solid(1.6, 1.3, 1.6, 6, 5, kit.mats.block, 0.25);    // devour room
+  kit.pillar(0.6, H, 33, 4);                                // Gorge mid
+  kit.solid(1.6, 1.3, 1.6, 25, -8, kit.mats.block, 0.15);  // Gorge west (Snuffed zone edge)
+  kit.pillar(0.55, H, 24, 8);                               // Gorge west
+  kit.solid(1.6, 1.3, 1.6, 30, 6, kit.mats.block, -0.2);   // Gorge mid
+  kit.pillar(0.55, H, 42, 5);                               // Gorge east — cover from the Pharos gaze
+  kit.pillar(0.55, H, 48, 7);                               // Gorge east
 
   // ================= GUARDS — exactly three enemy TYPES ========================
   // 1 · normal Vespers (devourable — the swallow lesson)

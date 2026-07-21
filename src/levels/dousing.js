@@ -124,9 +124,22 @@ export function buildDousing() {
   kit.torch(44, 0, { intensity: 13, range: 11, scale: 1.8 });   // GREAT — CHOKE #3 (relic guard)
 
   // ================= VOID VIAL CACHES (refills along the route) ===============
-  kit.cache("capB", -12, 0, 2);   // BC corridor — refill right after choke #1
+  // capB sits in Room B BEFORE the lit door + its torch — you grab vials, then
+  // meet the light you spend them on (not on the far side of the obstacle).
+  kit.cache("capB", -25, 4, 2);   // choke room, near the entrance — before the lit door
   kit.cache("capU", 17, 5, 1);    // Snuffed corridor — a quiet find, no light needed
   kit.cache("capF", 29, -4, 2);   // staging — refill before the relic chamber
+
+  // ================= cover / obstacles (break sightlines, give hiding spots) ==
+  kit.solid(1.7, 1.3, 1.7, -23, -5, kit.mats.block, 0.2);  // choke room crate
+  kit.solid(1.6, 1.3, 1.6, -18, 6, kit.mats.block, -0.2);  // choke room crate
+  kit.solid(2.0, 1.3, 1.4, -5, 6, kit.mats.block, 0);      // hub cover
+  kit.solid(1.4, 1.3, 2.0, 5, -6, kit.mats.block, 0);      // hub cover
+  kit.pillar(0.6, H, -6, -7);                              // hub pillar
+  kit.solid(1.6, 1.3, 1.6, 28, -6, kit.mats.block, 0.15);  // staging crate
+  kit.solid(1.6, 1.3, 1.6, 30, 6, kit.mats.block, -0.15);  // staging crate
+  kit.pillar(0.55, H, 46, 6);                              // relic chamber pillar
+  kit.pillar(0.55, H, 42, -6);                             // relic chamber pillar
 
   // ================= GUARDS =====================================================
   // exactly two enemy types: normal Vespers (lit, cone-sighted) and Snuffed

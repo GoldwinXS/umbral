@@ -165,6 +165,7 @@ export function makeKit(scene) {
      *  a bigger, taller lantern (pass higher intensity/range for a brighter one)
      *  so the map can carry a mix of small and great lanterns. */
     torch(x, z, { color = 0xffb36b, intensity = 6, range = 9, h = 2.2, scale = 1 } = {}) {
+      intensity *= 1.4; // global lantern brightness lift — the lamps burn brighter
       const ph = h * scale;
       const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06 * scale, 0.09 * scale, ph, 8), mats.dark);
       pole.position.set(x, ph / 2, z);
