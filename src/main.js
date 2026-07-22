@@ -177,6 +177,8 @@ class Game {
       envColor: new THREE.Color(0x0a0e1a),
       envIntensity: 0.4,
       volumetric: { enabled: true, density: 0 },
+      overscan: 0.05,          // orbit/rotate cleanly — leading-edge convergence
+                               // noise is born off-screen (0.4.0 feature)
       overloadProtection: true,
     });
     this.settings.attach(this.rt, this.renderer, () => this._onResize(), (on) => this.sfx.setEnabled(on));
