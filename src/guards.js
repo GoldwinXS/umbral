@@ -219,16 +219,12 @@ export class Warden {
     }
   }
 
-  reset(path0Only = false) {
+  reset() {
     if (this.state === "out") return; // the fallen stay fallen
     this.state = "patrol";
     this.alertness = 0;
     this.lostT = 0;
     this.alertCounted = false;
-    if (path0Only) {
-      this.pos.set(this.spec.path[0][0], this.groundY + 1.45, this.spec.path[0][1]);
-      this.wp = 1;
-    }
   }
 
   /**

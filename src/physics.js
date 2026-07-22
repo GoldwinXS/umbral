@@ -141,12 +141,6 @@ export function groundHeightAt(x, z, platforms, ramps, curY = 0, stepUp = 0.4, b
   return ground;
 }
 
-/** Highest walkable surface at (x,z) IGNORING the step-up limit — used for
- *  blink landings (a shadowstep can carry you UP onto a ledge/catwalk). */
-export function topSurfaceAt(x, z, platforms, ramps, base = 0) {
-  return groundHeightAt(x, z, platforms, ramps, Infinity, Infinity, base);
-}
-
 export function pointInHole(x, z, holes) {
   for (const h of holes) {
     if (x >= h.x0 && x <= h.x1 && z >= h.z0 && z <= h.z1) return true;

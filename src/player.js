@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { collideCircle, circleHits, pointInHole, groundHeightAt, topSurfaceAt } from "./physics.js";
+import { collideCircle, circleHits, pointInHole, groundHeightAt } from "./physics.js";
 
 /**
  * The player: an umbral blob — a void-black, morphing creature.
@@ -281,7 +281,6 @@ export class Player {
     // smoothstep through reasonable bounds (SHADOW_SPEED dark → LIT_SPEED lit).
     const litTarget = ctx.litness || 0;
     this._litSmooth += (litTarget - this._litSmooth) * Math.min(1, dt * 3.5);
-    this.litness = this._litSmooth;
     const e = this._litSmooth * this._litSmooth * (3 - 2 * this._litSmooth); // smoothstep
     const shadowSpeedMul = SHADOW_SPEED - e * (SHADOW_SPEED - LIT_SPEED);
     let mul = shadowSpeedMul;

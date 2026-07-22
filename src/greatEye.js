@@ -158,8 +158,10 @@ export class GreatEye {
       while (diff < -Math.PI) diff += Math.PI * 2;
       if (Math.abs(diff) < this.spec.coneAngle) {
         if (game.los(this.x, this.height, this.z, p.x, 0.5, p.z)) {
-          // you must be visible — light alone (fog no longer conceals)
-          if (game.playerVis > 0.18) inGaze = true;
+          // you must be visible — light alone (fog no longer conceals). Uses raw
+          // playerVis, not the sneak-discounted exposure wardens check — the Eye
+          // deliberately ignores the sneak bonus.
+          if (game.playerVis > game.SEEN_THRESHOLD) inGaze = true;
         }
       }
     }

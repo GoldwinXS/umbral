@@ -145,7 +145,7 @@ export class Settings {
     slider("Canvas resolution", "resolution", 0.4, 1.0, 0.05, (v) => Math.round(v * 100) + "%", "Render buffer size vs native display");
     slider("Denoise passes", "denoise", 0, 5, 1, (v) => String(v), "Shadow smoothing iterations");
     slider("Target FPS", "targetFps", 30, 60, 5, (v) => String(v), "For the adaptive governor");
-    slider("Effects opacity", "overlayOpacity", 0.04, 0.4, 0.02, (v) => Math.round(v / 0.2 * 100) + "%", "Sound rings, reticles & other on-screen effects");
+    slider("Effects opacity", "overlayOpacity", 0.04, 0.4, 0.02, (v) => Math.round(v / 0.2 * 100) + "%", "Sound rings & your own effects — enemy tells and fog stay full-strength");
     toggle("Temporal AA", "taa", "Smooths edges, slight lag");
     toggle("Volumetric light beams", "volumetric", "Visible light shafts through haze");
     toggle("Reflections", "reflections", "Traced gloss on crystal floors — costly");

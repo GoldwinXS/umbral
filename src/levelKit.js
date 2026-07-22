@@ -586,8 +586,10 @@ export function makeKit(scene) {
      * thins away over ~1.2s. Reusable gating cue for any level.
      *
      * rot 0 → the doorway faces ±z (curtain spans x); rot Math.PI/2 → faces ±x.
+     * `dense` opts in to the old, thicker curtain (opacity 0.34, DEPTH 3) for a
+     * wall that must read as solid; default is the thinner, more see-through fill.
      */
-    fogWall(x, z, w, { h = 3.4, rot = 0, color = 0xb7c8ec, thick = 0.7 } = {}) {
+    fogWall(x, z, w, { h = 3.4, rot = 0, color = 0xb7c8ec, thick = 0.7, dense = false } = {}) {
       const collider = {
         x, z,
         hx: rot === 0 ? w / 2 : thick, hz: rot === 0 ? thick : w / 2,
@@ -605,7 +607,8 @@ export function makeKit(scene) {
       // angle (not a flat curtain), and it renders in the overlay pass.
       const puffs = [];
       const COLS = Math.max(3, Math.round(w / 1.1));
-      const ROWS = 4, DEPTH = 3;
+      const ROWS = 4, DEPTH = dense ? 3 : 2;
+      const baseOp = dense ? 0.34 : 0.22;
       let i = 0;
       for (let cx = 0; cx < COLS; cx++) {
         for (let cy = 0; cy < ROWS; cy++) {
@@ -616,14 +619,14 @@ export function makeKit(scene) {
             const jz = (cz + 0.5) / DEPTH - 0.5 + (((i * 11) % 5) / 5 - 0.5) * 0.18;
             const s = 1.3 + ((i * 7) % 5) / 5 * 0.9;
             const mat = new THREE.SpriteMaterial({
-              map: tex, color, transparent: true, opacity: 0.34,
+              map: tex, color, transparent: true, opacity: baseOp,
               depthWrite: false, blending: THREE.NormalBlending,
             });
             const sp = new THREE.Sprite(mat);
             sp.position.set(jx * w, jy * h, jz * thick * 3.2);
             sp.scale.set(s, s, 1);
             sp.userData.rtExclude = true;
-            sp.userData.baseOp = 0.34;
+            sp.userData.baseOp = baseOp;
             sp.userData.baseY = sp.position.y;
             sp.userData.phase = i * 0.7;
             sp.renderOrder = 3;
@@ -724,28 +727,6 @@ export function makeKit(scene) {
       scene.add(group);
       const m = { id, x, z, mesh: group, core, taken: false };
       bag.maws.push(m);
-      return m;
-    },
-
-    /** A still, mirror-dark reflective pool. Registers a reflection zone. */
-    reflectPool(x, z, r) {
-      const m = new THREE.Mesh(
-        new THREE.CylinderGeometry(r, r, 0.06, 32),
-        new THREE.MeshStandardMaterial({ color: 0x05070d, roughness: 0.04, metalness: 1.0 })
-      );
-      m.position.set(x, 0.04, z);
-      scene.add(m);
-      bag.occluders.push(m);
-      // faint rim so it reads as water/mirror even before reflections kick in
-      const rim = new THREE.Mesh(
-        new THREE.TorusGeometry(r, 0.04, 6, 40),
-        new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0x5aa0ff, emissiveIntensity: 1.4 })
-      );
-      rim.rotation.x = -Math.PI / 2;
-      rim.position.set(x, 0.07, z);
-      rim.userData.rtExclude = true;
-      scene.add(rim);
-      bag.reflectors.push({ x, z, r });
       return m;
     },
 

@@ -4,7 +4,7 @@ import { Input } from "./input.js";
 import { Settings } from "./settings.js";
 import { Sfx } from "./audio.js";
 import { Hud } from "./hud.js";
-import { Player, PLAYER_R, BLINK_CD, DOUSE_RADIUS } from "./player.js";
+import { Player, DOUSE_RADIUS } from "./player.js";
 import { Warden } from "./guards.js";
 import { GreatEye } from "./greatEye.js";
 import { pointInHole, surfaceAt } from "./physics.js";
@@ -50,14 +50,14 @@ const SIZE_BULK_CAP = 1.4;
 // is the single source of truth (per-level bag.upgrades are ignored), so a
 // later level can never silently regress an earlier grant.
 const POWER = [
-  {},                                                                  // 0 Ashway
-  {},                                                                  // 1 Lampway (dousing)
-  {},                                                                  // 2 The Gorge (swallow)
-  {},                                                                  // 3 Brightward
-  { blinkRange: 6.5 },                                                 // 4 Lantern-Ways
-  { blinkRange: 6.5, growthCap: 0.55 },                                // 5 Chandlery
-  { blinkRange: 7, growthCap: 0.55, maxHealthCap: 7, maxHealth: 4 },   // 6 Spire Ascent
-  { blinkRange: 7, growthCap: 0.6, maxHealthCap: 7, maxHealth: 4 },    // 7 Reliquary (finale)
+  {},                                                                  // 0 The Ashway
+  {},                                                                  // 1 The Dousing Yards
+  {},                                                                  // 2 The Fleshers' Row
+  {},                                                                  // 3 Brightward Gate
+  { blinkRange: 6.5 },                                                 // 4 The Lantern-Ways
+  { blinkRange: 6.5, growthCap: 0.55 },                                // 5 The Chandlery
+  { blinkRange: 7, growthCap: 0.55, maxHealthCap: 7, maxHealth: 4 },   // 6 The Spire Ascent
+  { blinkRange: 7, growthCap: 0.6, maxHealthCap: 7, maxHealth: 4 },    // 7 The Reliquary (finale)
 ];
 
 const boot = document.getElementById("boot");
@@ -465,7 +465,7 @@ class Game {
     console.log(`[umbral] ${bag.name} compiled in ${Math.round(performance.now() - t0)}ms:`,
       this.rt.compiled ? `${this.rt.compiled.triangleCount} tris, ${this.rt.compiled.lightCount} lights` : "unsupported platform");
     if (this.rt.supported) {
-      this.rt.volumetric.zones = bag.fogZones.slice(0, 8).map((z) => ({ min: z.min, max: z.max, density: z.density }));
+      this.rt.volumetric.zones = (bag.fogZones || []).slice(0, 8).map((z) => ({ min: z.min, max: z.max, density: z.density }));
       // NOTE: traced reflections are a user GRAPHICS setting (off by default now,
       // for conservative loading) — we deliberately do NOT force them on for
       // reflective pools. The reflection STEALTH mechanic does not need them: it
