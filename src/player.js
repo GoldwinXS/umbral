@@ -133,6 +133,7 @@ export class Player {
 
     this.vel = new THREE.Vector3();
     this.facing = new THREE.Vector2(0, -1);
+    this.morphDir = new THREE.Vector2(0, -1); // the BODY's axis — lags facing (fluid turns)
     this.vialCount = 0;
     this.blinkCd = 0;
     this.blinkCdMax = BLINK_CD; // actual cooldown of the last blink (for HUD + per-level buffs)
@@ -362,6 +363,9 @@ export class Player {
     this.blinkCdMax = BLINK_CD * (ctx.blinkCdMul || 1);
     this.blinkCd = this.blinkCdMax;
     this.blinkAnim = 1;
+    // the body just POURED through space along (dx,dz): its axis is that
+    // direction NOW — no lag — so the arrival smear stretches the right way
+    this.morphDir.set(dx, dz);
     this.eyeFlash = Math.max(this.eyeFlash, 0.6);
     ctx.sfx.blink();
     // origin implosion + landing shockwave (pure visuals — a blink is silent)
@@ -483,7 +487,24 @@ export class Player {
     const posAttr = this.mesh.geometry.getAttribute("position");
     const arr = posAttr.array;
     const base = this.base;
-    const fx = this.facing.x, fz = this.facing.y;
+    // FLUID TURNING: a solid pivots; a fluid reforms. The morph axis LAGS the
+    // true facing (eased, ~0.2s), and while they disagree (`turn` 0 aligned →
+    // 2 reversed) the elongation/tail collapse — the blob balls up, churns,
+    // and re-pours along the new heading instead of rotating as a rigid shape.
+    // eased in ANGLE space: lerp+normalize is degenerate on an exact 180°
+    // reversal (the radial nudge normalizes straight back — the axis would
+    // stick forever), and W→S reversals are routine on a keyboard.
+    const md = this.morphDir;
+    const ta = Math.atan2(this.facing.y, this.facing.x);
+    let ma = Math.atan2(md.y, md.x);
+    let dAng = ta - ma;
+    while (dAng > Math.PI) dAng -= Math.PI * 2;
+    while (dAng < -Math.PI) dAng += Math.PI * 2;
+    ma += dAng * Math.min(1, dt * 5);
+    md.set(Math.cos(ma), Math.sin(ma));
+    const turn = Math.max(0, 1 - (md.x * this.facing.x + md.y * this.facing.y));
+    const reform = 1 / (1 + turn * 2.2);
+    const fx = md.x, fz = md.y;
     // SNAKE MORPH: the bigger Hush grows, the more a moving body ELONGATES —
     // a small blob just leans into its step, a well-fed one thins out into a
     // pouring blob-snake. At rest (speedFrac→0) it stays a round blob. `bigness`
@@ -494,22 +515,25 @@ export class Player {
     // before settling (a damped oscillation over blinkAnim 1→0, ~3 half-swings).
     const bA = this.blinkAnim;
     const smear = bA > 0 ? Math.pow(bA, 1.3) * Math.cos((1 - bA) * Math.PI * 3) * 0.85 : 0;
+    // speed-elongation collapses by `reform` mid-turn (balling up); the blink
+    // smear does NOT — a blink snaps morphDir to its direction, turn ≈ 0.
     const stretch = Math.max(0.4,
-      1 + this.speedFrac * (0.38 + bigness * 1.6) + (smear >= 0 ? smear : smear * 0.45));
+      1 + this.speedFrac * (0.38 + bigness * 1.6) * reform + (smear >= 0 ? smear : smear * 0.45));
     // floor at 0.3: speed-squash + smear-squash can stack (big blob, full
     // sprint, mid-blink) and would flatten the body into a near-2D ribbon
-    const squash = Math.max(0.3, 1 - this.speedFrac * (0.18 + bigness * 0.34) - smear * 0.3);
+    const squash = Math.max(0.3, 1 - this.speedFrac * (0.18 + bigness * 0.34) * reform - smear * 0.3);
     const breathe = 1 + Math.sin(t * 2.1) * 0.03;
     // TRAILING TAIL: when pouring, the REAR of the body lags and tapers — the
     // silhouette becomes a comma/tadpole (heavy nose, droplet tail) instead of
     // a symmetric ellipse. Quadratic in `rear` so only the back end deforms;
     // grows with speed and with bigness (a well-fed blob trails a longer tail).
-    const tailAmp = this.speedFrac * (0.55 + bigness * 0.6);
+    const tailAmp = this.speedFrac * (0.55 + bigness * 0.6) * reform;
     // A body of living tar. TWO octaves of pseudo-noise make the surface ROIL
     // slowly (a churning gunk, not a rigid jitter): a broad slow swell plus a
     // finer faster ripple riding on it. It churns harder the faster you pour
     // (speedFrac), so a resting blob just breathes and a moving one boils.
-    const roil = 0.09 + this.speedFrac * 0.06;
+    // churn harder mid-turn: the balled-up mass boils while it re-pours
+    const roil = (0.09 + this.speedFrac * 0.06) * (1 + turn * 1.2);
     for (let i = 0; i < arr.length; i += 3) {
       const bx = base[i], by = base[i + 1], bz = base[i + 2];
       const n1 = Math.sin(t * 2.1 + bx * 6.1 + by * 4.7) * Math.sin(t * 1.6 + bz * 5.9);

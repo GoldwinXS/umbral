@@ -18,6 +18,11 @@
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; overflow: hidden; background: #05060a; }
+  /* touch-action does NOT inherit: without a universal rule, every overlay /
+     HUD button keeps the default and a double-tap there ZOOMS the page —
+     `manipulation` allows taps but kills double-tap-zoom everywhere. The game
+     surfaces get `none` (our own pinch/twist camera gestures own them). */
+  *, *::before, *::after { touch-action: manipulation; }
   body {
     font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif;
     color: var(--ink);
@@ -25,6 +30,7 @@
     touch-action: none;
     -webkit-tap-highlight-color: transparent;
   }
+  #app, #app canvas, #joyBase, #joyKnob, #touchBtns, .tbtn { touch-action: none; }
   #app, #app canvas { position: fixed; inset: 0; }
   #app canvas { display: block; }
 
