@@ -367,9 +367,7 @@ export function buildMission1() {
     if (id === "hall" && bag.stage === 1) {
       bag.stage = 2;
       game.setObjective("Take the Noonstaff");
-      p.prompt(game.isTouch
-        ? "The Noonstaff. Drift close and tap <b>✦</b>."
-        : "The Noonstaff. Drift close and press <span class='keycap'>E</span>.");
+      p.prompt("The Noonstaff waits ahead. Reach it and it is yours.", 4);
     }
   };
 

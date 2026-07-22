@@ -911,26 +911,25 @@ class Game {
         this.hud.prompt("A <b>crimson mote</b> — your eyes kindle red. Strike from behind to <b>swallow</b>.", 3);
       }
     }
-    // scepter interact
+    // relic pickup — AUTOMATIC on reaching it, no button press. The pedestal
+    // collider stops the blob ~1.1 from the centre, so d < 1.5 fires as it
+    // arrives; walking up to the relic IS taking it.
     this.interactHint = false;
     const sc = level.scepter;
     if (sc && !this.scepterTaken) {
       const d = Math.hypot(sc.x - player.pos.x, sc.z - player.pos.z);
-      if (d < 1.7) {
-        this.interactHint = true;
-        if (input.consume("interact")) {
-          this.scepterTaken = true;
-          this.sfx.scepter();
-          // the beacon ignites: it makes you FAST but blazing — the escape is
-          // an outrun, not a sneak
-          player.carrySpeedMul = 2.4;
-          // the relic is CONSUMED into Hush — hide it and kill the pedestal
-          // light; the player's own beacon (player.beaconLight) now carries it.
-          if (sc.group) sc.group.visible = false;
-          if (sc.light) sc.light.intensity = 0;
-          if (level.onAlarm) level.onAlarm(this);
-          else this.setObjective("Escape to the rift!");
-        }
+      if (d < 1.5) {
+        this.scepterTaken = true;
+        this.sfx.scepter();
+        // the beacon ignites: it makes you FAST but blazing — the escape is
+        // an outrun, not a sneak
+        player.carrySpeedMul = 2.4;
+        // the relic is CONSUMED into Hush — hide it and kill the pedestal
+        // light; the player's own beacon (player.beaconLight) now carries it.
+        if (sc.group) sc.group.visible = false;
+        if (sc.light) sc.light.intensity = 0;
+        if (level.onAlarm) level.onAlarm(this);
+        else this.setObjective("Escape to the rift!");
       }
     }
     // extraction / win
