@@ -51,6 +51,7 @@ export function makeKit(scene) {
     guards: [],
     eyes: [],       // Great Eye sentinel specs
     torches: [],    // douseable {x,z,light,flame,doused}
+    flames: [],     // NON-douseable lit fixtures (brazier coal-pans) {x,z,light,ember,baseIntensity} — kit-driven flicker, see the bag.update accessor below
     caches: [],     // {id,x,z,n,mesh,taken}
     maws: [],       // crimson devour motes {id,x,z,mesh,taken}
     reflectors: [], // reflective pools {x,z,r} that catch the player's reflection
@@ -65,6 +66,32 @@ export function makeKit(scene) {
     objective: "",
     startVials: 0,
   };
+
+  // ---- bag.update accessor — the kit's own per-frame tick ------------------
+  // Torch flicker is a per-level idiom: every level's `bag.update` loops
+  // bag.torches and wobbles each light's intensity. Lit BRAZIERS can't join
+  // bag.torches — main.js treats that list as the DOUSE-TARGET set, and a vial
+  // must not snuff a coal-pan — so kit.brazier registers them in bag.flames and
+  // the kit drives their flicker itself. `bag.update` is an accessor: assigning
+  // it (what every level does) stores the level's function; reading it (what
+  // main.js does) returns a composed function that ticks bag.flames first, then
+  // runs the level's update. Both existing contracts — `bag.update = fn` in
+  // levels, `level.update(t, dt, game)` in main — keep working unchanged.
+  let _levelUpdate = null;
+  const _kitUpdate = (t, dt, game) => {
+    for (const f of bag.flames) {
+      // subtle coal-glow flicker — same idiom as the levels' torch loop, a
+      // touch slower and softer (embers breathe; they don't gutter like wicks)
+      f.light.intensity = f.baseIntensity * (0.92 + 0.08 * Math.sin(t * 6.1 + f.x * 1.7 + f.z));
+    }
+    if (_levelUpdate) _levelUpdate(t, dt, game);
+  };
+  Object.defineProperty(bag, "update", {
+    configurable: true,
+    enumerable: true,
+    get() { return _kitUpdate; },
+    set(fn) { _levelUpdate = fn; },
+  });
 
   const boxGeoCache = new Map();
   function boxGeo(w, h, d) {
@@ -187,6 +214,30 @@ export function makeKit(scene) {
       px += nudge.x * 0.55; pz += nudge.z * 0.55;
     }
     return null;
+  }
+
+  // Compass facing → rotation.y for wall-mounted planes (inscription/banner).
+  // Derived from the geometry, not convention: a THREE.PlaneGeometry's front
+  // face (the only visible side of the inscription's FrontSide material) has
+  // its normal along +z at rotY = 0, and this kit's compass is +z = NORTH
+  // (kit.room's `n` wall sits at z1, `e` at x1). So `face` names the side the
+  // READER stands on — NOT the wall the text hangs on:
+  //   "n" → 0            faces +z — readable from the NORTH (hangs on a room's
+  //                      south wall, whose inner surface looks north)
+  //   "s" → Math.PI      faces -z — readable from the SOUTH (north wall, z1)
+  //   "e" → Math.PI/2    faces +x — readable from the EAST  (west wall, x0)
+  //   "w" → -Math.PI/2   faces -x — readable from the WEST  (east wall, x1)
+  // Matches every correct shipped call (e.g. dousing's rack liturgy on the
+  // north wall uses Math.PI ≡ "s"); five shipped inscriptions got this wrong
+  // by hand, which is why the compass form exists — state intent, not math.
+  const FACE_ROT = { n: 0, s: Math.PI, e: Math.PI / 2, w: -Math.PI / 2 };
+  function faceRot(face, fallback) {
+    const r = FACE_ROT[face];
+    if (r === undefined) {
+      console.warn(`kit: unknown face "${face}" (want n|s|e|w) — keeping default rotation`);
+      return fallback;
+    }
+    return r;
   }
 
   const kit = {
@@ -616,8 +667,15 @@ export function makeKit(scene) {
       return fw;
     },
 
-    /** A glowing carved inscription on a wall (world lore). */
-    inscription(x, y, z, text, rotY = 0, color = "#9a86d8") {
+    /** A glowing carved inscription on a wall (world lore). `rotY` is either a
+     *  raw rotation (exactly as before) or a compass string "n"|"s"|"e"|"w" —
+     *  the side the READER stands on (see the FACE_ROT table above; the text is
+     *  FrontSide-only, so a wrong rotation is INVISIBLE from the room — five
+     *  shipped inscriptions faced into their walls before this existed). A
+     *  trailing opts bag also accepts { face } if the raw slot stays numeric. */
+    inscription(x, y, z, text, rotY = 0, color = "#9a86d8", opts = {}) {
+      if (typeof rotY === "string") rotY = faceRot(rotY, 0);
+      if (opts.face !== undefined) rotY = faceRot(opts.face, rotY);
       const cvs = document.createElement("canvas");
       cvs.width = 1024; cvs.height = 128;
       const g2 = cvs.getContext("2d");
@@ -1111,9 +1169,14 @@ export function makeKit(scene) {
 
     /** Hanging wall banner — pure decor, no collider. A tall cloth quad with
      *  a gentle wave baked into its vertices. Takes explicit x,y,z (mount
-     *  height matters) + rot (face direction). */
+     *  height matters) + rot (face direction). `rot` may be a compass string
+     *  "n"|"s"|"e"|"w" (the side the viewer stands on — see FACE_ROT above),
+     *  or pass opts.face; a raw rotation number works exactly as before. The
+     *  cloth is DoubleSide, so facing only sets which way the wave bows. */
     banner(x, y, z, rot = 0, opts = {}) {
       const { w = 1.0, h = 2.2, color, seed = 0 } = opts;
+      if (typeof rot === "string") rot = faceRot(rot, 0);
+      if (opts.face !== undefined) rot = faceRot(opts.face, rot);
       const geo = new THREE.PlaneGeometry(w, h, 1, 7);
       const pos = geo.attributes.position;
       for (let i = 0; i < pos.count; i++) {
@@ -1155,7 +1218,12 @@ export function makeKit(scene) {
 
     /** Brazier — pure decor. A dark tripod bowl, UNLIT by default. Pass
      *  {lit:true} for a small rtExclude ember glow, or {light:N} for a real
-     *  (small) PointLight — neither is on unless asked for. */
+     *  (small) PointLight — neither is on unless asked for. A burning pan
+     *  (light > 0) registers in bag.flames, so its light flickers gently like
+     *  the torches do — same PointLight, same intensity on average, so the
+     *  light meter reads it exactly as before; it is NOT douseable (vials
+     *  target bag.torches only, and a thrown vial shouldn't kill a coal bed).
+     *  Returns { group, light, ember } — light/ember are null unless asked. */
     brazier(x, z, opts = {}) {
       const { r = 0.34, h = 0.7, rot = 0, lit = false, light = 0, seed = 0 } = opts;
       const group = new THREE.Group();
@@ -1176,8 +1244,9 @@ export function makeKit(scene) {
       group.add(bowl); meshes.push(bowl);
       scene.add(group);
       bag.occluders.push(...meshes);
+      let ember = null, pl = null;
       if (lit) {
-        const ember = new THREE.Mesh(
+        ember = new THREE.Mesh(
           new THREE.OctahedronGeometry(r * 0.35),
           new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xff7a2a, emissiveIntensity: 4 })
         );
@@ -1186,19 +1255,26 @@ export function makeKit(scene) {
         scene.add(ember);
       }
       if (light > 0) {
-        const pl = new THREE.PointLight(0xff8a3a, light, 6);
+        pl = new THREE.PointLight(0xff8a3a, light, 6);
         pl.position.set(x, h + r * 0.3, z);
         pl.userData.rtRadius = 0.08;
         scene.add(pl);
+        // join the flicker pathway (kit-driven — see the bag.update accessor)
+        bag.flames.push({ x, z, light: pl, ember, baseIntensity: light });
       }
-      return group;
+      return { group, light: pl, ember };
     },
 
     /** Dead (unlit) hanging lantern fixture — pure decor, no collider, no
      *  light. A dark pole/bracket + cage housing, ready to be re-lit by a
-     *  level script if ever needed (it deliberately does NOT use kit.torch). */
+     *  level script if ever needed (it deliberately does NOT use kit.torch).
+     *  {fallen:true} lays it on its side — knocked over in a scuffle, dumped
+     *  off a cart — tipped toward its local -x (west at rot=0; `rot` yaws
+     *  where it fell). Keep-out is unchanged: the standing fixture carries NO
+     *  collider, so neither does the fallen one (PROP_FOOT's keep-clear disc
+     *  covers both poses). */
     deadLantern(x, z, opts = {}) {
-      const { h = 2.4, rot = 0, seed = 0 } = opts;
+      const { h = 2.4, rot = 0, fallen = false, seed = 0 } = opts;
       const group = new THREE.Group();
       group.position.set(x, 0, z);
       group.rotation.y = rot;
@@ -1211,6 +1287,15 @@ export function makeKit(scene) {
       ring.rotation.x = Math.PI / 2;
       ring.position.set(0, h - 0.08, 0);
       group.add(pole, cage, ring);
+      if (fallen) {
+        // FALLEN POSE — tip the whole fixture ~90° about its base (Euler XYZ:
+        // the z-tip applies before the `rot` yaw already set above). A hair
+        // short of a right angle + a small lift rests it plausibly: the pole's
+        // base rim (r 0.07) touches at one end, the fatter cage (r 0.16) at
+        // the other, nothing sinking through the floor.
+        group.rotation.z = Math.PI / 2 - 0.045;
+        group.position.y = 0.075;
+      }
       scene.add(group);
       bag.occluders.push(pole, cage, ring);
       return group;
