@@ -76,6 +76,12 @@ export class Settings {
     if (!this._renderer) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
     this._renderer.setPixelRatio(dpr * this.resolution * this.governorScale);
+    // 0.5.0: the drawing buffer is CSS-stretched by resolution × governorScale,
+    // which magnifies the TAA's buffer-pixel jitter into visible screen wobble
+    // at low canvas scales. Matching taaJitterScale to the stretch keeps the
+    // jitter constant in SCREEN pixels. (renderScale is unrelated: jitter is
+    // applied at G-buffer resolution, not lighting resolution.)
+    if (this._rt) this._rt.taaJitterScale = this.resolution * this.governorScale;
     if (this._onResize) this._onResize();
   }
 
