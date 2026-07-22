@@ -79,7 +79,15 @@ import { makeKit } from "../levelKit.js";
 // lamp, and vial numbers [KEPT] from the shipped level — the architecture moved,
 // the difficulty did not.
 const TUNE = {
-  moon: 0.55,                                             // thin high moon — the great lantern owns the night [KEPT]
+  // ---- ART PASS · MOONLIGHT (meter-safe relight) --------------------------------
+  // The light meter reads ONLY moon.intensity + direction (main.js), never colour.
+  // moonBoost scales the render brightness via the hue and leaves the meter
+  // bit-identical. Keep `moon` (intensity) + the moon.position (direction) as
+  // shipped. This stays the THIN moon — the great lantern still owns the night —
+  // it just no longer crushes the pale hall's surrounds to void.
+  moon: 0.55,                                             // METER intensity — DO NOT CHANGE (thin high moon) [KEPT]
+  moonHue: 0x8ea0cc,                                      // moon colour hue (cool moon-blue)
+  moonBoost: 2.6,                                         // RENDER-only brightness × — meter never sees colour, safe to raise
   tallyLamp:    { intensity: 7,  range: 9,  scale: 1 },   // the oil-ward's tally-door lamp (E1)            [KEPT 7/9]
   rackLamp:     { intensity: 6,  range: 7,  scale: 1 },   // the draining floor's crossroads lamp (E2 hub)  [KEPT 6/7]
   benchLamp:    { intensity: 8,  range: 9,  scale: 1 },   // the wick gallery's bench-lamp (E2 south)       [KEPT 8/9]
@@ -503,7 +511,9 @@ export function buildDousing() {
   // Thin and high — enough to walk by, never enough to read by. The yards'
   // pools of meaning are all lamp-made; there are NO invisible fills (Law 2):
   // every other light in the level hangs on a pole or sits in a brazier bowl.
-  const moon = new THREE.DirectionalLight(0x8ea0cc, TUNE.moon);
+  // colour carries the render boost; intensity (what the meter reads) stays TUNE.moon
+  const moonColor = new THREE.Color(TUNE.moonHue).multiplyScalar(TUNE.moonBoost);
+  const moon = new THREE.DirectionalLight(moonColor, TUNE.moon);
   moon.position.set(-14, 22, 8);
   moon.userData.rtRadius = 0.05;
   scene.add(moon, moon.target);

@@ -171,12 +171,15 @@ class Game {
       emissiveNEE: true,       // trims/studs light the scene for free
       restir: true,            // flat cost in light count — many-light scenes stay cheap
       maxHistory: 48,
-      // a cool ambient floor. This is the VISUAL fill only — the stealth light
-      // meter is analytic (VIS_ENV) and independent, so lifting this lets the
-      // player SEE the dark areas without changing what guards can detect. Kept
-      // well below the torch pools so lit spots still read as brighter/danger.
-      envColor: new THREE.Color(0x1a2234),
-      envIntensity: 0.72,
+      // ART PASS — cool moonlit-night backdrop. VISUAL fill only; the stealth
+      // meter is analytic (VIS_ENV) and never reads this. NOTE for future tuners:
+      // with gi:false this env lights the visible SKY + reflections/glass, not
+      // diffuse surfaces (an escaped-ray term) — so it sets night MOOD, not the
+      // ground key. The ground key is the moon (see each level's moonBoost). Kept
+      // a deep cool blue, well below the torch pools so lit spots still read as
+      // danger. Global across levels — keep it a restrained night tone.
+      envColor: new THREE.Color(0x243450),  // deeper, bluer night sky (was 0x1a2234)
+      envIntensity: 0.9,                    // gentle lift of sky/reflections (was 0.72)
       volumetric: { enabled: true, density: 0 },
       overscan: 0.05,          // orbit/rotate cleanly — leading-edge convergence
                                // noise is born off-screen (0.4.0 feature)

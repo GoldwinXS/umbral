@@ -62,8 +62,17 @@ import { lampMidden, vigilShrine, barredVista } from "./_dressing.js";
 
 // TUNE — the knobs we actually reach for. Change feel here, not in the body.
 const TUNE = {
-  moon: 0.9,                                        // moonlight fill (playtest floor — keep ≥ 0.9 so the primer stays readable)
-  moonFrom: [-26, 13, 9],                           // WNW, ~25° up → shadows ~2.1× wall height, raking east down the street
+  // ---- ART PASS · MOONLIGHT (meter-safe relight) --------------------------------
+  // The light meter reads ONLY moon.intensity + moon direction (main.js
+  // _computePlayerVis / _collectLights). It NEVER reads the light's colour. So the
+  // RENDER brightness of the moon (= colour × intensity) is decoupled from what
+  // guards can detect: brighten the night by scaling moonHue up via moonBoost, and
+  // the meter stays bit-identical. DO NOT change `moon` (intensity) or `moonFrom`
+  // (direction) — either one moves the meter. Only moonBoost/moonHue are free.
+  moon: 0.9,                                        // METER intensity — DO NOT CHANGE (feeds detection; keep ≥ 0.9 primer floor)
+  moonHue: 0x8ea0cc,                                // moon colour hue (cool moon-blue)
+  moonBoost: 2.7,                                   // RENDER-only brightness × on the hue — meter never sees colour, safe to raise
+  moonFrom: [-26, 13, 9],                           // WNW, ~25° up → shadows ~2.1× wall height, raking east — DO NOT CHANGE (meter LOS)
   towerN: { intensity: 10, range: 9, scale: 1.7 },  // the shrine's great flame, SHRINE COURT
   towerS: { intensity: 6, range: 7 },               // the lesser walk-lamp
   vSound: { speed: 1.0, pause: 1.8, range: 8 },     // the keeper's man (pauses = tending each flame)
@@ -341,7 +350,9 @@ export function buildTutorial() {
   // silent moss borders; the burnt breach at the yard's back lets one blade of
   // moonlight fall on the Wickstone. No invisible fills — the two shrine
   // flames are the only other lights, and both have fixtures.
-  const moon = new THREE.DirectionalLight(0x8ea0cc, TUNE.moon);
+  // colour carries the render boost; intensity (what the meter reads) stays TUNE.moon
+  const moonColor = new THREE.Color(TUNE.moonHue).multiplyScalar(TUNE.moonBoost);
+  const moon = new THREE.DirectionalLight(moonColor, TUNE.moon);
   moon.position.set(...TUNE.moonFrom);
   moon.userData.rtRadius = 0.05;
   scene.add(moon, moon.target);

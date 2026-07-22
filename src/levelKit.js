@@ -589,7 +589,11 @@ export function makeKit(scene) {
      * `dense` opts in to the old, thicker curtain (opacity 0.34, DEPTH 3) for a
      * wall that must read as solid; default is the thinner, more see-through fill.
      */
-    fogWall(x, z, w, { h = 3.4, rot = 0, color = 0xb7c8ec, thick = 0.7, dense = false } = {}) {
+    // ART PASS — fog default colour is a DARK SLATE that sits IN the night, not a
+    // pale glow. The curtain is an unlit overlay sprite (rtExclude), so this colour
+    // IS its on-screen brightness; a bright default made the fog the brightest thing
+    // on a moonlit screen (backwards). Meter-irrelevant (fog is not a scene light).
+    fogWall(x, z, w, { h = 3.4, rot = 0, color = 0x323d52, thick = 0.7, dense = false } = {}) {
       const collider = {
         x, z,
         hx: rot === 0 ? w / 2 : thick, hz: rot === 0 ? thick : w / 2,
