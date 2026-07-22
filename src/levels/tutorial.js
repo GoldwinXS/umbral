@@ -151,12 +151,9 @@ export function buildTutorial() {
   moon.position.set(-12, 22, 8);
   moon.userData.rtRadius = 0.05;
   scene.add(moon, moon.target);
-  for (const [x, y, z] of [[-18, 7, 1.5], [25, 7, 1.5]]) {
-    const f = new THREE.PointLight(0x8098c0, 3.2, 13);
-    f.position.set(x, y, z);
-    f.userData.rtRadius = 0.85;
-    scene.add(f);
-  }
+  // NO invisible "fill" point lights: a lit spot must have a source you can see
+  // (the two SOUND-room towers). The raised ambient + moon carry visibility, so
+  // the path/blink room read dim-but-navigable without mystery pools of light.
 
   // ================= checkpoints ==============================================
   kit.checkpoint(-28, 10, 3);

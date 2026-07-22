@@ -520,13 +520,17 @@ export class Player {
       }
     }
 
-    // eyes ride the surface toward the facing direction
-    const eyeOut = (0.34 + this.speedFrac * 0.05) * this.scale;
+    // eyes ride the FRONT of the morphed body toward facing. The body STRETCHES
+    // forward with speed (snake morph, `stretch` can reach ~3.6 on a big fast
+    // blob) and SQUASHES vertically — so the eyes must ride out with that same
+    // `stretch`, or the elongating nose swallows them, and sit down with `squash`
+    // so they stay on the flattened surface rather than floating above it.
+    const eyeOut = 0.34 * stretch * this.scale;
     for (const e of this.eyes) {
       const s = e.userData.side;
       const px = this.pos.x + fx * eyeOut - fz * s * 0.13 * this.scale;
       const pz = this.pos.z + fz * eyeOut + fx * s * 0.13 * this.scale;
-      e.position.set(px, this.pos.y + 0.13 * this.scale, pz);
+      e.position.set(px, this.pos.y + 0.13 * this.scale * squash, pz);
     }
     // douse reticle: a subtle dot marking where a vial would land. Present
     // when you hold vials; a touch clearer when you slow to aim.
