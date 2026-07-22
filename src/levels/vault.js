@@ -132,7 +132,7 @@ export function buildVault() {
   const bag = kit.bag;
   bag.id = "reliquary";
   bag.name = "THE RELIQUARY";                           // [KEPT] menu name
-  bag.spawn.set(0.4, 2.94, 33.5);                       // on the gate landing — the vault is entered downward (landing receded for the descent ramp's grade fix)
+  bag.spawn.set(0.4, 2.94, 32.4);                       // on the gate landing — the vault is entered downward
   bag.bounds = { x0: -25, z0: -19.5, x1: 16.5, z1: 35.5 };
   bag.blinkCdMul = 0.65;                                // [KEPT] the step recharges faster here — you'll need it
   bag.startVials = 4;                                   // [KEPT] the finale: Hush arrives at full accumulated power
@@ -222,13 +222,17 @@ export function buildVault() {
   // THE GATE LANDING — a masonry stage (+2.5); the rift stands on it. Skirted
   // with height-banded walls (the lanternways dais pattern): solid to the
   // ground reading, no phantom colliders for whoever stands on top.
-  kit.platform(-2.6, 33.2, 6.7, 34, { y: DECK, mat: kit.mats.stone, surface: "moss", support: false }); // south edge receded 1.8m for the descent ramp's grade fix
-  kit.railing(-2.6, 33.2, 6.7, 33.2, { y: 0, h: 2.24, t: 0.35 });   // skirt, south (passes under the ramp's top lip — its band never touches a deck walker)
-  kit.railing(-2.6, 33.2, -2.6, 34, { y: 0, h: 2.24, t: 0.35 });    // skirt, west
-  kit.railing(-2.6, 33.2, -2.6, 34, { y: DECK, h: 0.85, mat: kit.mats.pillar });   // west lip — or blink-drop it
-  kit.railing(-2.6, 33.2, 4.3, 33.2, { y: DECK, h: 0.85, mat: kit.mats.pillar });  // south lip, west of the ramp mouth
-  kit.ramp(4.4, 27.0, 6.7, 33.3, { axis: "z", y0: 0, y1: 2.5, mat: kit.mats.stone, surface: "moss" }); // the descent ramp, east wall — run 6.3m (~21.6°), 0.1 lap into the landing
-  kit.extraction(2.4, 33.6);
+  // DIRECTOR'S GRADE EXCEPTION: this descent ramp stays short/steep (~29.6°).
+  // Lengthening it to the ~22° guideline would recede the landing to a 0.8m
+  // sliver — and the landing is the finale's spawn stage and extraction point.
+  // A steep vault stair reads right for a descent gate; the landing wins.
+  kit.platform(-2.6, 31.4, 6.7, 31.4 + 2.6, { y: DECK, mat: kit.mats.stone, surface: "moss", support: false });
+  kit.railing(-2.6, 31.4, 6.7, 31.4, { y: 0, h: 2.24, t: 0.35 });   // skirt, south (passes under the ramp's top lip — its band never touches a deck walker)
+  kit.railing(-2.6, 31.4, -2.6, 34, { y: 0, h: 2.24, t: 0.35 });    // skirt, west
+  kit.railing(-2.6, 31.4, -2.6, 34, { y: DECK, h: 0.85, mat: kit.mats.pillar });   // west lip — or blink-drop it
+  kit.railing(-2.6, 31.4, 4.3, 31.4, { y: DECK, h: 0.85, mat: kit.mats.pillar });  // south lip, west of the ramp mouth
+  kit.ramp(4.4, 27.0, 6.7, 31.4, { axis: "z", y0: 0, y1: 2.5, mat: kit.mats.stone, surface: "moss" }); // the descent ramp, east wall
+  kit.extraction(2.4, 33);
   bag.extract.disc.position.y = DECK + 0.09;            // the rift stands ON the landing
   kit.trim(3.4, 0.2, 2.4, 4.1, 33.74, 0, 0x39f0c0, 2.0);
   wainscot(6.4, 1.8, 2.4, DECK + 1.1, 33.72);           // polished panel behind the rift — it doubles there
@@ -459,11 +463,11 @@ export function buildVault() {
   // ===== A · THE DESCENT GATE ================================================
   {
     const clear = [
-      { x: 0.4, z: 33.5, r: 2.0 },                      // spawn (on the landing)
+      { x: 0.4, z: 32.4, r: 2.0 },                      // spawn (on the landing)
       { x0: -2, z0: 26, x1: 2, z1: 28.2, pad: 0.3 },    // procession door lane
       { x0: -7, z0: 28, x1: -5, z1: 31, pad: 0.3 },     // stair door lane
       { x0: -3.5, z0: 27.7, x1: 3.5, z1: 29.3, pad: 0.3 }, // the gate-ward's line
-      { x0: 4.4, z0: 26.6, x1: 6.7, z1: 33.3, pad: 0.2 }, // the ramp
+      { x0: 4.4, z0: 26.6, x1: 6.7, z1: 31.4, pad: 0.2 }, // the ramp
       { x: 0, z: 28, r: 1.2 },                          // the gate lamp
       { x: 0, z: 30, r: 1.4 },                          // checkpoint pad
     ];
