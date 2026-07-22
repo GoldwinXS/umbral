@@ -167,6 +167,14 @@ export class Player {
   /** Current body radius (shrinks with damage). */
   get radius() { return PLAYER_R * this.scale; }
 
+  /** Maw reach — a bigger predator swallows from further. This is the REWARD
+   *  that balances growth's exposure cost: the more you eat, the easier eating
+   *  gets (longer reach), even as hiding gets harder. bulk 0 = base, maxed ≈ +50%. */
+  get swallowRange() {
+    const bulk = Math.min(1.4, Math.max(0, this.scale - 1));
+    return SWALLOW_RANGE * (1 + bulk * 0.35);
+  }
+
   /**
    * A warden connects. Knock the blob AWAY hard; it loses a chunk of itself.
    * Returns "dead" when the last chunk is gone, "hit" otherwise, null if immune.
@@ -542,6 +550,7 @@ export class Player {
     if (this._mawOp > 0.01) {
       this.mawRing.visible = true;
       this.mawRing.position.set(this.pos.x, 0.06, this.pos.z);
+      this.mawRing.scale.setScalar(this.swallowRange / SWALLOW_RANGE); // ring shows the true (size-scaled) reach
       this.mawRing.material.opacity = this._mawOp * 0.8 * this.fxOpacity; // steady, no pulse
     } else {
       this.mawRing.visible = false;

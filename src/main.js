@@ -4,7 +4,7 @@ import { Input } from "./input.js";
 import { Settings } from "./settings.js";
 import { Sfx } from "./audio.js";
 import { Hud } from "./hud.js";
-import { Player, PLAYER_R, BLINK_CD, DOUSE_RADIUS, SWALLOW_RANGE } from "./player.js";
+import { Player, PLAYER_R, BLINK_CD, DOUSE_RADIUS } from "./player.js";
 import { Warden } from "./guards.js";
 import { GreatEye } from "./greatEye.js";
 import { pointInHole, surfaceAt } from "./physics.js";
@@ -803,7 +803,7 @@ class Game {
         const d = Math.hypot(w.pos.x - player.pos.x, w.pos.z - player.pos.z);
         if (d < bestD) { bestD = d; bestW = w; }
       }
-      if (bestW && bestD < SWALLOW_RANGE) {
+      if (bestW && bestD < player.swallowRange) {
         const behind = bestW.isBehind(player.pos.x, player.pos.z);
         if (behind && player.mawCharges > 0) {
           // FEAST — swallow the warden from behind, grow, flash red

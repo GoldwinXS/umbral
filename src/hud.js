@@ -74,12 +74,15 @@ export class Hud {
     this.el.gemFill.style.stroke = stroke;
     this.el.gemCore.style.opacity = String(0.35 + Math.max(this._gem, spot) * 0.65);
 
-    // what the gem MEANS: how lit you are, and whether something's onto you
+    // what the gem MEANS: how lit you are, and whether something's onto you.
+    // When Hush has fed to real bulk, the visible-band tells name the reason —
+    // growth is why this cover no longer holds — so the size cost is legible.
     const gs = this.el.gemState;
+    const bulky = game.player.scale > 1.55;
     if (spot > 0.55) { gs.textContent = "SPOTTED — being seen!"; gs.style.color = "#ff5a5a"; }
     else if (spot > 0.12) { gs.textContent = "a warden stirs…"; gs.style.color = "#ffb056"; }
-    else if (this._gem > 0.55) { gs.textContent = "lit — exposed"; gs.style.color = "#ffd9a0"; }
-    else if (this._gem > seenAt) { gs.textContent = "dim — visible"; gs.style.color = "#c8a86a"; }
+    else if (this._gem > 0.55) { gs.textContent = bulky ? "too big — blazing" : "lit — exposed"; gs.style.color = "#ffd9a0"; }
+    else if (this._gem > seenAt) { gs.textContent = bulky ? "your bulk betrays you" : "dim — visible"; gs.style.color = "#c8a86a"; }
     else { gs.textContent = "in shadow — unseen"; gs.style.color = "#5fd6b8"; }
 
     // life pips track the blob's remaining mass — the row grows/shrinks to the
