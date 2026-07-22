@@ -151,7 +151,10 @@ faces z-fight, and traced light leaks through zero-width seams. Rules:
 - No emissive area lights: glow = `rtExclude` shells; real light = point/spot
   with a visible fixture. Conservative-defaults rule: everything must read
   with reflections/volumetrics OFF.
-- Palette law: amber/orange/red = Vigil; violet = Hush alone.
+- Palette law (refined 2026-07-22): amber/orange/red = the Vigil's own light;
+  violet = the OLD DARK itself — Hush, and the Vigil's imprisoned residue of it
+  (drowned canal-lamps, dreg-lamps, crypt-lamps are canon violet). Violet on
+  Vigil trim, banners, or UI is still a violation.
 - Two voices only (Hush fragments / Vigil liturgy); prompts terse.
 - Systematic tuning stays possible: keep per-level `TUNE` blocks, beat
   structure, and `_dressing.js` motifs (extend motifs; don't fork them).

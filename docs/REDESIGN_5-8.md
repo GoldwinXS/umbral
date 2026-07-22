@@ -7,6 +7,27 @@ question. All invented values are flagged **(tune)**.*
 
 ---
 
+## CORRECTIONS — director's errata, 2026-07-22 (these OVERRIDE the body text)
+
+1. **`fogPatch` is LIVE — ignore every "vestigial no-op / delete every fogPatch
+   call" instruction below** (§5 defect 5, §6/§7/§8 defect lists, Appendix A).
+   That guidance dates from when the kit stubbed it. `fogPatch` now feeds
+   `bag.fogZones` → the tracer's volumetric zones and is load-bearing for the
+   god-ray showcases (the Spire's lancet shafts, the Eye's beam in fog). Keep
+   the calls; place new ones wherever a light shaft should be visible.
+2. **M8 SUN-quiz beat: WAIVED (resolved canon).** PLACES.md fixes the finale as
+   an indoor reliquary undercroft (polished-stone reflections showcase), which
+   cannot host a spatial sun-read; SUN received its full examination in M6. The
+   shipped M8 exam = CLIMB + reflection + dark-stealth + the Ember, with the
+   E2 "sunset courtyard" reframed as the reflection hall. The animated dusk-set
+   / guttering-lamp crossover remains a WISHLIST enhancement, not a defect.
+3. **Palette law refined** (also amended in PLACES.md/LORE.md): violet = **the
+   Old Dark itself** — Hush, and the Vigil's imprisoned residue of it (drowned
+   canal-lamps, dreg-lamps, crypt-lamps are canon). The Vigil's OWN light is
+   never violet. Violet on Vigil trim/banners/UI remains a violation.
+
+---
+
 ## Method recap (how to read this doc)
 
 **The sentence.** Umbral's core sentence is one clause, spoken over and over

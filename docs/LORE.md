@@ -143,9 +143,11 @@ On-screen text: two voices only. Hush's half-memory fragments ("You remember bei
 larger.") and found Vigil liturgy for contrast. Prompts terse; world-building lives
 IN the world (PLACES.md tableaux), not in text.
 
-**Palette law:** amber / orange / red belongs to the Vigil; **violet belongs only
-to Hush**. When Hush's eyes go red, it is briefly speaking the enemy's colour —
-that's the point.
+**Palette law:** amber / orange / red is the Vigil's own light; **violet belongs
+to the Old Dark** — Hush, and the imprisoned residue of it the Vigil keeps
+(drowned lanterns, dreg-lamps, crypt-lamps burn violet because of WHAT they burn).
+The Vigil's own flames are never violet. When Hush's eyes go red, it is briefly
+speaking the enemy's colour — that's the point.
 
 ## The Reliquary cellar inscriptions (read in sequence, north→south)
 
