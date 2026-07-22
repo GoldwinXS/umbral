@@ -70,6 +70,37 @@
   .stat b { color: var(--ink); font-weight: 600; }
   .rating { font-size: 26px; letter-spacing: .3em; margin: 10px 0 4px; color: var(--teal); text-shadow: 0 0 24px rgba(57,240,192,.4); }
 
+  /* --- mission journey: the terraces of Lanternspire, then the vault beneath --- */
+  #levels .panel { padding: 20px 28px; }
+  #levels h2 { margin-bottom: 2px; }
+  .lv-tagline { color: var(--dim); font-size: 10px; letter-spacing: .13em; margin: 0 0 10px; text-transform: uppercase; }
+  .lv-list { position: relative; margin-bottom: 2px; }
+  /* the spine: a quiet climb up terraces I-VII, turning violet as it drops
+     under the citadel for VIII — no glow, just a thin gradient line */
+  .lv-list::before {
+    content: ""; position: absolute; left: 5px; top: 21px; bottom: 21px; width: 1px;
+    background: linear-gradient(to bottom,
+      rgba(255,217,160,.38) 0%, rgba(255,217,160,.38) 82%, rgba(138,92,255,.55) 100%);
+  }
+  .lvbtn { position: relative; text-align: left; margin: 3px 0; padding: 5px 12px 5px 20px; }
+  .lv-node {
+    position: absolute; left: 1px; top: 50%; transform: translateY(-50%);
+    width: 8px; height: 8px; border-radius: 50%;
+    background: rgba(122,132,153,.4); border: 1px solid rgba(122,132,153,.55);
+    transition: background .15s, border-color .15s;
+  }
+  .lvbtn:not(.locked) .lv-node { background: rgba(255,217,160,.55); border-color: var(--amber); }
+  .lvbtn-vault .lv-node { background: rgba(138,92,255,.5); border-color: var(--violet); }
+  .lv-main { display: block; line-height: 1.2; font-size: 14px; }
+  .lv-place { display: block; line-height: 1.15; font-size: 9.5px; letter-spacing: .01em;
+    color: var(--dim); margin-top: 2px; }
+  .lv-relic { display: block; line-height: 1.15; font-size: 9px; letter-spacing: .13em;
+    color: #d9b98a; margin-top: 1px; text-transform: uppercase; }
+  /* the generic ".locked" tag reads inline after flat button text elsewhere;
+     on the (now multi-line) mission buttons it's pinned as a quiet corner badge
+     instead of pushing a fourth line under the relic */
+  .lvbtn.locked::after { position: absolute; top: 6px; right: 12px; content: "locked"; }
+
   /* --- settings --- */
   .setrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 10px 0; text-align: left; }
   .setrow label { font-size: 13px; color: var(--ink); letter-spacing: .06em; flex: 1; }
@@ -250,14 +281,57 @@
   <div id="levels" class="overlay hidden">
     <div class="panel">
       <h2>MISSIONS</h2>
-      <button class="btn" id="lv0">I · THE ASHWAY <span class="stat" id="best0"></span></button>
-      <button class="btn" id="lv1">II · THE DOUSING YARDS <span class="stat" id="best1"></span></button>
-      <button class="btn" id="lv2">III · THE FLESHERS' ROW <span class="stat" id="best2"></span></button>
-      <button class="btn" id="lv3">IV · BRIGHTWARD GATE <span class="stat" id="best3"></span></button>
-      <button class="btn" id="lv4">V · THE LANTERN-WAYS <span class="stat" id="best4"></span></button>
-      <button class="btn" id="lv5">VI · THE CHANDLERY <span class="stat" id="best5"></span></button>
-      <button class="btn" id="lv6">VII · THE SPIRE ASCENT <span class="stat" id="best6"></span></button>
-      <button class="btn" id="lv7">VIII · THE RELIQUARY <span class="stat" id="best7"></span></button>
+      <div class="lv-tagline">LANTERNSPIRE — eight terraces, one theft</div>
+      <div class="lv-list">
+        <button class="btn lvbtn" id="lv0">
+          <span class="lv-node"></span>
+          <span class="lv-main">I · THE ASHWAY <span class="stat" id="best0"></span></span>
+          <span class="lv-place">the outermost terrace, where snuffed lamps are dumped</span>
+          <span class="lv-relic">relic: the Wickstone</span>
+        </button>
+        <button class="btn lvbtn" id="lv1">
+          <span class="lv-node"></span>
+          <span class="lv-main">II · THE DOUSING YARDS <span class="stat" id="best1"></span></span>
+          <span class="lv-place">the service ring where street-lanterns are scoured</span>
+          <span class="lv-relic">relic: the Everwick</span>
+        </button>
+        <button class="btn lvbtn" id="lv2">
+          <span class="lv-node"></span>
+          <span class="lv-main">III · THE FLESHERS' ROW <span class="stat" id="best2"></span></span>
+          <span class="lv-place">the night-market that feeds the vats</span>
+          <span class="lv-relic">relic: the Marrowlight</span>
+        </button>
+        <button class="btn lvbtn" id="lv3">
+          <span class="lv-node"></span>
+          <span class="lv-main">IV · BRIGHTWARD GATE <span class="stat" id="best3"></span></span>
+          <span class="lv-place">the one gate to the high city</span>
+          <span class="lv-relic">relic: the Noonstaff</span>
+        </button>
+        <button class="btn lvbtn" id="lv4">
+          <span class="lv-node"></span>
+          <span class="lv-main">V · THE LANTERN-WAYS <span class="stat" id="best4"></span></span>
+          <span class="lv-place">canals that double every lamp</span>
+          <span class="lv-relic">relic: the Drowned Lantern</span>
+        </button>
+        <button class="btn lvbtn" id="lv5">
+          <span class="lv-node"></span>
+          <span class="lv-main">VI · THE CHANDLERY <span class="stat" id="best5"></span></span>
+          <span class="lv-place">the works where it all becomes candles</span>
+          <span class="lv-relic">relic: the Light-Heart</span>
+        </button>
+        <button class="btn lvbtn" id="lv6">
+          <span class="lv-node"></span>
+          <span class="lv-main">VII · THE SPIRE ASCENT <span class="stat" id="best6"></span></span>
+          <span class="lv-place">the crown of the citadel, the Pharos' roost</span>
+          <span class="lv-relic">relic: the Iris</span>
+        </button>
+        <button class="btn lvbtn lvbtn-vault" id="lv7">
+          <span class="lv-node"></span>
+          <span class="lv-main">VIII · THE RELIQUARY <span class="stat" id="best7"></span></span>
+          <span class="lv-place">the undercroft beneath the Spire, where it began</span>
+          <span class="lv-relic">relic: the First Ember</span>
+        </button>
+      </div>
       <button class="btn" id="lvBack">BACK</button>
     </div>
   </div>
