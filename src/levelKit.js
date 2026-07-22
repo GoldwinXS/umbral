@@ -629,8 +629,25 @@ export function makeKit(scene) {
     scepterPedestal(x, z) {
       kit.pillar(0.7, 1.0, x, z, mats.pillar);
       const group = new THREE.Group();
+      // a faceted GLASS gem — 0.4.0 traces two-interface refraction through it,
+      // so the relic reads as a glowing amber jewel. Kept in the traced pass (not
+      // rtExclude) so the refraction happens; transparent materials never occlude,
+      // so it casts no hard shadow. Refraction rides the global rt.ior.
+      const shell = new THREE.Mesh(
+        new THREE.OctahedronGeometry(0.28, 0),
+        new THREE.MeshPhysicalMaterial({
+          color: 0xffd8a0, roughness: 0.06, metalness: 0.0,
+          transmission: 1.0, thickness: 0.5, ior: 1.6,
+          transparent: true, emissive: 0x2a1400, emissiveIntensity: 0.6,
+        })
+      );
+      group.add(shell);
+      // GRACEFUL DEGRADATION: an inner emissive core guarantees the relic still
+      // reads as a glowing beacon at conservative settings or the raster fallback
+      // (where refraction may be off and the glass alone could vanish). rtExclude
+      // → always rasterized + self-lit, whatever the tracer is doing.
       const core = new THREE.Mesh(
-        new THREE.ConeGeometry(0.16, 0.9, 6),
+        new THREE.IcosahedronGeometry(0.12, 0),
         new THREE.MeshStandardMaterial({ color: 0x1a1020, emissive: 0xffd76a, emissiveIntensity: 3.5 })
       );
       core.userData.rtExclude = true;
@@ -640,7 +657,7 @@ export function makeKit(scene) {
       group.add(light);
       group.position.set(x, 1.9, z);
       scene.add(group);
-      bag.scepter = { x, z, group, light, core, taken: false };
+      bag.scepter = { x, z, group, light, core, shell, taken: false };
       return bag.scepter;
     },
 

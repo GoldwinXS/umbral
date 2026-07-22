@@ -3,17 +3,23 @@
  * RealtimeRaytracer, and the settings-panel UI. GI is deliberately not
  * exposed — direct-light + emissive NEE is the look.
  */
+// DEFAULTS start on the CONSERVATIVE "perf" tier ON PURPOSE — the game should
+// load and run on weak/integrated GPUs out of the box, so a machine that still
+// can't handle it reads as the user's hardware, not a broken game. The tracer
+// starts low-but-ray-traced and the adaptive governor scales quality UP toward
+// targetFps on capable hardware within a couple of seconds, so strong GPUs lose
+// nothing. Beauty (full res, reflections, god-rays) is an opt-in in Settings.
 export const DEFAULTS = {
-  preset: "bal",
-  renderScale: 0.6,   // trace resolution (fraction of full res)
-  resolution: 0.75,   // canvas pixel ratio as a fraction of native DPR
+  preset: "perf",
+  renderScale: 0.4,   // trace resolution (fraction of full res)
+  resolution: 0.6,    // canvas pixel ratio as a fraction of native DPR
   taa: true,
-  denoise: 3,         // à-trous iterations
-  volumetric: true,   // god-ray single scatter
-  reflections: false, // traced mirror/glossy reflections
-  stochastic: false,  // 1 shadow ray/px/frame (many-light perf lever)
-  adaptive: true,     // governor steers quality toward targetFps
-  targetFps: 55,
+  denoise: 2,         // à-trous iterations (governor raises this as it lowers res)
+  volumetric: false,  // god-ray single scatter — opt-in (a perf cost)
+  reflections: false, // traced mirror/glossy reflections — opt-in
+  stochastic: true,   // 1 shadow ray/px/frame (many-light perf lever)
+  adaptive: true,     // governor steers quality toward targetFps (scales UP)
+  targetFps: 50,
   sound: true,
   overlayOpacity: 0.2, // multiplier for in-world effects (sound rings, reticles…); 0.2 is the new "100%"
   touch: null,        // null = auto-detect; true = on-screen controls, false = desktop
