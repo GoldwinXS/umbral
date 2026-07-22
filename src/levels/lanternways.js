@@ -81,6 +81,12 @@ export function buildLanternWays() {
   kit.pillar(1.3, 1.2, 0, 6, kit.mats.pillar);       // the plaza fountain
   kit.solid(2, 1.2, 2, -4, 8, kit.mats.block, 0.2);
   kit.solid(2, 1.2, 2, 4, 3.5, kit.mats.block, -0.2);
+  // a still reflecting pool set into the singing-crystal square — the ray
+  // tracer's mirror-water. Lit by the lanterns at (-8,9) and (-6,1) and set
+  // WEST of the door spine (x -3..3) so it never blocks the plaza's through-
+  // route, and clear of every Vesper patrol line (z=0, x=-13.3, x=2.5). Cross it
+  // in the light and your reflection can betray you (bag.reflectors mechanic).
+  kit.mirrorPool(-11, 2, -5, 6.6);
   kit.cache("plazaCache", 15.5, 6, 2);
   kit.mawMote("plazaMaw", -10, -4);
   // the temptation — five Vespers thick on the ground

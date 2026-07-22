@@ -54,6 +54,7 @@ export function makeKit(scene) {
     caches: [],     // {id,x,z,n,mesh,taken}
     maws: [],       // crimson devour motes {id,x,z,mesh,taken}
     reflectors: [], // reflective pools {x,z,r} that catch the player's reflection
+    mirrors: [],    // deforming mirror-water pools {mesh, update(t)} — driven per frame
     scepter: null,
     extract: null,
     checkpoints: [],// {x,z,r,spawn}
@@ -290,6 +291,7 @@ export function makeKit(scene) {
         const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), rimMat);
         m.rotation.x = -Math.PI / 2;
         m.position.set(x, 0.02, z);
+        m.userData.rtExclude = true; // glow-only rim — keep it out of the NEE area-light table (firefly source)
         scene.add(m);
       };
       mk(x1 - x0, 0.1, (x0 + x1) / 2, z0 + 0.05);
@@ -367,7 +369,9 @@ export function makeKit(scene) {
       return m;
     },
 
-    /** Static emissive trim — a FREE area light via emissive NEE (no light slot). */
+    /** Glow-only emissive trim — rasterized self-lit strip, NOT an area light.
+     *  rtExclude keeps it out of the BVH / NEE table (a small, bright emitter is
+     *  the tracer's worst firefly source); it glows on screen but lights nothing. */
     trim(w, h, x, y, z, rotY, color = 0x8a5cff, intensity = 2.5) {
       const m = new THREE.Mesh(
         new THREE.PlaneGeometry(w, h),
@@ -375,6 +379,7 @@ export function makeKit(scene) {
       );
       m.position.set(x, y, z);
       m.rotation.y = rotY;
+      m.userData.rtExclude = true; // glow-only — leave the light/NEE table
       scene.add(m);
       return m;
     },
@@ -625,6 +630,90 @@ export function makeKit(scene) {
       return m;
     },
 
+    /**
+     * A DEFORMING MIRROR-WATER POOL — the ray tracer's hero feature. A LOW-POLY
+     * plane laid flat at y≈0.1, glossy MeshStandardMaterial (low roughness, some
+     * metalness) so it reads as still water and, when traced reflections are on,
+     * becomes a true mirror of the room. Each frame a cheap summed-sine wave
+     * nudges its vertices and recomputes normals, so the TRACED reflection tracks
+     * the live ripple surface (opts in via userData.rtDeforming).
+     *
+     * Data flow (see main.js): the mesh is appended to the tracer's
+     * `dynamicMeshes` at compileScene (or its motion won't trace); its `update(t)`
+     * runs each frame BEFORE `rt.updateDynamic()` (edits verts + computes normals
+     * + flags needsUpdate). Pushes `{ mesh, update }` to bag.mirrors for that.
+     *
+     * ALSO registers its footprint in bag.reflectors so the reflection STEALTH
+     * mechanic (Warden._seesReflection) reactivates: a lit blob standing over the
+     * pool can be given away by its reflection when a warden's cone catches the
+     * water. That check is analytic geometry (RT-independent), so the gameplay
+     * works at ALL graphics settings — even with traced reflections OFF or in the
+     * raster fallback.
+     *
+     * GRACEFUL DEGRADATION: with reflections OFF the low roughness + some
+     * metalness still give a glossy GGX highlight (specular is on by default) and
+     * the live ripples shimmer it — a dark rippling glossy pool. NO emissive (a
+     * static emissive mesh would become an NEE area light — the tracer's noisiest
+     * path, fireflies near small/close emitters); the pool stays visible via its
+     * low base `color` (a faint slate-teal diffuse) + the always-on white
+     * specular highlight, so it never reads as an invisible or solid-black hole.
+     * With reflections ON it becomes a true traced mirror of the room.
+     *
+     * ≈48×48 segments ≈ 4.6k tris — DO NOT raise `seg`; the tracer re-bakes the
+     * whole plane every frame (O(tris)). Fixed vertex count (never add/remove).
+     */
+    mirrorPool(x0, z0, x1, z1, opts = {}) {
+      const {
+        seg = 48, y = 0.1, amp = 0.03,
+        color = 0x101c2a, roughness = 0.05, metalness = 0.6,
+      } = opts;
+      const w = Math.abs(x1 - x0), d = Math.abs(z1 - z0);
+      const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+      const geo = new THREE.PlaneGeometry(w, d, seg, seg);
+      // NO emissive — see the GRACEFUL DEGRADATION note above. Low base color +
+      // GGX specular keep it visible without adding a noisy NEE area light.
+      const mat = new THREE.MeshStandardMaterial({ color, roughness, metalness });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.rotation.x = -Math.PI / 2; // lay flat; local +z → world up (the normal)
+      mesh.position.set(cx, y, cz);
+      mesh.userData.rtDeforming = true; // tracer re-reads live verts + normals/frame
+      scene.add(mesh);
+      // NOT pushed to bag.occluders: a mirror surface shouldn't cast an opaque
+      // shadow or block LoS/overlay rings, and it's ~flat at the floor. It reaches
+      // the traced BVH via dynamicMeshes (main.js), which is all it needs to
+      // reflect; primary visibility is rasterized like any mesh regardless.
+
+      const pos = geo.attributes.position;
+      const count = pos.count;
+      // Cache each vertex's planar coords (local x,y — BEFORE the flat rotation)
+      // so the wave is a pure function of position + t and the vertex count is
+      // FIXED. Local z carries the displacement → world height after the rotate.
+      const bx = new Float32Array(count), by = new Float32Array(count);
+      for (let i = 0; i < count; i++) { bx[i] = pos.getX(i); by[i] = pos.getY(i); }
+
+      const update = (t) => {
+        for (let i = 0; i < count; i++) {
+          const px = bx[i], py = by[i];
+          // a couple of summed sines over (x,z,t) → a gentle, non-repeating
+          // ripple. Subtle: this is a still pool, not an ocean.
+          const h =
+            Math.sin(px * 1.7 + t * 1.3) * 0.6 +
+            Math.sin(px * 0.9 + py * 1.3 + t * 0.9) * 0.4 +
+            Math.sin(py * 2.1 - t * 1.1) * 0.3;
+          pos.setZ(i, h * amp);
+        }
+        pos.needsUpdate = true;
+        geo.computeVertexNormals(); // REQUIRED — tracer reads live normals
+      };
+
+      const pool = { mesh, update };
+      bag.mirrors.push(pool);
+      // reflection stealth footprint — inscribed-ish radius (+ a small margin) so
+      // "standing over the pool" reads right in Warden._seesReflection.
+      bag.reflectors.push({ x: cx, z: cz, r: Math.min(w, d) / 2 + 0.6 });
+      return pool;
+    },
+
     /** The Scepter relic on its pedestal, with its own (moving) glow light. */
     scepterPedestal(x, z) {
       kit.pillar(0.7, 1.0, x, z, mats.pillar);
@@ -638,7 +727,10 @@ export function makeKit(scene) {
         new THREE.MeshPhysicalMaterial({
           color: 0xffd8a0, roughness: 0.06, metalness: 0.0,
           transmission: 1.0, thickness: 0.5, ior: 1.6,
-          transparent: true, emissive: 0x2a1400, emissiveIntensity: 0.6,
+          transparent: true,
+          // NO emissive: a small, close transmissive+emissive mesh is exactly the
+          // firefly-prone NEE emitter to avoid. The rtExclude inner `core` below
+          // supplies the glow; this stays pure glass (refraction only).
         })
       );
       group.add(shell);
@@ -668,6 +760,7 @@ export function makeKit(scene) {
         new THREE.MeshStandardMaterial({ color: 0x06120e, emissive: 0x39f0c0, emissiveIntensity: 1.8 })
       );
       disc.position.set(x, 0.05, z);
+      disc.userData.rtExclude = true; // glow-only rift — keep it out of the NEE area-light table (firefly source)
       scene.add(disc);
       bag.extract = { x, z, disc };
       return bag.extract;

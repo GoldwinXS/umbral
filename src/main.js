@@ -455,15 +455,23 @@ class Game {
     bootMsg.textContent = "tracing light…";
     const t0 = performance.now();
     this.rt.compileScene(this.scene, {
-      dynamicMeshes: [this.player.mesh, ...this.wardens.map((w) => w.body)],
+      dynamicMeshes: [
+        this.player.mesh,
+        ...this.wardens.map((w) => w.body),
+        ...(bag.mirrors || []).map((m) => m.mesh), // deforming mirror-water pools
+      ],
     });
     console.log(`[umbral] ${bag.name} compiled in ${Math.round(performance.now() - t0)}ms:`,
       this.rt.compiled ? `${this.rt.compiled.triangleCount} tris, ${this.rt.compiled.lightCount} lights` : "unsupported platform");
     if (this.rt.supported) {
       this.rt.volumetric.zones = bag.fogZones.slice(0, 8).map((z) => ({ min: z.min, max: z.max, density: z.density }));
-      // reflective pools are a mechanic here — force traced reflections on so
-      // the player can SEE guard cones (and their own tell) in the mirror.
-      if (bag.reflectors && bag.reflectors.length) this.rt.reflections = true;
+      // NOTE: traced reflections are a user GRAPHICS setting (off by default now,
+      // for conservative loading) — we deliberately do NOT force them on for
+      // reflective pools. The reflection STEALTH mechanic does not need them: it
+      // runs on bag.reflectors via Warden._seesReflection (analytic geometry,
+      // RT-independent), so a lit blob over a mirror pool can still be given away
+      // at every graphics setting. Mirror-water pools degrade to a glossy,
+      // rippling GGX-lit surface when reflections are off (see kit.mirrorPool).
     }
 
     // sound-made-visible ring system (fresh per scene) — in the overlay pass
@@ -964,6 +972,11 @@ class Game {
       onVialLand: (x, z) => this._onVialLand(x, z),
       sfx: this.sfx,
     });
+
+    // deforming mirror-water: run each pool's CPU wave (edits verts + recomputes
+    // normals + flags needsUpdate) BEFORE updateDynamic re-bakes the live surface,
+    // or the traced reflection would track the old flat plane.
+    for (const m of (level.mirrors || [])) m.update(t);
 
     // light + dynamic sync for the tracer
     this.rt.updateLights(this.scene);
