@@ -492,10 +492,16 @@ export class Player {
     const stretch = 1 + this.speedFrac * (0.38 + bigness * 1.6) + this.blinkAnim * 0.5;
     const squash = 1 - this.speedFrac * (0.18 + bigness * 0.34) - this.blinkAnim * 0.25;
     const breathe = 1 + Math.sin(t * 2.1) * 0.03;
+    // A body of living tar. TWO octaves of pseudo-noise make the surface ROIL
+    // slowly (a churning gunk, not a rigid jitter): a broad slow swell plus a
+    // finer faster ripple riding on it. It churns harder the faster you pour
+    // (speedFrac), so a resting blob just breathes and a moving one boils.
+    const roil = 0.09 + this.speedFrac * 0.06;
     for (let i = 0; i < arr.length; i += 3) {
       const bx = base[i], by = base[i + 1], bz = base[i + 2];
-      // wobble: cheap pseudo-noise from the base direction
-      const w = 1 + 0.09 * Math.sin(t * 3.3 + bx * 7.1 + by * 5.3) * Math.sin(t * 2.2 + bz * 6.7);
+      const n1 = Math.sin(t * 2.1 + bx * 6.1 + by * 4.7) * Math.sin(t * 1.6 + bz * 5.9);
+      const n2 = Math.sin(t * 4.3 + bz * 8.3 + bx * 3.7) * Math.sin(t * 3.1 + by * 7.0);
+      const w = 1 + roil * (n1 + n2 * 0.45);
       let x = bx * w, y = by * w, z = bz * w;
       // directional squash/stretch (project onto facing)
       const along = x * fx + z * fz;
