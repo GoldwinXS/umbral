@@ -224,6 +224,7 @@ export function buildMission1() {
   kit.pier(34, 5, 9.4, 0.5);                              // its mid-run pier
   kit.wall(20, -12, 20, -8, { h: 9, piers: false });      // inner wall, south of the inner wicket
   kit.wall(20, -4, 20, 16, { h: 9, piers: false });       // inner wall, between the wickets
+  kit.pier(20, 6, 9.4, 0.5);                              // its mid-run pier (20m run — long runs get piers at intervals)
   kit.wall(20, 20, 20, 22, { h: 9, piers: false });       // inner wall, north of the outer wicket
   kit.pillar(1.4, 10, 30, -6, kit.mats.pillar);           // south tower base (door barred) [KEPT]
   kit.pillar(1.3, 8, 32, 10, kit.mats.pillar);            // north tower base [KEPT]
@@ -248,6 +249,7 @@ export function buildMission1() {
   kit.pier(-34, 5, 6.4, 0.42);                            // its mid-run pier
   kit.wall(-20, -12, -20, -8, { h: 6, piers: false });    // east wall, south of the breach
   kit.wall(-20, -4, -20, 16, { h: 6, piers: false });     // east wall, breach to wicket
+  kit.pier(-20, 6, 6.4, 0.42);                            // its mid-run pier (20m run — long runs get piers at intervals)
   kit.wall(-20, 20, -20, 22, { h: 6, piers: false });     // east wall, north of the wicket
 
   // --- THE BREACH (x -20..-16, z -8..-4) — a real void gap where the passage
@@ -291,7 +293,7 @@ export function buildMission1() {
   for (const rx of [-4.4, 4.4])
     for (const rz of [-12.4, -9.2, -6.0, -2.8])
       kit.torch(rx, rz, TUNE.paradeTorch);
-  kit.torch(-27, -8, TUNE.breachLamp);    // the breach warning-lamp — hung so no sleeper walks into the void [KEPT (-27,-8)]
+  kit.torch(-21, -8, TUNE.breachLamp);    // the breach warning-lamp — moved adjacent to the void lip (x-20) so it actually lights the edge; off the BLINK lane + cot patrol, and the m1 dark pocket (-13,-1) stays beyond its 7m range
   kit.torch(-3, -27, TUNE.keepLantern);   // the staff's watch pair — the honor light beside the colors      [KEPT (±3,-27)]
   kit.torch(3, -27, TUNE.keepLantern);
   kit.torch(0, -21.5, TUNE.greatLantern); // THE DOOR-FLAME over the hall entrance — dousable (E5)           [KEPT (0,-21.5)]
@@ -404,7 +406,7 @@ export function buildMission1() {
       { x0: -24, z0: -8, x1: -24, z1: 14, pad: 0.7 },     // the Breach-Blind's line
       { x0: -20, z0: -8, x1: -16, z1: -4, pad: 0.3 },     // the breach BLINK lane — keep it clean
       { x: -31, z: 14, r: 1.0 },                          // c2 cache
-      { x: -27, z: -8, r: 1.2 },                          // the warning-lamp
+      { x: -21, z: -8, r: 1.2 },                          // the warning-lamp (at the void lip)
       { x: -34, z: 5, r: 0.6 },                           // the range wall's mid pier
     ];
     // TABLEAU 3: the bedroll rank, stowed to a string-line down the west range
@@ -548,7 +550,7 @@ export function buildMission1() {
   // ================= checkpoints ============================================== [KEPT]
   kit.checkpoint(-9, 24, 3);
   kit.checkpoint(0, 3, 2.5);
-  kit.checkpoint(0, -4, 3);   // clear of the cistern at (0,-7)
+  kit.checkpoint(0, -4, 3, -12, -3);   // trigger at the crossing; respawn nudged onto the dark west verge — off the lit stone, beyond the serjeant's x-10 / z-5 reach, still north of his line so the crossing stands
   kit.checkpoint(0, -17, 2.5, 0, -17);
 
   // ================= triggers / six-beat teaching ============================= [KEPT ids + positions]
@@ -596,8 +598,8 @@ export function buildMission1() {
       p.prompt("West: a broken wall. Blink the gap.");
     }
     if (id === "inside") { enterCourt(game); if (!bag._insideSeen) { bag._insideSeen = true; p.prompt("Inside the light. Cross in the seams of the torch ranks."); } }
-    if (id === "insideE") { enterCourt(game); teachLure(game); }
-    if (id === "insideW") { enterCourt(game); teachLure(game); }
+    if (id === "insideE") { enterCourt(game); teachLure(game); } // the check-pan at (9,-6) only reads approaching from the east
+    if (id === "insideW") { enterCourt(game); }                  // breach exit keeps enterCourt only — no LURE affordance this side
     if (id === "cross" && !bag._crossSeen) {
       bag._crossSeen = true;
       p.prompt("The sun won't douse. Lure the watcher off the crossing.");

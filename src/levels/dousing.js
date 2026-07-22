@@ -12,7 +12,7 @@ import { makeKit } from "../levelKit.js";
  *   out by dawn dray. New lanterns are lit FROM the great flame and borne east
  *   into the lamp district each dusk. Nothing here dies — it is rendered.
  * WHO: the LANTERN-WARDEN (keeper of the great flame; performs the homing rite
- *   with the Snuffrod); the OIL-WARD (tallies every lantern in at the receiving
+ *   with the Everwick); the OIL-WARD (tallies every lantern in at the receiving
  *   door, masters the draining floor and the oil store); the WICK-PULLERS (the
  *   bench crew of the lit gallery); the DRAY-MEN (dead lamps in at dusk,
  *   stripped hulls out at dawn).
@@ -55,7 +55,7 @@ import { makeKit } from "../levelKit.js";
  *              warden's eve-lamp, no guard to punish it) so the cost is FELT.
  *   E4 TEN   — THE GREAT LANTERN : the Turn. Dousing is FORCED, LOUD, and the
  *              rite-ward walks the pool — the tool that saves you betrays you.
- *   E5 KETSU — THE WAKING LAMPS : take the Snuffrod, the yard wakes, outrun it.
+ *   E5 KETSU — THE WAKING LAMPS : take the Everwick, the yard wakes, outrun it.
  *
  * SHOWCASE — THE GREAT LANTERN DOUSE: the hall is lit by exactly ONE light,
  * the master flame on its tall standard at (44,0), over a lime-washed hall —
@@ -204,6 +204,7 @@ export function buildDousing() {
   kit.pier(24, -7, 3.1);
   // (between the throats, x10..24 z-3..3, sits the sealed wick vault — walled
   // on all four sides by the runs above; a locked room the yard implies.)
+  kit.floor(14, 6, 17, 0);                                 // the vault's floor slab — invisible in play, closes the hole (hygiene)
 
   // --- THE LIGHTING COURT (x 24..34, z -9..9) — the lantern-warden's own yard,
   // --- where refit lanterns queue to receive flame. His eve-lamp burns through
@@ -230,7 +231,7 @@ export function buildDousing() {
   // --- shrine and its showcase. Lime-washed walls and piers so the ONE light
   // --- (the Great Lantern on its standard) washes every pale face; the floor
   // --- is the vitrified rite-floor that rings underfoot (loud crystal). The
-  // --- Snuffrod stands on the altar at the deep end, inside the pool. Douse
+  // --- Everwick stands on the altar at the deep end, inside the pool. Douse
   // --- the master flame and night falls on the whole hall at once.
   kit.floor(16, 20, 46, 0);
   kit.surface(38, -10, 54, 10, "crystal");
@@ -296,7 +297,7 @@ export function buildDousing() {
   kit.guard([[44, -5], [44, 5]], TUNE.vRite);      // the rite-ward: crosses the great pool, altar door to altar door
   kit.guard([[60, -4], [60, 4]], TUNE.vGate);      // the walk-ward: paces the bearers' gate, facing the district
 
-  // ================= relic — the Snuffrod on the snuffing altar =============== [KEPT (50,0)]
+  // ================= relic — the Everwick on the snuffing altar =============== [KEPT (50,0)]
   kit.scepterPedestal(50, 0);
 
   // ==========================================================================
@@ -450,7 +451,7 @@ export function buildDousing() {
     kit.banner(53.72, 2.6, 0, -Math.PI / 2, { w: 1.1, color: 0xffd76a, seed: 45 }); // behind the altar
     kit.banner(44, 2.8, 9.72, Math.PI, { w: 1.2, color: 0xffb46a, seed: 46 });      // rite cloth either side of the flame
     kit.banner(44, 2.8, -9.72, 0, { w: 1.2, color: 0xffb46a, seed: 47 });
-    kit.fogPatch(38, -10, 54, 10, { density: 0.03 });     // (volumetrics on: the pool becomes a dome that dies)
+    kit.fogPatch(38, -10, 54, 10, { density: 0.024 });    // (volumetrics on: the pool becomes a dome that dies) — kept thickest of the play zones, the douse showcase
   }
 
   // ===== E5 · KETSU — "THE WAKING LAMPS" (the porch) =========================
@@ -480,7 +481,7 @@ export function buildDousing() {
 
   // ================= the gate watch-lamps (the wake, after the theft) ========= [KEPT logic]
   // Dark bracket-lanterns at the flame walk and the bearers' gate — real poles,
-  // dead cages — that flare amber when the Snuffrod leaves its altar: the gate
+  // dead cages — that flare amber when the Everwick leaves its altar: the gate
   // itself turning on to catch you.
   for (const [x, z, seed] of [[56, 1.1, 56], [62, 4, 57]]) {
     kit.deadLantern(x, z, { h: 2.8, seed });              // the visible fixture
@@ -511,7 +512,7 @@ export function buildDousing() {
   kit.checkpoint(-36, 0, 3);
   kit.checkpoint(-21, 0, 3.5);
   kit.checkpoint(0, 0, 3);
-  kit.checkpoint(17, -5, 2.5, 17, -5);
+  kit.checkpoint(17, -5, 2.5, 12.5, -7.5);   // trigger KEPT under the bench-lamp; respawn nudged to the dimmer SW corner, off the bench-ward's z-5 / x13-21 beat
   kit.checkpoint(29, 0, 3.5);
   kit.checkpoint(46, 0, 3.5);
   kit.checkpoint(62, 0, 3);

@@ -62,7 +62,7 @@ import { vigilShrine } from "./_dressing.js";
  *   E3 TEN   — UNDER THE EYE : the Turn. The Pharos cannot be doused, lured,
  *              or devoured — and the fuller you have fed, the more its sweep
  *              finds you. Set the power down: read the sweep, cross small,
- *              lift the Dripstone from the alcove in the Eye's own blind spot.
+ *              lift the Marrowlight from the alcove in the Eye's own blind spot.
  *   E4 KETSU — FED, AND FLEEING : take the relic → the row wakes → run.
  *
  * SHOWCASE — BRAZIER-LIT STALLS IN FOG: many small warm light-pools, one per
@@ -73,7 +73,7 @@ import { vigilShrine } from "./_dressing.js";
  * (the Listener's silence) → the porters' mess-pan and the vat-watch pan →
  * the reeve's two great counting lanterns → the gate-pan. With volumetrics ON
  * each pan gets a god-ray halo; with everything OFF it still reads as warm
- * pools and honest black gaps. Light budget matches the shipped level (7 flame
+ * pools and honest black gaps. Light budget matches the shipped level (6 flame
  * lights vs 5 torches + 2 fills); the two INVISIBLE fills are removed per the
  * Law of Light and their duty moved into fixtured pans.
  *
@@ -250,12 +250,12 @@ export function buildSwallow() {
   kit.torch(46, -3, TUNE.countS);         // GREAT — the reeve's counting lamp, south (lights the weigh-plinth approach)
   // low haze threads the pools into glowing islands (god-ray halos when
   // volumetrics are on; a soft warm rhythm when they're off)
-  kit.fogPatch(-8, -8, 14, 8, { density: 0.022 });
-  kit.fogPatch(18, -11, 50, 11, { density: 0.034 });
-  kit.fogPatch(54, -6, 62, 6, { density: 0.02 });
+  kit.fogPatch(-8, -8, 14, 8, { density: 0.018 });
+  kit.fogPatch(18, -11, 50, 11, { density: 0.022 });   // the busiest room — thinned so the stalls read
+  kit.fogPatch(54, -6, 62, 6, { density: 0.018 });
 
   // ================= crimson maw motes — charge the devour =====================
-  kit.mawMote("maw1", -6, -5);   // [KEPT] the blood-gutter pocket behind the west troughs — the row's spill pools in its own dark
+  kit.mawMote("maw1", -13, -1);  // the first spot of red, at the dock's exit threshold where Hush wakes (reachable before the flesher's aisle)
   kit.mawMote("maw2", 31, 7);    // [KEPT] the shut stall's mouth — the one black bay in the mid-row's line of pans
 
   // ================= GUARDS — exactly three enemy TYPES ========================
@@ -269,7 +269,27 @@ export function buildSwallow() {
   kit.greatEye(44, 10, TUNE.pharos);                // mounted to watch the tallow LEAVE
 
   // ================= the relic (the weigh-plinth in the alcove) ================
-  kit.scepterPedestal(46, -8);                      // [KEPT] the Dripstone, sworn against and watched
+  kit.scepterPedestal(46, -8);                      // [KEPT] the Marrowlight, sworn against and watched
+
+  // ================= TABLEAU 1 · THE CARCASS DOCK (the wake) ===================
+  // The spawn room: a night-cart caught mid-unload at the dock, its sacks spilled
+  // toward the dark where Hush wakes, gnawed rubble crusting the offal gutters.
+  // Framed off the spawn pad and the exit lane east (the offal end is unlit).
+  {
+    const clearDock = [
+      { x: -17, z: 0, r: 2.0 },                             // spawn — Hush wakes here
+      { x0: -21, z0: -1.5, x1: -12, z1: 1.5, pad: 0.4 },   // the exit route east (dock → hook walk)
+      { x: -13, z: -1, r: 0.9 },                            // maw1 — the first red, keep it reachable
+    ];
+    kit.cart(-16.2, 3.3, { rot: 0.5, seed: 81 });          // the night-cart, halted mid-tip against the north wall
+    kit.sack(-16.8, 2.3, { seed: 82 });                    //   …its load slid off toward the wake
+    kit.sack(-15.2, 2.5, { r: 0.34, seed: 83 });
+    kit.crateStack(-19.2, 3.4, { seed: 84 });              // the night's unload, stacked at the west revetment
+    kit.cluster(-19.4, -3.2, [{ prop: "rubble", w: 3 }, "sack", "barrel"], {
+      count: 3, footprint: 1.0, backDir: Math.atan2(-1, -1), clear: clearDock, seed: 85, // gnawed rubble + a split cask, south offal corner
+    });
+    kit.rubble(-14.3, -3.4, { radius: 0.6, seed: 86 });    // more gnawed spill along the south gutter
+  }
 
   // ================= E1 · KI — "THE FIRST MOUTHFUL" ===========================
   // The salting floor. Two aligned trough rows leave one dark aisle — the
@@ -280,7 +300,7 @@ export function buildSwallow() {
     const clear = [
       { x0: -4, z0: 0, x1: 10, z1: 0, pad: 0.7 },            // the night-flesher's aisle
       { x0: -8, z0: -1.5, x1: 14, z1: 1.5, pad: 0.3 },       // through lane
-      { x: -6, z: -5, r: 1.0 },                              // maw1 — keep its gutter pocket reachable
+      { x: -6, z: -5, r: 1.0 },                              // the blood-gutter pocket — the flesher's blind rear approach, kept open
       { x: 3, z: 0, r: 1.2 },                                // checkpoint pad
     ];
     // the trough rows — stone salting benches, squared to the aisle (their
@@ -367,7 +387,7 @@ export function buildSwallow() {
   // Pharos rakes the glazed floor and the gate lane it was mounted to watch.
   // Beneath it, the reeve's counting order — lamp-priest statues flanking the
   // Eye, offering urns at the counting lamps, the dawn shipment staged along
-  // the east wall — and the Dripstone on its weigh-plinth in the south alcove,
+  // the east wall — and the Marrowlight on its weigh-plinth in the south alcove,
   // in the Eye's own blind spot at its foot.
   {
     const clear = [

@@ -192,7 +192,7 @@ export function buildTutorial() {
   kit.wall(34, 3, 34, 12, { h: 2.7, piers: false });      // east wall, north of the carters' gate
   kit.wall(34, -9, 34, 0, { h: 2.7, piers: false });      // east wall, south of it
   kit.pier(17.15, -5.6, 1.15, 0.24);                      // stump of the yard's old lamp-arcade
-  kit.fogPatch(16, -9, 34, 12, { density: 0.028 });
+  kit.fogPatch(16, -9, 34, 12, { density: 0.02 });
 
   // --- THE CARTERS' GATE (x 34..38, z 0..3) — the loading gap where the
   // --- street's salvage leaves for Lanternspire. Its gate-lamps burned with
@@ -262,8 +262,18 @@ export function buildTutorial() {
       { x0: -5.5, z0: -6.5, x1: 7.5, z1: 9.5, pad: 0.2 }, // keep the glassed floor open/loud
       { x0: -1.5, z0: 9.5, x1: 1.5, z1: 12 },             // north edge lane
     ];
-    vigilShrine(kit, 1, 7, { gap: 1.7, urnScale: 0.9, clear, seed: 27 });    // the shrine, urn-flanked and swept
-    vigilShrine(kit, 1, -2, { gap: 1.6, urnScale: 0.85, clear, seed: 29 });  // the walk-lamp's lesser pair
+    // urns flank each flame EAST–WEST (dir π/2): a z-separated pair (the default
+    // dir:0) falls straight down the keeper's-man patrol band {x0:0,x1:2} and
+    // every urn nudges along z INSIDE the band → all four discarded. Separating
+    // on x lands them at x≈3 and x≈-1, clear of the band. Urns are non-blocking
+    // decor and the shrine BELONGS on its lit glass, so the pair rides the
+    // crystal — kept off the patrol band + north lane only, not the loud floor.
+    const shrineClear = [
+      { x0: 0, z0: -9, x1: 2, z1: 12, pad: 0.4 },        // the keeper's man's line, x≈1
+      { x0: -1.5, z0: 9.5, x1: 1.5, z1: 12 },            // north edge lane
+    ];
+    vigilShrine(kit, 1, 7, { gap: 2.0, urnScale: 0.9, dir: Math.PI / 2, clear: shrineClear, seed: 27 });    // the shrine, urn-flanked and swept
+    vigilShrine(kit, 1, -2, { gap: 2.0, urnScale: 0.85, dir: Math.PI / 2, clear: shrineClear, seed: 29 });  // the walk-lamp's lesser pair
     kit.banner(1, 2.4, 11.75, Math.PI, { w: 1.2, color: 0xffb46a, seed: 31 }); // fresh amber cloth on the re-mortared wall
     // TABLEAU 3: the keeper's seat — a crate, his supper sack, his cold hand
     // brazier — beside the great flame, on the dark border where he rests
