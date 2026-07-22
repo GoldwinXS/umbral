@@ -34,6 +34,51 @@ export const SWALLOW_RANGE = 2.7; // reach of the maw (buffed) — a warden insi
 const SHADOW_SPEED = 2.4;
 const LIT_SPEED = 0.72;
 
+// ---------------- GHIBLI-GOOP FEEL (each independently toggleable) ----------
+// Diagnosis: the blob read as a RIGID BODY wearing effects — the roil, tail and
+// smear all deform the surface but nothing gave it WEIGHT (a mass that pools
+// under gravity and stays planted on the floor) or CONTACT (a body that presses
+// against the world and peels away from its own footprint). These do that.
+// All of it is pure vertex-loop / visual work: collider radius, speeds and
+// every gameplay number are untouched.
+const GOOP_SETTLE  = true; // 1) gravity pooling: rest-sag, base spread, meniscus lip, 0.15Hz breathing settle, slosh-rebound spring
+const GOOP_PLANT   = true; // 1b) the belly stays PLANTED: vertical squash drops the crown instead of lifting the base off the floor
+const GOOP_CONTACT = true; // 2) contact smear: flatten against a wall, bulge along it (goop pressed on glass)
+const GOOP_POUR    = true; // 3) pour-into-motion: the base anchors then peels away on acceleration, the crown leads
+const GOOP_DRIPS   = true; // 4) tiny droplets shed from the tail at high stretch
+
+// (1) settle tuning
+const SETTLE_SAG     = 0.18; // fraction of height lost at full rest-sag
+const SETTLE_SPREAD  = 0.26; // base widening at full sag (the lost height goes sideways)
+const SETTLE_LIP     = 0.12; // meniscus rim bulge where the base meets the ground
+const SETTLE_CROWN   = 0.07; // crown narrowing at full sag (wider below than above)
+const SETTLE_MIN     = 0.30; // sag floor while moving — the mass is ALWAYS bottom-heavy
+const SETTLE_BREATHE = 0.15; // Hz of the idle breathing settle (rides under the roil)
+const SETTLE_K       = 120;  // sag spring stiffness — underdamped, so a stop
+const SETTLE_D       = 7.0;  //   lands with 1–2 diminishing slosh rebounds (~0.8s)
+
+// (2) contact tuning
+const CONTACT_FLAT  = 0.42; // max wallward compression (capped well short of a pancake)
+const CONTACT_BULGE = 0.26; // tangential bulge along the wall plane (volume goes sideways)
+const CONTACT_PUSH  = 0.30; // wall-side shove toward the plane (of PLAYER_R) — the flattened
+                            // face must BUNCH UP AGAINST the wall, not hover off it
+const CONTACT_RISE  = 12;   // how fast the press builds on touch
+const CONTACT_FALL  = 5;    // how fast it recovers (the stretch spring adds the jiggle)
+
+// (3) pour tuning
+const POUR_MAX   = 0.55; // base-drag cap, in body radii
+const POUR_CATCH = 3.5;  // base catch-up rate at rest…
+const POUR_SNAP  = 15;   //  …plus this at full speed: the drag is BRIEF — peel, then follow
+const POUR_LEAN  = 0.45; // the crown leads opposite the base drag (pouring forward)
+const POUR_CRUISE = 0.35; // fraction of the drag kept at full speed — the peel is a
+                          // DEPARTURE event; at cruise only a grounded trace remains
+
+// (4) drip tuning
+const DRIP_MAX     = 4;    // hard cap on live droplets (pooled, reused)
+const DRIP_LIFE    = 0.42; // seconds to fall + fade
+const DRIP_STRETCH = 1.85; // shed when the body is stretched past this
+const DRIP_CD      = 0.09; // min seconds between sheds (a blink smear sheds ~2)
+
 export class Player {
   constructor(scene, overlay) {
     this.scene = scene;
@@ -42,6 +87,22 @@ export class Player {
     this._litSmooth = 0;        // time-smoothed litness → continuous shadow-speed
     const geo = new THREE.IcosahedronGeometry(PLAYER_R, 2);
     this.base = geo.getAttribute("position").array.slice();
+    // per-vertex vertical-profile weights for the goop deformations, computed
+    // ONCE from the base shape (zero per-frame allocation):
+    //   pool:  1 at the belly → 0 above the equator (base spread / pour anchor)
+    //   lip:   a narrow band just above the ground ring (the meniscus bulge)
+    //   crown: 1 at the top → 0 below the equator (narrowing / forward lean)
+    const vcount = this.base.length / 3;
+    this._poolW = new Float32Array(vcount);
+    this._lipW = new Float32Array(vcount);
+    this._crownW = new Float32Array(vcount);
+    for (let i = 0; i < vcount; i++) {
+      const hN = Math.max(-1, Math.min(1, this.base[i * 3 + 1] / PLAYER_R));
+      this._poolW[i] = Math.pow(Math.max(0, -hN), 1.4);
+      const lip = (hN + 0.78) / 0.16;
+      this._lipW[i] = Math.exp(-lip * lip);
+      this._crownW[i] = Math.max(0, hN);
+    }
     this.mesh = new THREE.Mesh(
       geo,
       new THREE.MeshStandardMaterial({
@@ -126,6 +187,23 @@ export class Player {
       this.afterimages.push({ mesh: m, t: 1, delay: 0 });
     }
 
+    // droplet pool — tiny goop beads the tail sheds at high stretch. Pooled,
+    // hard-capped, rtExclude (raster-only), each fades over DRIP_LIFE.
+    this.drips = [];
+    if (GOOP_DRIPS) {
+      for (let i = 0; i < DRIP_MAX; i++) {
+        const m = new THREE.Mesh(
+          new THREE.SphereGeometry(0.055, 6, 5),
+          new THREE.MeshBasicMaterial({ color: 0x2a1650, transparent: true, opacity: 0, depthWrite: false })
+        );
+        m.visible = false;
+        m.userData.rtExclude = true;
+        this.fx.add(m);
+        this.drips.push({ mesh: m, t: 1, vx: 0, vy: 0, vz: 0 });
+      }
+    }
+    this._dripCd = 0;
+
     // thrown vials
     this.vials = [];
     this.vialGeo = new THREE.OctahedronGeometry(0.12);
@@ -136,6 +214,12 @@ export class Player {
     this.morphDir = new THREE.Vector2(0, -1); // the BODY's axis — lags facing (fluid turns)
     this._stretchS = 1;  // sprung elongation (low viscosity: sloshes past its target)
     this._stretchV = 0;
+    this._sag = 1;       // gravity-settle spring (1 = fully pooled at rest)
+    this._sagV = 0;
+    this._press = 0;     // contact-smear strength 0..1 (eased)
+    this._pressT = 0;    // target set by move() when the collider corrects us
+    this._cnX = 0; this._cnZ = 0;           // last contact normal (points AWAY from the wall)
+    this._anchorX = 0; this._anchorZ = 0;   // the base's lagged footprint (pour-into-motion)
     this.vialCount = 0;
     this.blinkCd = 0;
     this.blinkCdMax = BLINK_CD; // actual cooldown of the last blink (for HUD + per-level buffs)
@@ -229,6 +313,9 @@ export class Player {
     this.falling = 0;
     this.frozen = false;
     this.launch = 0;
+    this._anchorX = v.x; this._anchorZ = v.z;
+    this._press = 0; this._pressT = 0;
+    this._sag = 1; this._sagV = 0;
   }
 
   /**
@@ -238,6 +325,7 @@ export class Player {
     const { input, level } = ctx;
     if (this.frozen) {
       this.vel.set(0, 0, 0);
+      this._pressT = 0;
       return;
     }
 
@@ -248,10 +336,21 @@ export class Player {
       this.vel.x *= d; this.vel.z *= d;
       const speed = Math.hypot(this.vel.x, this.vel.z);
       const steps = Math.max(1, Math.ceil(speed * dt / 0.22)); // substep: never tunnel a wall
+      if (GOOP_CONTACT) this._pressT = 0;
       for (let i = 0; i < steps; i++) {
         this.pos.x += (this.vel.x * dt) / steps;
         this.pos.z += (this.vel.z * dt) / steps;
+        const preX = this.pos.x, preZ = this.pos.z;
         collideCircle(this.pos, this.radius, this.vel, level.boxes, level.cylinders, 0.7, this.groundY, this.radius * 2);
+        // a wall bounce mid-fling SMEARS the body against the wall it hit
+        if (GOOP_CONTACT) {
+          const cx = this.pos.x - preX, cz = this.pos.z - preZ;
+          const cl = Math.hypot(cx, cz);
+          if (cl > 1e-5) {
+            this._cnX = cx / cl; this._cnZ = cz / cl;
+            this._pressT = Math.min(1, speed / 8);
+          }
+        }
       }
       const gf = groundHeightAt(this.pos.x, this.pos.z, level.platforms, level.ramps, this.groundY);
       if (gf > this.groundY) this.groundY = gf;
@@ -301,7 +400,19 @@ export class Player {
 
     this.pos.x += this.vel.x * dt;
     this.pos.z += this.vel.z * dt;
+    const preX = this.pos.x, preZ = this.pos.z;
     collideCircle(this.pos, this.radius, this.vel, level.boxes, level.cylinders, 0, this.groundY, this.radius * 2);
+    // CONTACT: the collider's position correction IS the wall normal — no new
+    // physics needed. Press strength = how hard the INPUT keeps driving into
+    // the wall (so brushing past a corner barely registers, leaning in does).
+    if (GOOP_CONTACT) {
+      const cx = this.pos.x - preX, cz = this.pos.z - preZ;
+      const cl = Math.hypot(cx, cz);
+      if (cl > 1e-5) {
+        this._cnX = cx / cl; this._cnZ = cz / cl;
+        this._pressT = Math.min(1, Math.max(0, -(ix * this._cnX + iz * this._cnZ)) * 1.25);
+      } else this._pressT = 0;
+    }
     // VERTICALITY: settle onto the surface under our feet. Step UP snaps (a ramp
     // rises only a hair per frame; never sink into it); DROP eases (a soft fall
     // off a catwalk edge). Flat levels have no platforms/ramps → groundY stays 0.
@@ -367,6 +478,9 @@ export class Player {
     // the body just POURED through space along (dx,dz): its axis is that
     // direction NOW — no lag — so the arrival smear stretches the right way
     this.morphDir.set(dx, dz);
+    // a blink is a teleport: the footprint arrives WITH the body (the smear
+    // owns the arrival — the base-drag must not fight it across 5 units)
+    this._anchorX = this.pos.x; this._anchorZ = this.pos.z;
     this.eyeFlash = Math.max(this.eyeFlash, 0.6);
     ctx.sfx.blink();
     // origin implosion + landing shockwave (pure visuals — a blink is silent)
@@ -550,12 +664,69 @@ export class Player {
     // churn harder mid-turn: the balled-up mass boils while it re-pours.
     // thinner fluid = livelier surface: more amplitude, slightly quicker swells
     const roil = (0.115 + this.speedFrac * 0.085) * (1 + turn * 1.2);
+
+    // ---- GOOP: weight + contact + pour (scalar state, before the loop) ----
+    // (1) GRAVITY SETTLE: restness rises as motion dies; the sag SPRING chases
+    // it underdamped, so a stop lands with 1–2 diminishing slosh rebounds over
+    // ~0.8s. Idle is never static — a slow 0.15Hz breathing settle rides the
+    // target underneath the roil. Even at speed, sag keeps a floor: the mass
+    // is always bottom-heavy.
+    let sag = 0;
+    if (GOOP_SETTLE) {
+      const restness = 1 - Math.min(1, this.speedFrac * 2.6);
+      const sagT = (SETTLE_MIN + (1 - SETTLE_MIN) * restness)
+        * (1 + Math.sin(t * SETTLE_BREATHE * Math.PI * 2) * 0.12 * restness);
+      this._sagV += ((sagT - this._sag) * SETTLE_K - this._sagV * SETTLE_D) * sdt;
+      this._sag += this._sagV * sdt;
+      sag = Math.max(0, Math.min(1.35, this._sag));
+    }
+    // (2) CONTACT SMEAR: ease toward what move() measured — fast on touch,
+    // slower on release (the stretch spring supplies the recovery jiggle).
+    if (GOOP_CONTACT) {
+      const rate = this._pressT > this._press ? CONTACT_RISE : CONTACT_FALL;
+      this._press += (this._pressT - this._press) * Math.min(1, dt * rate);
+    }
+    const press = GOOP_CONTACT ? this._press : 0;
+    const wallX = -this._cnX, wallZ = -this._cnZ; // unit vector TOWARD the wall
+    // (3) POUR-INTO-MOTION: the footprint anchor chases the body slowly from
+    // rest and fast at speed — so departure DRAGS the base (peel-away) while
+    // cruise carries it along. pourX/Z is the local-space base drag.
+    let pourX = 0, pourZ = 0;
+    if (GOOP_POUR) {
+      const catchUp = POUR_CATCH + this.speedFrac * POUR_SNAP;
+      this._anchorX += (this.pos.x - this._anchorX) * Math.min(1, dt * catchUp);
+      this._anchorZ += (this.pos.z - this._anchorZ) * Math.min(1, dt * catchUp);
+      // fade the drag with speed: at cruise the lag saturates the cap, and a
+      // CONSTANT shear reads as a rig offset, not a peel — keep only a trace
+      const fade = 1 - (1 - POUR_CRUISE) * this.speedFrac;
+      pourX = ((this._anchorX - this.pos.x) / this.scale) * fade;
+      pourZ = ((this._anchorZ - this.pos.z) / this.scale) * fade;
+      const pl = Math.hypot(pourX, pourZ), pmax = POUR_MAX * PLAYER_R;
+      if (pl > pmax) { pourX *= pmax / pl; pourZ *= pmax / pl; }
+    }
+    // GROUND PLANT: every vertical squash (speed, smear, sag) used to scale y
+    // about the CENTRE, lifting the belly off the floor — the classic rigid-
+    // body tell. Fold all vertical scaling into ySquash and translate the body
+    // DOWN by the gap so the base always kisses the ground: squashing now
+    // drops the crown instead of hovering the belly.
+    const ySquash = squash * breathe * (1 - sag * SETTLE_SAG);
+    const plant = GOOP_PLANT ? PLAYER_R * (1 - ySquash) : 0;
+
     for (let i = 0; i < arr.length; i += 3) {
+      const idx = i / 3;
       const bx = base[i], by = base[i + 1], bz = base[i + 2];
       const n1 = Math.sin(t * 2.6 + bx * 6.1 + by * 4.7) * Math.sin(t * 2.0 + bz * 5.9);
       const n2 = Math.sin(t * 5.1 + bz * 8.3 + bx * 3.7) * Math.sin(t * 3.8 + by * 7.0);
       const w = 1 + roil * (n1 + n2 * 0.45);
-      let x = bx * w, y = by * w, z = bz * w;
+      // pooling profile: base spreads + a meniscus lip at the ground ring,
+      // crown narrows — wider below than above, like a settled drop
+      let lat = 1;
+      if (GOOP_SETTLE) {
+        lat += sag * (SETTLE_SPREAD * this._poolW[idx]
+          + SETTLE_LIP * this._lipW[idx]
+          - SETTLE_CROWN * this._crownW[idx]);
+      }
+      let x = bx * w * lat, y = by * w, z = bz * w * lat;
       // directional squash/stretch (project onto facing)
       const along = x * fx + z * fz;
       x += fx * along * (stretch - 1);
@@ -574,7 +745,35 @@ export class Player {
         z = fz * a2 + lz * pinch;
         y *= 1 - Math.min(0.5, drag * 0.7);
       }
-      y *= squash * breathe;
+      // CONTACT SMEAR: the wallward half flattens toward the contact plane and
+      // the displaced volume bulges ALONG it (tangent + a little upward) — the
+      // goop-pressed-on-glass look. k→0 at the body centre so it stays smooth.
+      if (press > 0.02) {
+        const aw = x * wallX + z * wallZ;
+        if (aw > 0) {
+          const k = aw / PLAYER_R;
+          const flat = Math.min(0.6, CONTACT_FLAT * press * k);
+          // compress toward the centre, then shove the flattened half back
+          // AGAINST the plane (never past it: flat removes more than push adds)
+          const shove = CONTACT_PUSH * PLAYER_R * press * k;
+          x += wallX * (shove - aw * flat);
+          z += wallZ * (shove - aw * flat);
+          const tx = -wallZ, tz = wallX;
+          const at = x * tx + z * tz;
+          const bul = CONTACT_BULGE * press * k;
+          x += tx * at * bul;
+          z += tz * at * bul;
+          y *= 1 + bul * 0.55;
+        }
+      }
+      // POUR: the belly clings to the old footprint, the crown leans ahead —
+      // acceleration reads as the mass peeling away and pouring forward.
+      if (GOOP_POUR) {
+        x += pourX * (this._poolW[idx] - POUR_LEAN * this._crownW[idx]);
+        z += pourZ * (this._poolW[idx] - POUR_LEAN * this._crownW[idx]);
+      }
+      y *= ySquash;
+      y -= plant;
       arr[i] = x; arr[i + 1] = y; arr[i + 2] = z;
     }
     posAttr.needsUpdate = true;
@@ -602,12 +801,29 @@ export class Player {
     // the eye centre must track close behind it — at 0.34 the gap (0.06*stretch)
     // outgrows the eye's fixed 0.055 poke-out radius on a big fast blob and the
     // roil re-submerges them.
-    const eyeOut = 0.38 * stretch * this.scale;
+    const eyeOut = 0.38 * stretch; // local units — scaled to world below
     for (const e of this.eyes) {
       const s = e.userData.side;
-      const px = this.pos.x + fx * eyeOut - fz * s * 0.13 * this.scale;
-      const pz = this.pos.z + fz * eyeOut + fx * s * 0.13 * this.scale;
-      e.position.set(px, this.pos.y + 0.13 * this.scale * squash, pz);
+      let ox = fx * eyeOut - fz * s * 0.13;
+      let oz = fz * eyeOut + fx * s * 0.13;
+      // CONTACT: give the eyes the same flatten+shove as the face vertices, or
+      // they'd hover in the gap the smear opened between skin and wall
+      if (press > 0.02) {
+        const aw = ox * wallX + oz * wallZ;
+        if (aw > 0) {
+          const k = aw / PLAYER_R;
+          const flat = Math.min(0.6, CONTACT_FLAT * press * k);
+          const shove = CONTACT_PUSH * PLAYER_R * press * k;
+          ox += wallX * (shove - aw * flat);
+          oz += wallZ * (shove - aw * flat);
+        }
+      }
+      // ride the PLANTED, sagged surface: same vertical scale + drop as the body
+      e.position.set(
+        this.pos.x + ox * this.scale,
+        this.pos.y + (0.13 * ySquash - plant) * this.scale,
+        this.pos.z + oz * this.scale
+      );
     }
     // douse reticle: a subtle dot marking where a vial would land. Present
     // when you hold vials; a touch clearer when you slow to aim.
@@ -646,6 +862,44 @@ export class Player {
       a.mesh.material.opacity = 0.5 * (1 - a.t) * this.fxOpacity;
       const s = this.scale * (1 + a.t * 0.9);
       a.mesh.scale.set(s, s * (1 - a.t * 0.6), s);
+    }
+
+    // DRIPS: at high stretch (blink-smear peak, full pour) the goop can't quite
+    // hold itself together — 1–2 tiny beads shed from the tail tip, fall, fade.
+    // Pooled + hard-capped; raster-only (rtExclude); respects fxOpacity.
+    if (GOOP_DRIPS) {
+      this._dripCd -= dt;
+      const wantDrip = (stretch > DRIP_STRETCH || this.blinkAnim > 0.72)
+        && this.falling <= 0 && !this.frozen;
+      if (wantDrip && this._dripCd <= 0) {
+        const d = this.drips.find((d) => d.t >= 1);
+        if (d) {
+          this._dripCd = DRIP_CD;
+          d.t = 0;
+          const tipd = (0.42 * stretch + 0.2) * this.scale;
+          d.mesh.position.set(
+            this.pos.x - fx * tipd,
+            this.groundY + this.radius * 0.55,
+            this.pos.z - fz * tipd
+          );
+          d.vx = this.vel.x * 0.25 - fx * 0.5;
+          d.vz = this.vel.z * 0.25 - fz * 0.5;
+          d.vy = 1.1;
+          d.mesh.scale.setScalar(0.7 + Math.random() * 0.6);
+          d.mesh.visible = true;
+        }
+      }
+      for (const d of this.drips) {
+        if (d.t >= 1) { if (d.mesh.visible) d.mesh.visible = false; continue; }
+        d.t += dt / DRIP_LIFE;
+        d.vy -= 9.5 * dt;
+        const m = d.mesh;
+        m.position.x += d.vx * dt;
+        m.position.y = Math.max(this.groundY + 0.03, m.position.y + d.vy * dt);
+        m.position.z += d.vz * dt;
+        m.material.opacity = Math.max(0, 0.85 * (1 - d.t * d.t)) * this.fxOpacity;
+        if (d.t >= 1) m.visible = false;
+      }
     }
 
     // vial projectiles
