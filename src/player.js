@@ -402,7 +402,7 @@ export class Player {
   /** Per-frame visuals: morph, eyes, vials, cooldowns, afterimages. */
   update(dt, t, ctx) {
     this.blinkCd = Math.max(0, this.blinkCd - dt);
-    this.blinkAnim = Math.max(0, this.blinkAnim - dt * 4);
+    this.blinkAnim = Math.max(0, this.blinkAnim - dt * 2.6); // ~0.4s: room for the smear's snap-back jiggle
     this.invuln = Math.max(0, this.invuln - dt);
     this.sinceHit += dt;
     this.devourAnim = Math.max(0, this.devourAnim - dt * 2.2);
@@ -489,9 +489,22 @@ export class Player {
     // pouring blob-snake. At rest (speedFrac→0) it stays a round blob. `bigness`
     // rises with devour-growth and extra lives.
     const bigness = Math.min(1.4, this.growth * 1.8 + Math.max(0, this.maxHealth - 3) * 0.14);
-    const stretch = 1 + this.speedFrac * (0.38 + bigness * 1.6) + this.blinkAnim * 0.5;
-    const squash = 1 - this.speedFrac * (0.18 + bigness * 0.34) - this.blinkAnim * 0.25;
+    // BLINK SMEAR: a blink isn't a fade — it's liquid. The body SMEARS long on
+    // arrival, then snaps back elastically, overshooting into a squash bounce
+    // before settling (a damped oscillation over blinkAnim 1→0, ~3 half-swings).
+    const bA = this.blinkAnim;
+    const smear = bA > 0 ? Math.pow(bA, 1.3) * Math.cos((1 - bA) * Math.PI * 3) * 0.85 : 0;
+    const stretch = Math.max(0.4,
+      1 + this.speedFrac * (0.38 + bigness * 1.6) + (smear >= 0 ? smear : smear * 0.45));
+    // floor at 0.3: speed-squash + smear-squash can stack (big blob, full
+    // sprint, mid-blink) and would flatten the body into a near-2D ribbon
+    const squash = Math.max(0.3, 1 - this.speedFrac * (0.18 + bigness * 0.34) - smear * 0.3);
     const breathe = 1 + Math.sin(t * 2.1) * 0.03;
+    // TRAILING TAIL: when pouring, the REAR of the body lags and tapers — the
+    // silhouette becomes a comma/tadpole (heavy nose, droplet tail) instead of
+    // a symmetric ellipse. Quadratic in `rear` so only the back end deforms;
+    // grows with speed and with bigness (a well-fed blob trails a longer tail).
+    const tailAmp = this.speedFrac * (0.55 + bigness * 0.6);
     // A body of living tar. TWO octaves of pseudo-noise make the surface ROIL
     // slowly (a churning gunk, not a rigid jitter): a broad slow swell plus a
     // finer faster ripple riding on it. It churns harder the faster you pour
@@ -507,6 +520,20 @@ export class Player {
       const along = x * fx + z * fz;
       x += fx * along * (stretch - 1);
       z += fz * along * (stretch - 1);
+      // trailing tail: drag the rear hemisphere backward and pinch it toward
+      // the tip (lateral + vertical taper) so it pours off as a droplet trail
+      const rear = Math.max(0, -along) / 0.45;
+      if (rear > 0 && tailAmp > 0.01) {
+        const drag = tailAmp * rear * rear;
+        x -= fx * drag * 0.6;
+        z -= fz * drag * 0.6;
+        const a2 = x * fx + z * fz;
+        const pinch = 1 - Math.min(0.65, drag * 0.9);
+        const lx = x - fx * a2, lz = z - fz * a2;
+        x = fx * a2 + lx * pinch;
+        z = fz * a2 + lz * pinch;
+        y *= 1 - Math.min(0.5, drag * 0.7);
+      }
       y *= squash * breathe;
       arr[i] = x; arr[i + 1] = y; arr[i + 2] = z;
     }
