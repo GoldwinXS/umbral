@@ -96,8 +96,16 @@ import { workRank, barredVista } from "./_dressing.js";
 // Guard numbers are [KEPT] from the shipped level — the architecture moved,
 // the difficulty did not.
 const TUNE = {
-  moon: 0.7,                                            // thin high moon; the removed invisible fills' duty moved here + into fixtures
-  moonFrom: [-18, 20, 6],
+  // ---- ART PASS · DAWN MOONLIGHT (meter-safe relight) ---------------------------
+  // The light meter reads ONLY moon.intensity + direction (main.js), never colour.
+  // moonBoost scales render brightness via the hue and leaves the meter bit-identical.
+  // Keep `moon` (intensity) + moonFrom (direction) as shipped. It's DAWN, not
+  // midnight — the hue leans a warmer pre-sunrise grey and the boost stays low so
+  // the mirror-water still reads as water catching a pale sky.
+  moon: 0.7,                                            // METER intensity — DO NOT CHANGE (thin high moon)
+  moonHue: 0xa2a6b4,                                    // DAWN pre-sunrise grey — warmer/greyer than midnight blue; the canals catch this sky tone
+  moonBoost: 2.3,                                       // RENDER-only brightness × — low end (dawn, not midnight); meter never sees colour
+  moonFrom: [-18, 20, 6],                               // DO NOT CHANGE (meter LOS)
   reveille:  { intensity: 4,  range: 6 },               // the stair-hall's last burning lamp (E1)            [KEPT 4/6]
   forkLamp:  { intensity: 6,  range: 8 },               // the fork court's liturgy lamp (the Vigil lights its own words)
   quay:      [ { intensity: 12, range: 10 }, { intensity: 11, range: 9 }, { intensity: 12, range: 10 },
@@ -576,7 +584,9 @@ export function buildLanternWays() {
   // dark rooms walkable. NO invisible fills (Law of Light): the shipped four
   // are removed; their duty lives in the fork lamp, the counting lamp, the
   // watch-pan, and this moon.
-  const moon = new THREE.DirectionalLight(0x8ea0cc, TUNE.moon);
+  // colour carries the render boost; intensity (what the meter reads) stays TUNE.moon
+  const moonColor = new THREE.Color(TUNE.moonHue).multiplyScalar(TUNE.moonBoost);
+  const moon = new THREE.DirectionalLight(moonColor, TUNE.moon);
   moon.position.set(...TUNE.moonFrom);
   moon.userData.rtRadius = 0.05;
   scene.add(moon, moon.target);

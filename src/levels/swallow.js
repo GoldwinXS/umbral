@@ -84,8 +84,15 @@ import { vigilShrine } from "./_dressing.js";
 
 // TUNE — the knobs we actually reach for. Change feel here, not in the body.
 const TUNE = {
-  moon: 0.55,                                       // ambient darkness (kept from shipped)
-  moonFrom: [8, 22, 6],                             // near-overhead — the pans, not the moon, own this level's light
+  // ---- ART PASS · MOONLIGHT (meter-safe relight) --------------------------------
+  // The light meter reads ONLY moon.intensity + direction (main.js _computePlayerVis),
+  // NEVER the light's colour. So render brightness (= colour × intensity) is decoupled
+  // from detection: brighten the night by scaling moonHue via moonBoost and the meter
+  // stays bit-identical. DO NOT change `moon` (intensity) or `moonFrom` (direction).
+  moon: 0.55,                                       // METER intensity — DO NOT CHANGE (ambient darkness, kept from shipped)
+  moonHue: 0x8ea0cc,                                // moon colour hue (cool moon-blue) — fill that silhouettes the stall rows behind the warm pans
+  moonBoost: 2.5,                                   // RENDER-only brightness × on the hue — meter never sees colour, safe to raise
+  moonFrom: [8, 22, 6],                             // near-overhead — DO NOT CHANGE (meter LOS); the pans, not the moon, own this level's light
   vDevour: { speed: 1.1, pause: 1.5, range: 8 },    // the night-flesher (pauses = turning the meat at each bench-end)
   vMid:    { speed: 1.2, pause: 1.4, range: 9 },    // the render-watch (west pause = in the Listener's earshot; east = alone)
   snuffed: { speed: 1.0, pause: 2.0, blind: true }, // the Listener (pauses = hearing at each lane mouth)
@@ -431,7 +438,9 @@ export function buildSwallow() {
   // ================= ambient (low key — pans and shadow must read) ============
   // One near-overhead moon at the shipped intensity; NO invisible fills (Law of
   // Light) — their duty is carried by the fixtured pans above.
-  const moon = new THREE.DirectionalLight(0x8ea0cc, TUNE.moon);
+  // colour carries the render boost; intensity (what the meter reads) stays TUNE.moon
+  const moonColor = new THREE.Color(TUNE.moonHue).multiplyScalar(TUNE.moonBoost);
+  const moon = new THREE.DirectionalLight(moonColor, TUNE.moon);
   moon.position.set(...TUNE.moonFrom);
   moon.userData.rtRadius = 0.05;
   scene.add(moon, moon.target);

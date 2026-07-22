@@ -104,8 +104,17 @@ import { workRank, vigilShrine } from "./_dressing.js";
 // TUNE — the knobs we actually reach for. Change feel here, not in the body.
 // Guard/lamp numbers are [KEPT] from the shipped level.
 const TUNE = {
-  dusk: 0.6,                                            // the last dusk dying down the gate shaft — the only sky this place ever sees (replaces the shipped 0.55 moon + THREE invisible fills, now removed)
-  duskFrom: [6, 24, 30],                                // high, from over the north gate
+  // ---- ART PASS · DUSK (meter-safe relight, SUBTLE) -----------------------------
+  // The light meter reads ONLY dusk.intensity + direction (main.js), never colour.
+  // duskBoost scales render brightness via the hue; the meter stays bit-identical.
+  // DO NOT change `dusk` (intensity) or `duskFrom` (direction). This is the finale
+  // and the darkest level: the dusk is a dying SLOT-LIGHT down the gate shaft, not a
+  // sky — the boost is deliberately small so the scrying pools and case glass keep
+  // their drama and the deep cellar stays honestly black.
+  dusk: 0.6,                                            // METER intensity — DO NOT CHANGE (the last dusk down the gate shaft — the only sky this place sees; replaces shipped 0.55 moon + 3 removed fills)
+  duskHue: 0x8ea0cc,                                    // dusk colour hue (cold, nearly gone) — keeps the undercroft the darkest, most dramatic level
+  duskBoost: 1.9,                                       // RENDER-only brightness × — SUBTLE (a slot-light, not a sky); meter never sees colour
+  duskFrom: [6, 24, 30],                                // high, over the north gate — DO NOT CHANGE (meter LOS)
   gateLamp:    { intensity: 4, range: 7 },              // the gate-ward's door lamp                       [KEPT 4/7]
   processionLamp: { intensity: 5, range: 8 },           // the procession's liturgy lamp                   [KEPT 5/8]
   hallLamp:    { intensity: 7, range: 11 },             // ×4: two pool-head reading lamps + two treasury-front tally lamps [KEPT 4 × 7/11]
@@ -592,7 +601,9 @@ export function buildVault() {
   // dying, as the campaign says it must. The shipped level's three invisible
   // fill lights are REMOVED (Law of Light): the fixtures above carry their
   // rooms, and the deep cellar is honestly, deliberately black.
-  const dusk = new THREE.DirectionalLight(0x8ea0cc, TUNE.dusk);
+  // colour carries the render boost; intensity (what the meter reads) stays TUNE.dusk
+  const duskColor = new THREE.Color(TUNE.duskHue).multiplyScalar(TUNE.duskBoost);
+  const dusk = new THREE.DirectionalLight(duskColor, TUNE.dusk);
   dusk.position.set(...TUNE.duskFrom);
   dusk.userData.rtRadius = 0.05;
   scene.add(dusk, dusk.target);

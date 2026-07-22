@@ -96,8 +96,16 @@ import { workRank, vigilShrine } from "./_dressing.js";
 // TUNE — the knobs we actually reach for. Guard/lamp/Eye numbers are [KEPT]
 // from the shipped level — the architecture moved, the difficulty did not.
 const TUNE = {
-  moon: 0.7,                                            // raised 0.55→0.7: the four removed invisible fills' duty lives here + in the fixtures
-  moonFrom: [-30, 16, 6],                               // low WNW — blades through the west lancets, long shadows east
+  // ---- ART PASS · MOONLIGHT (meter-safe relight) --------------------------------
+  // The light meter reads ONLY moon.intensity + direction (main.js), never colour.
+  // moonBoost scales render brightness via the hue; the meter stays bit-identical.
+  // DO NOT change `moon` (intensity) or `moonFrom` (direction). This is the god-ray
+  // level: the boost makes the lancet blades AND the tier edges (deck lips vs drop)
+  // read from the game camera without moving a single detection reading.
+  moon: 0.7,                                            // METER intensity — DO NOT CHANGE (raised 0.55→0.7: removed fills' duty lives here + in the fixtures)
+  moonHue: 0x8ea0cc,                                    // moon colour hue (cool moon-blue) — the lancet blades + tier-edge modelling
+  moonBoost: 2.6,                                       // RENDER-only brightness × on the hue — meter never sees colour; makes deck lips read vs the drop
+  moonFrom: [-30, 16, 6],                               // low WNW — DO NOT CHANGE (meter LOS); blades through the west lancets, long shadows east
   gate:      { intensity: 5,  range: 8 },               // the cloister's liturgy lamp over the refectory door   [KEPT 5/8]
   stairFoot: { intensity: 9,  range: 10 },              // lower station lamp at the flight's foot               [KEPT 9/10]
   stairHead: { intensity: 8,  range: 9, scale: 1.6 },   // upper station lamp at the flight's head (deck-height) [KEPT 8/9]
@@ -590,7 +598,9 @@ export function buildSpire() {
   // Low WNW behind the lancet wall: the showcase's blade-caster. NO invisible
   // fills (Law of Light) — the shipped four are removed; their duty lives in
   // this moon, the station lamps, and the two watch-pans.
-  const moon = new THREE.DirectionalLight(0x8ea0cc, TUNE.moon);
+  // colour carries the render boost; intensity (what the meter reads) stays TUNE.moon
+  const moonColor = new THREE.Color(TUNE.moonHue).multiplyScalar(TUNE.moonBoost);
+  const moon = new THREE.DirectionalLight(moonColor, TUNE.moon);
   moon.position.set(...TUNE.moonFrom);
   moon.userData.rtRadius = 0.05;
   scene.add(moon, moon.target);
