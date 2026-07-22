@@ -134,6 +134,8 @@ export class Player {
     this.vel = new THREE.Vector3();
     this.facing = new THREE.Vector2(0, -1);
     this.morphDir = new THREE.Vector2(0, -1); // the BODY's axis — lags facing (fluid turns)
+    this._stretchS = 1;  // sprung elongation (low viscosity: sloshes past its target)
+    this._stretchV = 0;
     this.vialCount = 0;
     this.blinkCd = 0;
     this.blinkCdMax = BLINK_CD; // actual cooldown of the last blink (for HUD + per-level buffs)
@@ -406,7 +408,7 @@ export class Player {
   /** Per-frame visuals: morph, eyes, vials, cooldowns, afterimages. */
   update(dt, t, ctx) {
     this.blinkCd = Math.max(0, this.blinkCd - dt);
-    this.blinkAnim = Math.max(0, this.blinkAnim - dt * 2.6); // ~0.4s: room for the smear's snap-back jiggle
+    this.blinkAnim = Math.max(0, this.blinkAnim - dt * 2.2); // ~0.45s: room for the smear's snap-back jiggle
     this.invuln = Math.max(0, this.invuln - dt);
     this.sinceHit += dt;
     this.devourAnim = Math.max(0, this.devourAnim - dt * 2.2);
@@ -517,11 +519,25 @@ export class Player {
     const smear = bA > 0 ? Math.pow(bA, 1.3) * Math.cos((1 - bA) * Math.PI * 3) * 0.85 : 0;
     // speed-elongation collapses by `reform` mid-turn (balling up); the blink
     // smear does NOT — a blink snaps morphDir to its direction, turn ≈ 0.
-    const stretch = Math.max(0.4,
-      1 + this.speedFrac * (0.38 + bigness * 1.6) * reform + (smear >= 0 ? smear : smear * 0.45));
+    const stretchT = Math.max(0.4, 1 + this.speedFrac * (0.38 + bigness * 1.6) * reform);
+    // LOW VISCOSITY: the elongation doesn't TRACK its target, it SLOSHES onto
+    // it through an underdamped spring (ζ≈0.47) — every speed change and turn
+    // overshoots ~17% and rings for ~1s. Water, not honey. The blink smear is
+    // ALREADY its own damped oscillation and rides on top UNfiltered (its
+    // ~3.3Hz swing sits past the spring's ~1.5Hz corner and would be eaten).
+    // sdt caps the step so a background-tab dt spike can't blow the spring up.
+    const sdt = Math.min(dt, 1 / 30);
+    this._stretchV += ((stretchT - this._stretchS) * 90 - this._stretchV * 9) * sdt;
+    this._stretchS += this._stretchV * sdt;
+    const stretch = Math.min(5, Math.max(0.4,
+      this._stretchS + (smear >= 0 ? smear : smear * 0.45)));
     // floor at 0.3: speed-squash + smear-squash can stack (big blob, full
-    // sprint, mid-blink) and would flatten the body into a near-2D ribbon
-    const squash = Math.max(0.3, 1 - this.speedFrac * (0.18 + bigness * 0.34) * reform - smear * 0.3);
+    // sprint, mid-blink) and would flatten the body into a near-2D ribbon.
+    // volume coupling on the SPRING's displacement: overshooting long flattens
+    // extra, the rebound bulges (the smear's own squash term handles itself).
+    const squash = Math.max(0.3,
+      1 - this.speedFrac * (0.18 + bigness * 0.34) * reform - smear * 0.3
+      - (this._stretchS - stretchT) * 0.3);
     const breathe = 1 + Math.sin(t * 2.1) * 0.03;
     // TRAILING TAIL: when pouring, the REAR of the body lags and tapers — the
     // silhouette becomes a comma/tadpole (heavy nose, droplet tail) instead of
@@ -532,12 +548,13 @@ export class Player {
     // slowly (a churning gunk, not a rigid jitter): a broad slow swell plus a
     // finer faster ripple riding on it. It churns harder the faster you pour
     // (speedFrac), so a resting blob just breathes and a moving one boils.
-    // churn harder mid-turn: the balled-up mass boils while it re-pours
-    const roil = (0.09 + this.speedFrac * 0.06) * (1 + turn * 1.2);
+    // churn harder mid-turn: the balled-up mass boils while it re-pours.
+    // thinner fluid = livelier surface: more amplitude, slightly quicker swells
+    const roil = (0.115 + this.speedFrac * 0.085) * (1 + turn * 1.2);
     for (let i = 0; i < arr.length; i += 3) {
       const bx = base[i], by = base[i + 1], bz = base[i + 2];
-      const n1 = Math.sin(t * 2.1 + bx * 6.1 + by * 4.7) * Math.sin(t * 1.6 + bz * 5.9);
-      const n2 = Math.sin(t * 4.3 + bz * 8.3 + bx * 3.7) * Math.sin(t * 3.1 + by * 7.0);
+      const n1 = Math.sin(t * 2.6 + bx * 6.1 + by * 4.7) * Math.sin(t * 2.0 + bz * 5.9);
+      const n2 = Math.sin(t * 5.1 + bz * 8.3 + bx * 3.7) * Math.sin(t * 3.8 + by * 7.0);
       const w = 1 + roil * (n1 + n2 * 0.45);
       let x = bx * w, y = by * w, z = bz * w;
       // directional squash/stretch (project onto facing)
