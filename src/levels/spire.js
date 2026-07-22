@@ -202,8 +202,12 @@ export function buildSpire() {
   kit.solid(0.46, 0.95, 1.1, -16, 13.5, kit.mats.wall);
   kit.solid(0.46, 0.95, 1.1, -16, 17, kit.mats.wall);
   kit.pier(-16, 7, 4.9);                                // buttress at the flight's head
-  // the wall under the flight's head seals the cavity beneath the high treads
-  kit.wall(-16, 7, -6, 7, { h: 2.3, piers: false, th: 0.36 });
+  // the wall under the flight's head seals the cavity beneath the high treads.
+  // HEIGHT-BANDED (kit.railing, 0..2.3): a kit.wall here registers a full-height
+  // collider that invisibly walls the ramp→deck seam at z=7 (the flight tops out
+  // at y2.5 exactly where the west arm begins) — the band seals the ground cavity
+  // and lets the deck crossing pass over. Endpoints keep the th/2 overlap.
+  kit.railing(-16.18, 7, -5.82, 7, { y: 0, h: 2.3, t: 0.36, mat: kit.mats.wall });
   kit.fogPatch(-15.8, 7, -6.2, 19, { density: 0.05 });  // volumetrics ON: the lancet blades become shafts down the stair
 
   // ======================= D · THE REFECTORY (x -6..6, z 17..28) =============

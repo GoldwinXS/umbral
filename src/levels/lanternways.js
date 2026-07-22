@@ -270,7 +270,11 @@ export function buildLanternWays() {
   kit.railing(13.25, -1.6, 16.9, -1.6, { y: 2.5, h: 0.85, mat: kit.mats.rust });  // south end
   kit.railing(-13.6, 14.8, -6.4, 14.8, { y: 2.52, h: 0.85, mat: kit.mats.rust }); // north gallery south lip…
   kit.railing(-4.2, 14.8, 13.3, 14.8, { y: 2.52, h: 0.85, mat: kit.mats.rust });  // …with the drop-gap at the perch
-  kit.railing(-13.6, 14.8, -13.6, 17.7, { y: 2.52, h: 0.85, mat: kit.mats.rust }); // west lip beside the alley pass
+  // (no west lip: the ALLEY PASS crosses here — the x-14 wall run deliberately
+  // stops at z14.35 so the high road continues quay gallery → drying loft, and
+  // the loft's planks carry the walker on the far side; a lip railing at -13.6
+  // sealed the pass and severed the parti's high road. The loft deck IS the
+  // fall-guard — there is no drop on this edge.)
   // the two HIGH LANTERNS the road exists to feed — tall standards whose
   // flames burn at gallery height. Douseable (E3's rehabilitated DOUSE).
   kit.torch(14.2, 10.4, TUNE.highLamp);                   // over the wharf gallery's north segment
