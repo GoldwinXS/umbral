@@ -21,8 +21,8 @@ import { buildChandlery } from "./levels/chandlery.js";
 
 const LEVELS = [
   { name: "THE ASHWAY", build: buildTutorial },
-  { name: "THE LAMPWAY", build: buildDousing },
-  { name: "THE GORGE", build: buildSwallow },
+  { name: "THE DOUSING YARDS", build: buildDousing },
+  { name: "THE FLESHERS' ROW", build: buildSwallow },
   { name: "BRIGHTWARD", build: buildMission1 },
   { name: "THE LANTERN-WAYS", build: buildLanternWays },
   { name: "THE CHANDLERY", build: buildChandlery },
