@@ -136,7 +136,7 @@ export class GreatEye {
     const dx = p.x - this.x, dz = p.z - this.z;
     const dist = Math.hypot(dx, dz);
     let inGaze = false;
-    if (dist < this.spec.range && !game.playerHidden) {
+    if (dist < this.spec.range) {
       const toP = Math.atan2(dz, dx);
       let diff = toP - this.angle;
       while (diff > Math.PI) diff -= Math.PI * 2;

@@ -27,7 +27,6 @@ export function buildSpire() {
   bag.bounds = { x0: -15, z0: -24, x1: 15, z1: 82 };
   bag.startVials = 4;
   bag.blinkCdMul = 0.65;
-  bag.upgrades = { maxHealthCap: 7, maxHealth: 4, blinkRange: 7 }; // grow larger + longer blink
 
   const H = 3.4, TH = 0.5;
 

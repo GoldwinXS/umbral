@@ -90,9 +90,6 @@ class Game {
     this.spotting = 0;           // hottest warden awareness that currently sees me
     this.SEEN_THRESHOLD = 0.18;  // gem below this = in shadow, unseen (see hud.js)
     this.playerSneaking = false;
-    this.playerHidden = false;
-    this.playerConcealed = false; // standing in a fog bank
-    this.fogCover = 0;            // 0..1 concealment from fog at the player
     this.maxDanger = 0;
     this.guardSpeedMul = 1;
     this.scepterTaken = false;
@@ -347,15 +344,23 @@ class Game {
   // ---------------- level lifecycle ----------------
 
   _disposeScene() {
-    if (!this.scene) return;
-    this.scene.traverse((o) => {
-      if (o.geometry) o.geometry.dispose();
-      if (o.material) {
-        const ms = Array.isArray(o.material) ? o.material : [o.material];
-        ms.forEach((m) => m.dispose());
-      }
-    });
-    this.scene = null;
+    // Deep-dispose EVERY per-level scene, not just the main one: the overlay
+    // pass (player fx, warden glows, noise rings, fog-wall sprites) and the
+    // depth pre-pass are rebuilt fresh each loadLevel, and without disposal
+    // their geometries/materials/textures accumulate on the GPU per reload.
+    const wipe = (root) => {
+      if (!root) return;
+      root.traverse((o) => {
+        if (o.geometry) o.geometry.dispose();
+        if (o.material) {
+          const ms = Array.isArray(o.material) ? o.material : [o.material];
+          ms.forEach((m) => { if (m.map) m.map.dispose(); m.dispose(); });
+        }
+      });
+    };
+    wipe(this.scene); this.scene = null;
+    wipe(this.overlayScene); this.overlayScene = null;
+    wipe(this._depthScene); this._depthScene = null;
   }
 
   loadLevel(index, carry = null) {
@@ -674,22 +679,9 @@ class Game {
    * opts: { surface, type, loud, silentSfx } — see NoiseRings.emit.
    * Wardens (and the Great Eye) hear it; the ring makes it visible.
    */
-  /** How thick is the fog cover at (x,z)? 0 = clear, 1 = you all but vanish. */
-  _fogCoverAt(x, z) {
-    let c = 0;
-    for (const zn of this.level.fogZones) {
-      if (x >= zn.min[0] && x <= zn.max[0] && z >= zn.min[2] && z <= zn.max[2]) {
-        const conceal = zn.conceal != null ? zn.conceal : Math.min(0.8, (zn.density || 0) * 110);
-        if (conceal > c) c = conceal;
-      }
-    }
-    return c;
-  }
-
   _onNoise(x, z, radius, opts = {}) {
     const surface = typeof opts === "string" ? opts : opts.surface;
     const o = typeof opts === "string" ? { surface } : opts;
-    this.hud.noisePulse(Math.min(1, radius / 11));
     if (!o.silentSfx) this.sfx.step(Math.min(1, radius / 9), surface);
     for (const w of this.threats) w.hearNoise(x, z, radius, this);
     this.noise.emit(x, z, radius, o);

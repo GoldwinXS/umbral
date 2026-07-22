@@ -31,7 +31,6 @@ export function buildChandlery() {
   bag.bounds = { x0: -34, z0: -24, x1: 21, z1: 42 };
   bag.startVials = 4;
   bag.blinkCdMul = 0.7;                                   // fast blink
-  bag.upgrades = { blinkCdMul: 0.7, growthCap: 0.55 };     // grants faster blink + bigger growth
 
   const H = 3.4, TH = 0.5;
 

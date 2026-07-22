@@ -203,7 +203,7 @@ export function buildSwallow() {
           bag.stage = 2;
           game.setObjective("Feed, then devour a Vesper");
           p.prompt(game.isTouch
-            ? "Feed on the mote, then tap <b>🗡</b> behind a Vesper to swallow it. From the front it only shoves."
+            ? "Feed on the mote, then tap <b>❖</b> behind a Vesper to swallow it. From the front it only shoves."
             : "Feed on the mote, then press <span class='keycap'>F</span> behind a Vesper to swallow it. From the front it only shoves.", 5);
         }
         break;
@@ -264,6 +264,5 @@ export function buildSwallow() {
   };
 
   bag.startVials = 0;
-  void START; void GORGE;
   return bag;
 }

@@ -451,12 +451,13 @@ export function makeKit(scene) {
     },
 
     /**
-     * DEPRECATED / no-op. Fog is no longer a stealth-cover mechanic — the ONLY
-     * meaning of fog now is a barrier (see fogWall). Kept as a stub so existing
-     * level calls don't break; it registers no concealment and draws no haze.
-     * (Shadow is the sole invisibility mechanic.)
+     * Volumetric god-ray zone. Fog is NOT a stealth mechanic (shadow is the
+     * sole invisibility; fogWall is the sole barrier) — this only registers a
+     * box of scattering media with the tracer so light beams passing through
+     * it render as visible shafts. Purely visual: no concealment, no collider.
      */
-    fogPatch() {
+    fogPatch(x0, z0, x1, z1, { density = 0.05 } = {}) {
+      bag.fogZones.push({ min: [x0, -1, z0], max: [x1, 6, z1], density });
       return new THREE.Group();
     },
 

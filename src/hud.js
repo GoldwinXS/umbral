@@ -50,10 +50,6 @@ export class Hud {
     this._promptT = dur;
   }
 
-  /** Sound is shown in the WORLD (expanding rings), not the HUD. No-op kept
-   *  so the game loop can call it unconditionally. */
-  noisePulse() {}
-
   caughtFlash() {
     this.el.flash.style.opacity = "1";
     setTimeout(() => { this.el.flash.style.opacity = "0"; this.el.flash.style.transition = "opacity .5s"; }, 90);
@@ -82,7 +78,6 @@ export class Hud {
     const gs = this.el.gemState;
     if (spot > 0.55) { gs.textContent = "SPOTTED — being seen!"; gs.style.color = "#ff5a5a"; }
     else if (spot > 0.12) { gs.textContent = "a warden stirs…"; gs.style.color = "#ffb056"; }
-    else if (game.playerHidden) { gs.textContent = "hidden"; gs.style.color = "#39f0c0"; }
     else if (this._gem > 0.55) { gs.textContent = "lit — exposed"; gs.style.color = "#ffd9a0"; }
     else if (this._gem > seenAt) { gs.textContent = "dim — visible"; gs.style.color = "#c8a86a"; }
     else { gs.textContent = "in shadow — unseen"; gs.style.color = "#5fd6b8"; }

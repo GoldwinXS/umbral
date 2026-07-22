@@ -26,7 +26,6 @@ export function buildLanternWays() {
   bag.bounds = { x0: -38, z0: -44, x1: 24, z1: 44 };
   bag.startVials = 3;
   bag.blinkCdMul = 0.85;              // faster blink recharge than earlier levels
-  bag.upgrades = { blinkRange: 6.5 }; // THIS LEVEL GRANTS A LONGER SHADOWSTEP
   const H = 3.4, TH = 0.5;
 
   // ---- watertight room helpers (walls with door gaps) ----

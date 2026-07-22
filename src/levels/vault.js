@@ -27,7 +27,6 @@ export function buildVault() {
   bag.bounds = { x0: -25, z0: -19.5, x1: 14, z1: 35.5 };
   bag.blinkCdMul = 0.65; // the step recharges faster here — you'll need it
   // the finale: Hush arrives at full accumulated power
-  bag.upgrades = { blinkRange: 7, growthCap: 0.6, maxHealthCap: 7, maxHealth: 4 };
 
   const H = 3.4, TH = 0.5;
 

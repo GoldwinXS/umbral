@@ -145,7 +145,6 @@ export function buildTutorial() {
   kit.deadLantern(35.0, 0.35, { seed: 51 });
   kit.deadLantern(35.2, 2.75, { seed: 52 });
   kit.inscription(38.0, 2.0, 1.5, "THE ASH REMEMBERS WHAT THE FLAME FORGOT", -Math.PI / 2, "#ffb46a");
-  void exitRoom;
 
   // ================= ambient (low — pools & shadow must read) =================
   const moon = new THREE.DirectionalLight(0x8ea0cc, TUNE.moon);
@@ -224,6 +223,5 @@ export function buildTutorial() {
   };
 
   bag.startVials = 0;
-  void fogA; void towerN; void towerS; void wick;
   return bag;
 }

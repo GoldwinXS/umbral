@@ -40,7 +40,7 @@ export class Warden {
     this.overlay = overlay || scene; // transparent glow halo lives in the overlay pass
     this.spec = spec;
     this.groundY = spec.y || 0; // VERTICALITY: the tier this warden patrols on
-    this.pos = new THREE.Vector3(spec.path[0][0], 1.45, spec.path[0][1]);
+    this.pos = new THREE.Vector3(spec.path[0][0], this.groundY + 1.45, spec.path[0][1]);
     this.vel = new THREE.Vector3();
     this.angle = Math.atan2(
       spec.path[1] ? spec.path[1][1] - spec.path[0][1] : 0,
@@ -210,7 +210,7 @@ export class Warden {
     this.lostT = 0;
     this.alertCounted = false;
     if (path0Only) {
-      this.pos.set(this.spec.path[0][0], 1.45, this.spec.path[0][1]);
+      this.pos.set(this.spec.path[0][0], this.groundY + 1.45, this.spec.path[0][1]);
       this.wp = 1;
     }
   }
@@ -246,7 +246,9 @@ export class Warden {
     const step = Math.min(d, speed * dt);
     this.pos.x += (dx / d) * step;
     this.pos.z += (dz / d) * step;
-    collideCircle(this.pos, 0.3, null, game.level.boxes, game.level.cylinders);
+    // height-banded: a warden on a tier ignores railings/cover banded to OTHER
+    // tiers (same rule the player uses), so upper-deck patrols don't snag below
+    collideCircle(this.pos, 0.3, null, game.level.boxes, game.level.cylinders, 0, this.groundY, 1.6);
     // face travel direction smoothly
     const want = Math.atan2(dz, dx);
     let diff = want - this.angle;
@@ -267,7 +269,7 @@ export class Warden {
         const s = Math.max(0.001, 1 - e * e);
         this.body.scale.setScalar(s);
         this.core.scale.setScalar(s);
-        this.body.position.set(this.pos.x, 1.45 - e * 0.6, this.pos.z);
+        this.body.position.set(this.pos.x, this.groundY + 1.45 - e * 0.6, this.pos.z);
         this.body.rotation.z = e * 1.2;
         this.core.position.copy(this.body.position);
         this.core.material.emissive.copy(CHASE);
@@ -278,7 +280,7 @@ export class Warden {
       if (this.tip > 0) {
         this.tip = Math.min(1, this.tip + dt * 2.5);
         this.body.rotation.z = this.tip * 1.5;
-        this.body.position.y = 1.45 - this.tip * 1.1;
+        this.body.position.y = this.groundY + 1.45 - this.tip * 1.1;
         this.core.position.y = this.body.position.y + 0.1;
         if (this.tip >= 1) this.tip = 0;
       }
@@ -301,7 +303,7 @@ export class Warden {
       const exposure = game.playerVis * (game.playerSneaking ? 0.7 : 1);
       const lit = exposure >= SEEN_THRESHOLD; // in shadow → truly invisible
 
-      if (lit && !game.playerHidden && dist < spec.range * 1.5) {
+      if (lit && dist < spec.range * 1.5) {
         const toP = Math.atan2(dz, dx);
         let diff = toP - this.angle;
         while (diff > Math.PI) diff -= Math.PI * 2;
@@ -326,7 +328,7 @@ export class Warden {
       }
       // reflected sight: a lit blob over a still mirror pool is given away even
       // behind cover, if the warden's cone catches the pool.
-      if (!sees && lit && !game.playerHidden && this._seesReflection(game, spec)) {
+      if (!sees && lit && this._seesReflection(game, spec)) {
         sees = true;
         const expN = Math.min(1, (exposure - SEEN_THRESHOLD) / (FULL_LIT - SEEN_THRESHOLD));
         strength = expN * 0.5;

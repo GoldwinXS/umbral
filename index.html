@@ -58,7 +58,7 @@
   .btn:disabled { opacity: .35; cursor: default; }
   .btn.primary { background: rgba(138,92,255,.28); border-color: var(--violet); }
   .btn.small { width: auto; display: inline-block; padding: 8px 16px; font-size: 13px; margin: 4px; }
-  .btn.locked::after { content: " 🔒"; }
+  .btn.locked::after { content: " — locked"; font-size: 11px; letter-spacing: .12em; opacity: .6; }
   .row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
   .stat { color: var(--dim); font-size: 13px; margin: 3px 0; letter-spacing: .08em; }
   .stat b { color: var(--ink); font-weight: 600; }
@@ -100,9 +100,6 @@
     filter: drop-shadow(0 0 6px rgba(255,217,160,.8)); transition: stroke .2s; }
   #gemCore { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
     font-size: 20px; color: var(--amber); text-shadow: 0 0 12px rgba(255,217,160,.9); }
-  #gemNoise { position: absolute; top: 50%; left: 50%; width: 74px; height: 74px; border-radius: 50%;
-    border: 2px solid var(--amber); transform: translate(-50%,-50%) scale(1); opacity: 0;
-    pointer-events: none; box-shadow: 0 0 10px rgba(255,180,120,.7); }
   #gemState { position: absolute; bottom: max(2px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
     font-size: 9px; letter-spacing: .28em; color: var(--dim); text-transform: uppercase; transition: color .2s; }
   #lifePips { position: absolute; bottom: max(100px, calc(env(safe-area-inset-bottom) + 100px)); left: 50%; transform: translateX(-50%);
@@ -110,6 +107,9 @@
   .pip { width: 8px; height: 8px; border-radius: 2px; transform: rotate(45deg);
     background: rgba(138,92,255,.15); border: 1px solid rgba(138,92,255,.4); transition: all .25s; }
   .pip.on { background: var(--violet); box-shadow: 0 0 8px rgba(138,92,255,.8); }
+  /* devour-earned pips (beyond the base 3) read crimson — the maw's color */
+  .pip.extra { border-color: rgba(255,58,68,.45); background: rgba(255,58,68,.12); }
+  .pip.extra.on { background: #ff3a44; box-shadow: 0 0 8px rgba(255,58,68,.8); }
 
   /* tools */
   #tools { position: absolute; bottom: max(16px, env(safe-area-inset-bottom)); right: 14px;
@@ -210,7 +210,7 @@
     <div id="lifePips"><span class="pip on"></span><span class="pip on"></span><span class="pip on"></span></div>
     <div id="tools">
       <div class="tool" id="toolBlink"><span class="key">SPC</span>⤞<div class="cd" id="cdBlink"></div></div>
-      <div class="tool" id="toolStrike"><span class="key">F</span>✦<span class="count maw" id="mawCount"></span></div>
+      <div class="tool" id="toolStrike"><span class="key">F</span>❖<span class="count maw" id="mawCount"></span></div>
       <div class="tool" id="toolVial"><span class="key">Q</span>◍<span class="count" id="vialCount">0</span></div>
     </div>
     <div id="prompt"></div>
@@ -224,7 +224,7 @@
     <div id="touchBtns">
       <div class="tbtn hidden" id="btnInteract">✦</div>
       <div class="tbtn" id="btnVial">◍<span class="count" id="vialCountT">0</span></div>
-      <div class="tbtn" id="btnStrike">🗡</div>
+      <div class="tbtn" id="btnStrike">❖</div>
       <div class="tbtn" id="btnBlink">⤞<div class="cd" id="cdBlinkT"></div></div>
     </div>
     <div id="pauseBtn">II</div>
