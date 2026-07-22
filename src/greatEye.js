@@ -75,19 +75,34 @@ export class GreatEye {
     scene.add(this.light);
     scene.add(this.light.target);
 
-    const beamLen = this.spec.range;
-    const beam = new THREE.Mesh(
-      new THREE.ConeGeometry(Math.tan(this.spec.coneAngle) * beamLen, beamLen, 20, 1, true),
+    // The gaze CAST-LIGHT. The old fat translucent cone read as an ugly flat
+    // triangle whose apex was in the wrong place; instead we show the light
+    // where it LANDS — a glowing pool on the floor at the gaze target (the clear
+    // "it's looking HERE" tell) — plus a thin bright ray from the eye down to it
+    // (apex correctly at the eyeball). The real SpotLight above still does the
+    // volumetric shaft when god-rays are enabled.
+    const poolR = Math.min(3.2, Math.tan(this.spec.coneAngle) * this.spec.range * 0.7);
+    this.pool = new THREE.Mesh(
+      new THREE.CircleGeometry(poolR, 40),
       new THREE.MeshBasicMaterial({
-        color: CALM.clone(), transparent: true, opacity: 0.09, side: THREE.DoubleSide,
+        color: CALM.clone(), transparent: true, opacity: 0.3, side: THREE.DoubleSide,
         depthWrite: false, blending: THREE.AdditiveBlending,
       })
     );
-    beam.userData.rtExclude = true;
-    beam.renderOrder = 1;
-    scene.add(beam);
-    this.beam = beam;
-    this.beamLen = beamLen;
+    this.pool.rotation.x = -Math.PI / 2;
+    this.pool.userData.rtExclude = true;
+    this.pool.renderOrder = 3;
+    scene.add(this.pool);
+    this.ray = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.055, 0.11, 1, 10, 1, true),
+      new THREE.MeshBasicMaterial({
+        color: CALM.clone(), transparent: true, opacity: 0.45,
+        depthWrite: false, blending: THREE.AdditiveBlending,
+      })
+    );
+    this.ray.userData.rtExclude = true;
+    this.ray.renderOrder = 2;
+    scene.add(this.ray);
   }
 
   get fx() { return Math.cos(this.angle); }
@@ -182,24 +197,29 @@ export class GreatEye {
     this.iris.material.emissive.copy(this._col);
     this.iris.material.emissiveIntensity = 5 + (this.state !== "watch" ? 4 : 0) + Math.sin(t * 6) * 0.4;
     this.light.color.copy(this._col);
-    this.beam.material.color.copy(this._col);
-    this.beam.material.opacity = this.state === "watch" ? 0.09 : 0.18;
 
     // aim the gaze
     const fx = this.fx, fz = this.fz;
-    this.light.target.position.set(this.x + fx * this.spec.range, 0.1, this.z + fz * this.spec.range);
+    const tx = this.x + fx * this.spec.range, tz = this.z + fz * this.spec.range;
+    this.light.target.position.set(tx, 0.1, tz);
     // iris + pupil ride the front of the eyeball toward the gaze
     this.iris.position.set(this.x + fx * 0.34, this.height + Math.sin(t * 1.2) * 0.02, this.z + fz * 0.34);
     this.pupil.position.set(this.x + fx * 0.52, this.iris.position.y, this.z + fz * 0.52);
 
-    // beam sits halfway along the gaze, pointing outward (cone apex at the eye)
-    const midX = this.x + fx * this.beamLen / 2;
-    const midZ = this.z + fz * this.beamLen / 2;
-    this.beam.position.set(midX, this.height * 0.7, midZ);
-    // cone's +Y axis points from base to apex; we want apex at the eye → aim -forward
-    this.beam.quaternion.setFromUnitVectors(
-      new THREE.Vector3(0, 1, 0),
-      new THREE.Vector3(-fx, -0.28, -fz).normalize()
-    );
+    const wake = this.state !== "watch";
+    // ground gaze pool at the target — the clear "it's looking HERE" cast light
+    this.pool.position.set(tx, 0.05, tz);
+    this.pool.material.color.copy(this._col);
+    this.pool.material.opacity = (wake ? 0.5 : 0.28) + Math.sin(t * 5) * 0.05;
+    // thin bright ray from just in front of the eye DOWN to the pool — apex at
+    // the eyeball now, not floating mid-air like the old cone
+    const ex = this.x + fx * 0.5, ez = this.z + fz * 0.5, ey = this.height;
+    const rdx = tx - ex, rdy = 0.06 - ey, rdz = tz - ez;
+    const rlen = Math.hypot(rdx, rdy, rdz);
+    this.ray.position.set((ex + tx) / 2, (ey + 0.06) / 2, (ez + tz) / 2);
+    this.ray.scale.set(1, rlen, 1);
+    this.ray.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(rdx, rdy, rdz).normalize());
+    this.ray.material.color.copy(this._col);
+    this.ray.material.opacity = wake ? 0.65 : 0.4;
   }
 }

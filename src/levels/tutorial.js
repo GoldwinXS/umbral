@@ -22,7 +22,7 @@ import { lampMidden, vigilShrine, barredVista } from "./_dressing.js";
 
 // TUNE — the knobs we actually reach for. Change feel here, not in the body.
 const TUNE = {
-  moon: 0.55,                                       // ambient darkness (lower = darker)
+  moon: 0.9,                                        // moonlight fill (raised — the primer was too dark to read)
   towerN: { intensity: 10, range: 9, scale: 1.7 },  // great lantern, SOUND room
   towerS: { intensity: 6, range: 7 },               // lesser lantern
   vSound: { speed: 1.0, pause: 1.8, range: 8 },      // the one SOUND-room Vesper

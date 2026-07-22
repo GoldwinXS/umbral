@@ -172,10 +172,12 @@ class Game {
       emissiveNEE: true,       // trims/studs light the scene for free
       restir: true,            // flat cost in light count — many-light scenes stay cheap
       maxHistory: 48,
-      // a LOW, cold ambient floor — shadows must go genuinely dark so torches
-      // and warden beams pool bright and the "shadow = unseen" mechanic reads.
-      envColor: new THREE.Color(0x0a0e1a),
-      envIntensity: 0.4,
+      // a cool ambient floor. This is the VISUAL fill only — the stealth light
+      // meter is analytic (VIS_ENV) and independent, so lifting this lets the
+      // player SEE the dark areas without changing what guards can detect. Kept
+      // well below the torch pools so lit spots still read as brighter/danger.
+      envColor: new THREE.Color(0x1a2234),
+      envIntensity: 0.72,
       volumetric: { enabled: true, density: 0 },
       overscan: 0.05,          // orbit/rotate cleanly — leading-edge convergence
                                // noise is born off-screen (0.4.0 feature)
