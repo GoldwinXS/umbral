@@ -495,6 +495,25 @@ class Game {
   setObjective(text) { this.hud.setObjective(text); }
   onAlert() { this.alerts++; }
 
+  /**
+   * Raise a LOCAL alarm from (ox,oz): every non-downed warden within `radius`
+   * converges to investigate the reported spot (tx,tz). Deliberately local (a
+   * cluster, not the whole level) and aimed at where the event HAPPENED — a
+   * sighting or a comrade's disappearance — never the player's live position,
+   * so Hush can still break away and reset. A visible amber pulse radiates from
+   * the origin so the coordination READS as "he shouted, they heard," not magic.
+   */
+  alertNear(ox, oz, tx, tz, exclude = null, radius = 13) {
+    let heard = false;
+    for (const w of this.wardens) {
+      if (w === exclude || w.state === "out") continue;
+      if (Math.hypot(w.pos.x - ox, w.pos.z - oz) > radius) continue;
+      w.hearAlarm(tx, tz);
+      heard = true;
+    }
+    if (heard && this.noise) this.noise.emit(ox, oz, radius, { type: "alarm", loud: 0.55 });
+  }
+
   onCaught(x, z) {
     if (this.state !== "playing") return;
     const result = this.player.hit(x, z);
@@ -807,11 +826,15 @@ class Game {
         const behind = bestW.isBehind(player.pos.x, player.pos.z);
         if (behind && player.mawCharges > 0) {
           // FEAST — swallow the warden from behind, grow, flash red
+          const vx = bestW.pos.x, vz = bestW.pos.z;
           bestW.devour(this);
-          player.beginDevour(bestW.pos.x, bestW.pos.z);
+          player.beginDevour(vx, vz);
           this.kos++;
           this.sfx.devour();
           this.noise.emit(player.pos.x, player.pos.z, 3.0, { type: "devour", loud: 0.4 });
+          // a comrade vanishing does not go unnoticed: close wardens converge on
+          // the spot (tighter radius than a shout — a devour is quiet)
+          this.alertNear(vx, vz, vx, vz, bestW, 9);
           this.hud.prompt("You swallow it whole. You grow.", 1.8);
         } else if (behind) {
           // hungry but empty — a shove that only startles

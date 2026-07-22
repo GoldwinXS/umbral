@@ -189,6 +189,19 @@ export class Warden {
     return "whiff";
   }
 
+  /** A LOCAL alarm reached this warden — a colleague's shout on spotting Hush,
+   *  or a comrade vanishing nearby. It converges to INVESTIGATE the reported
+   *  spot (going suspect, not straight to chase), so the group hunts an AREA and
+   *  the player can still break away and reset. It only knows where the event
+   *  happened, not where Hush actually is now. */
+  hearAlarm(tx, tz) {
+    if (this.state === "chase" || this.state === "out") return;
+    this.alertness = Math.max(this.alertness, 0.6);
+    this.investigate.set(tx, tz);
+    this.lastKnown.set(tx, tz);
+    if (this.state === "patrol") this._toSuspect();
+  }
+
   _toSuspect(game) {
     this.state = "suspect";
     this.scanT = 0;
@@ -200,6 +213,9 @@ export class Warden {
       this.lostT = 0;
       if (!this.alertCounted) { this.alertCounted = true; game.onAlert(); }
       game.sfx.alert();
+      // SHOUT: nearby wardens hear it and converge on where Hush was seen
+      // (stale info — they hunt the area, they don't teleport onto the player)
+      game.alertNear(this.pos.x, this.pos.z, game.player.pos.x, game.player.pos.z, this);
     }
   }
 

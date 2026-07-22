@@ -23,6 +23,7 @@ const EVENT_COLOR = {
   strike: new THREE.Color(0xff5a6e),
   devour: new THREE.Color(0xff2d3d),
   land:   new THREE.Color(0xbfa0ff),
+  alarm:  new THREE.Color(0xff8a2a), // amber pulse — a guard raising a local alarm
 };
 
 export class NoiseRings {
