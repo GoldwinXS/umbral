@@ -653,7 +653,7 @@ export function buildChandlery() {
   kit.checkpoint(-14, -17, 2.5, -14, -17);                // the crypt landing's edge
   kit.trigger("threshold", 0, 30.7, 2.2);                 // E1 — the first sun read, in the work door
   kit.trigger("hall", -1, 27, 3);                         // [KEPT id] the melt court
-  kit.trigger("undercroft", -12, 31.5, 2.4);              // [KEPT id] the intake lane
+  kit.trigger("intake", -12, 31.5, 2.4);                  // renamed from the vestigial id "undercroft" — this is the intake lane
   kit.trigger("gallery", -2, 12.5, 2.4);                  // E3 — the Eye's floor
   kit.trigger("noflame", -3, 0.6, 2.6);                   // E4 — the Turn, named by absence
   kit.trigger("sanctum", -5, -21, 6);                     // [KEPT id] the Heart's room, any approach
@@ -672,7 +672,7 @@ export function buildChandlery() {
       bag._hallSeen = true;
       p.prompt("<b>KEEP THE FIRES FED.</b> Every lamp in the city was bled from something like me.", 4); // [KEPT]
     }
-    if (id === "undercroft" && !bag._underSeen) {
+    if (id === "intake" && !bag._underSeen) {
       bag._underSeen = true;
       p.prompt("Quiet down here. The moss remembers how to be quiet too.", 3.6); // [KEPT]
     }

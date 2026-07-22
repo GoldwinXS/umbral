@@ -176,7 +176,7 @@ export function buildLanternWays() {
   kit.pier(-14, 26, 3.2);
   // E2 · the third throat: the gallery ramp and its landing deck. The ramp
   // exists because the high lanterns do — lanterns ride up it each dusk.
-  kit.ramp(7, 20.4, 11.9, 22.4, { axis: "x", y0: 0, y1: 2.5, mat: kit.mats.wood, surface: "moss" });
+  kit.ramp(5.6, 20.4, 11.9, 22.4, { axis: "x", y0: 0, y1: 2.5, mat: kit.mats.wood, surface: "moss" }); // run 6.3m (~21.6°) — foot extended west into open moss floor
   kit.platform(11.8, 18.0, 13.7, 27.0, { y: 2.54, mat: kit.mats.wood, surface: "moss", support: true });
   kit.railing(11.8, 22.6, 11.8, 27.0, { y: 2.54, h: 0.85, mat: kit.mats.rust }); // west lip, north of the ramp mouth
   kit.railing(11.8, 27.0, 13.7, 27.0, { y: 2.54, h: 0.85, mat: kit.mats.rust }); // north lip
@@ -263,7 +263,7 @@ export function buildLanternWays() {
   // --- lanterns light its gaps (douse one and a segment goes dark). It runs
   // --- from the fork deck through the night wicket, along the wharf tenements,
   // --- then west along the north frontage to the alley pass.
-  kit.platform(13.25, -1.6, 16.9, 18.35, { y: 2.5, mat: kit.mats.wood, surface: "moss", support: true }); // wharf gallery
+  kit.platform(12.4, -1.6, 16.9, 19.3, { y: 2.5, mat: kit.mats.wood, surface: "moss", support: true }); // wharf gallery — west/north edges extended so the fork-deck junction is a full 1.3m×1.3m landing, not a 0.45m sliver
   kit.platform(-13.6, 14.8, 14.2, 17.7, { y: 2.52, mat: kit.mats.wood, surface: "moss", support: true }); // north-frontage gallery
   kit.railing(13.25, -1.6, 13.25, 5.4, { y: 2.5, h: 0.85, mat: kit.mats.rust });  // wharf gallery, west lip…
   kit.railing(13.25, 9.2, 13.25, 14.8, { y: 2.5, h: 0.85, mat: kit.mats.rust });  // …with the drop-gap over the canal-head walk
@@ -324,11 +324,11 @@ export function buildLanternWays() {
   kit.solid(4.0, 4.2, 5.0, -19.4, 6.4, kit.mats.wall);
   // THE DRYING LOFT (the gallery's west leg) + its down-ramp: the high road's
   // last descent — past here the tenders cross the basin by chain-ferry only.
-  kit.platform(-28.8, 14.6, -12.9, 17.6, { y: 2.48, mat: kit.mats.wood, surface: "moss", support: true });
-  kit.ramp(-33.8, 15.0, -28.7, 17.4, { axis: "x", y0: 0, y1: 2.5, mat: kit.mats.wood, surface: "moss" });
-  kit.railing(-28.8, 14.6, -22.6, 14.6, { y: 2.48, h: 0.85, mat: kit.mats.rust }); // south lip…
+  kit.platform(-27.4, 14.6, -12.9, 17.6, { y: 2.48, mat: kit.mats.wood, surface: "moss", support: true }); // west edge receded 1.4m for the lengthened ramp below
+  kit.ramp(-33.8, 15.0, -27.5, 17.4, { axis: "x", y0: 0, y1: 2.5, mat: kit.mats.wood, surface: "moss" }); // run 6.3m (~21.6°), 0.1 lap into the platform
+  kit.railing(-27.4, 14.6, -22.6, 14.6, { y: 2.48, h: 0.85, mat: kit.mats.rust }); // south lip…
   kit.railing(-20.6, 14.6, -12.9, 14.6, { y: 2.48, h: 0.85, mat: kit.mats.rust }); // …with the devour drop-gap
-  kit.railing(-28.8, 17.6, -12.9, 17.6, { y: 2.48, h: 0.85, mat: kit.mats.rust }); // north lip (the slot behind is a fall)
+  kit.railing(-27.4, 17.6, -12.9, 17.6, { y: 2.48, h: 0.85, mat: kit.mats.rust }); // north lip (the slot behind is a fall)
   kit.cache("alleyCache", -30, 18, 2);                    // [KEPT] tucked in the dark under the high road
   kit.mawMote("alleyMaw", -22, 8);                        // [KEPT] the drop-devour's charge (E4's aggressive outlet)
   kit.guard([[-32, 28], [-32, 21], [-20, 20], [-32, 21]], TUNE.vAlley); // ALLEY-WARD — the ground round past the workshop doors [KEPT posts; there-and-back so the loop's wrap leg stays clear of the tenements]
@@ -432,7 +432,7 @@ export function buildLanternWays() {
       { x0: -2, z0: 28.5, x1: 2, z1: 30.5, pad: 0.3 },    // stair door lane
       { x0: -3, z0: 18, x1: 3, z1: 20.5, pad: 0.3 },      // quay arch lane
       { x0: -14, z0: 22, x1: -11.5, z1: 26, pad: 0.3 },   // alley door lane
-      { x0: 6.5, z0: 20, x1: 12, z1: 22.8, pad: 0.3 },    // the gallery ramp's foot
+      { x0: 5.3, z0: 20, x1: 12, z1: 22.8, pad: 0.3 },    // the gallery ramp's foot
       { x: 0, z: 24, r: 1.4 },                            // checkpoint pad
       { x: 0, z: 19.4, r: 1.3 },                          // the liturgy lamp
     ];
@@ -487,7 +487,7 @@ export function buildLanternWays() {
       { x0: -32.7, z0: 19, x1: -19, z1: 28.7, pad: 0.4 }, // alley-ward's round (both legs, boxed)
       { x0: -14, z0: 21.5, x1: -11.5, z1: 26.5, pad: 0.3 },// fork door lane
       { x0: -26, z0: 2, x1: -22, z1: 4.5, pad: 0.3 },     // basin door lane
-      { x0: -34, z0: 14.6, x1: -28.4, z1: 17.8, pad: 0.3 },// the loft ramp's foot
+      { x0: -34, z0: 14.6, x1: -27.1, z1: 17.8, pad: 0.3 },// the loft ramp's foot
       { x: -30, z: 18, r: 1.2 },                          // alleyCache
       { x: -22, z: 8, r: 1.1 },                           // alleyMaw
       { x: -24, z: 16, r: 1.2 },                          // checkpoint pad

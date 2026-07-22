@@ -282,7 +282,7 @@ export function buildSpire() {
   // --- their timber headstocks from columns that rise out of the undercroft.
   // --- Three BELL-WARDS keep the deck; under it, a blind Unlit listens.
   kit.floor(34, 7, 0, 3.5);                             // the shoulder floor (the undercroft's ground)
-  kit.platform(-16, 0, -5, 7, { y: 2.52, mat: kit.mats.block, surface: "obsidian", support: true }); // west arm
+  kit.platform(-16, 1.2, -5, 7, { y: 2.52, mat: kit.mats.block, surface: "obsidian", support: true }); // west arm — south edge receded 1.2m for the warden's descent ramp below
   kit.platform(-5.02, 0, 7.02, 7, { y: 2.54, mat: kit.mats.block, surface: "crystal", support: true }); // the sounding dais
   kit.platform(7.0, 0, 15.7, 7, { y: 2.5, mat: kit.mats.block, surface: "moss", support: true }); // the rope store (0.02 under-lap with the dais — decks overlap, never gap)
   // west range wall above the deck — with one high lancet over the belfry
@@ -291,7 +291,8 @@ export function buildSpire() {
   kit.railing(-16, 2.1, -16, 3.3, { y: 0, h: 3.42, t: 0.46, mat: kit.mats.wall }); // the high lancet's sill — a moon-blade lands on the deck
   kit.wall(16, -5, 16, 7, { h: 4.6 });                  // east range wall, forecourt through belfry (owns (16,-5),(16,7))
   // deck edge rail over the forecourt drop — open only at the warden's descent
-  kit.railing(-12.5, 0, 15.75, 0, { y: DECK, h: 0.85, mat: kit.mats.rust });
+  kit.railing(-12.5, 1.2, -5, 1.2, { y: DECK, h: 0.85, mat: kit.mats.rust }); // west arm's edge, receded with the platform
+  kit.railing(-5, 0, 15.75, 0, { y: DECK, h: 0.85, mat: kit.mats.rust });     // dais + rope-store edge, unchanged
   kit.railing(15.2, 7, 15.72, 7, { y: DECK, h: 0.85, mat: kit.mats.rust }); // stub east of the hoist-way mouth
   // THE BELL FRAME — columns out of the undercroft, beams and bells hung as
   // height-banded masses (they block eyes and heads on the deck, and nothing
@@ -301,7 +302,7 @@ export function buildSpire() {
   kit.pillar(0.42, 5.55, 5.5, 3.5);
   kit.railing(-3.5, 3.5, 1, 3.5, { y: 4.78, h: 0.28, t: 0.22, mat: kit.mats.wood });  // west headstock beam
   kit.railing(1, 3.5, 5.5, 3.5, { y: 4.74, h: 0.28, t: 0.22, mat: kit.mats.wood });   // east headstock beam
-  kit.railing(-1.85, 3.5, -0.65, 3.5, { y: 3.4, h: 1.0, t: 1.0, mat: kit.mats.dark }); // the GREAT BELL — duck under it
+  kit.railing(-1.85, 3.5, -0.65, 3.5, { y: 3.4, h: 1.0, t: 1.0, mat: kit.mats.dark }); // the GREAT BELL — impassable; there is no duck mechanic, so the deck routes around it
   kit.railing(2.55, 3.5, 3.75, 3.5, { y: 3.44, h: 1.0, t: 1.0, mat: kit.mats.dark });  // the second bell
   kit.torch(-11, 5.2, TUNE.stairHead);                  // the upper station lamp at the flight's head (deck-height standard)
   kit.torch(1.2, 1.1, TUNE.belfry);                     // the dais standard                                     [KEPT 8/11]
@@ -338,7 +339,7 @@ export function buildSpire() {
   // --- purpose: a muster floor offers nothing to hide behind but its dark.
   kit.floor(34, 5, 0, -2.5);
   kit.surface(-16, -5, 16, 0, "obsidian");
-  kit.ramp(-15.5, -5, -12.5, 0, { axis: "z", y0: 0, y1: 2.5, mat: kit.mats.block, surface: "obsidian" }); // THE WARDEN'S DESCENT
+  kit.ramp(-15.5, -5, -12.5, 1.3, { axis: "z", y0: 0, y1: 2.5, mat: kit.mats.block, surface: "obsidian" }); // THE WARDEN'S DESCENT — run 6.3m (~21.6°), 0.1 lap into the west arm
   kit.wall(-16, -5, -16, 0, { h: 3.6 });                // west wall (owns (-16,-5),(-16,0))
   kit.wall(-16, -5, -2, -5, { h: 3.6, piers: false });  // span-gate wall, west of the gap
   kit.pier(-2, -5, 3.8);                                // the span gate's jambs
@@ -603,7 +604,7 @@ export function buildSpire() {
   // ================= triggers / beats (terse; the level explains little) =====
   kit.trigger("flight", -11, 19.8, 3);                  // the flight's foot
   kit.trigger("dorter", 8, 26.2, 2.5);                  // the dark way's door
-  kit.trigger("belfry", -11, 6.5, 2.5);                 // the flight's head (deck-only: the ground below is sealed)
+  kit.trigger("belfry", -11, 6.5, 2.5);                 // the flight's head — triggers are 2D, so this also fires from the undercroft directly below (walkable, not sealed: THE UNLIT paces it); harmless, since arriving under the bells earns the same line as arriving on them
   // "courtyard" / "bridge" / "summit" are declared with their rooms above [KEPT]
 
   // ================= mission logic ===========================================

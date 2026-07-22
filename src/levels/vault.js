@@ -132,7 +132,7 @@ export function buildVault() {
   const bag = kit.bag;
   bag.id = "reliquary";
   bag.name = "THE RELIQUARY";                           // [KEPT] menu name
-  bag.spawn.set(0.4, 2.94, 32.4);                       // on the gate landing — the vault is entered downward
+  bag.spawn.set(0.4, 2.94, 33.5);                       // on the gate landing — the vault is entered downward (landing receded for the descent ramp's grade fix)
   bag.bounds = { x0: -25, z0: -19.5, x1: 16.5, z1: 35.5 };
   bag.blinkCdMul = 0.65;                                // [KEPT] the step recharges faster here — you'll need it
   bag.startVials = 4;                                   // [KEPT] the finale: Hush arrives at full accumulated power
@@ -222,13 +222,13 @@ export function buildVault() {
   // THE GATE LANDING — a masonry stage (+2.5); the rift stands on it. Skirted
   // with height-banded walls (the lanternways dais pattern): solid to the
   // ground reading, no phantom colliders for whoever stands on top.
-  kit.platform(-2.6, 31.4, 6.7, 31.4 + 2.6, { y: DECK, mat: kit.mats.stone, surface: "moss", support: false });
-  kit.railing(-2.6, 31.4, 6.7, 31.4, { y: 0, h: 2.24, t: 0.35 });   // skirt, south (passes under the ramp's top lip — its band never touches a deck walker)
-  kit.railing(-2.6, 31.4, -2.6, 34, { y: 0, h: 2.24, t: 0.35 });    // skirt, west
-  kit.railing(-2.6, 31.4, -2.6, 34, { y: DECK, h: 0.85, mat: kit.mats.pillar });   // west lip — or blink-drop it
-  kit.railing(-2.6, 31.4, 4.3, 31.4, { y: DECK, h: 0.85, mat: kit.mats.pillar });  // south lip, west of the ramp mouth
-  kit.ramp(4.4, 27.0, 6.7, 31.4, { axis: "z", y0: 0, y1: 2.5, mat: kit.mats.stone, surface: "moss" }); // the descent ramp, east wall
-  kit.extraction(2.4, 33);
+  kit.platform(-2.6, 33.2, 6.7, 34, { y: DECK, mat: kit.mats.stone, surface: "moss", support: false }); // south edge receded 1.8m for the descent ramp's grade fix
+  kit.railing(-2.6, 33.2, 6.7, 33.2, { y: 0, h: 2.24, t: 0.35 });   // skirt, south (passes under the ramp's top lip — its band never touches a deck walker)
+  kit.railing(-2.6, 33.2, -2.6, 34, { y: 0, h: 2.24, t: 0.35 });    // skirt, west
+  kit.railing(-2.6, 33.2, -2.6, 34, { y: DECK, h: 0.85, mat: kit.mats.pillar });   // west lip — or blink-drop it
+  kit.railing(-2.6, 33.2, 4.3, 33.2, { y: DECK, h: 0.85, mat: kit.mats.pillar });  // south lip, west of the ramp mouth
+  kit.ramp(4.4, 27.0, 6.7, 33.3, { axis: "z", y0: 0, y1: 2.5, mat: kit.mats.stone, surface: "moss" }); // the descent ramp, east wall — run 6.3m (~21.6°), 0.1 lap into the landing
+  kit.extraction(2.4, 33.6);
   bag.extract.disc.position.y = DECK + 0.09;            // the rift stands ON the landing
   kit.trim(3.4, 0.2, 2.4, 4.1, 33.74, 0, 0x39f0c0, 2.0);
   wainscot(6.4, 1.8, 2.4, DECK + 1.1, 33.72);           // polished panel behind the rift — it doubles there
@@ -321,10 +321,10 @@ export function buildVault() {
   // --- ramp lands at the hall's north-west corner (where the circuit-ward
   // --- pauses), and its south end simply stops — the prior never needed to
   // --- descend by the shrine; you might (the drop is the shortcut).
-  kit.platform(-13, -5.6, -10.7, 8.4, { y: DECK, mat: kit.mats.stone, surface: "moss", support: false });
-  kit.ramp(-12.9, 8.2, -10.8, 13.6, { axis: "z", y0: 2.5, y1: 0, mat: kit.mats.stone, surface: "moss" });
-  kit.railing(-10.7, -4.6, -10.7, 8.4, { y: DECK, h: 0.85, mat: kit.mats.pillar }); // east lip — with the drop-gap at the south end
-  for (const pz of [-4.5, -1.5, 1.5, 4.5, 7.5]) kit.pillar(0.32, DECK + 0.06, -11.0, pz); // the colonnade carrying the lip (tucked under the deck — the nave lane beside it stays a warden's walk)
+  kit.platform(-13, -5.6, -10.7, 7.4, { y: DECK, mat: kit.mats.stone, surface: "moss", support: false }); // north edge receded 1.0m for the lengthened ramp below
+  kit.ramp(-12.9, 7.3, -10.8, 13.6, { axis: "z", y0: 2.5, y1: 0, mat: kit.mats.stone, surface: "moss" }); // run 6.3m (~21.6°), 0.1 lap into the platform
+  kit.railing(-10.7, -4.6, -10.7, 7.4, { y: DECK, h: 0.85, mat: kit.mats.pillar }); // east lip — with the drop-gap at the south end
+  for (const pz of [-4.5, -1.5, 1.5, 4.5, 7.0]) kit.pillar(0.32, DECK + 0.06, -11.0, pz); // the colonnade carrying the lip (tucked under the deck — the nave lane beside it stays a warden's walk)
   // the Pharos, hanging in the shrine arch, sweeping the nave [KEPT exactly]
   kit.greatEye(0, -6.4, TUNE.pharos);
 
@@ -459,11 +459,11 @@ export function buildVault() {
   // ===== A · THE DESCENT GATE ================================================
   {
     const clear = [
-      { x: 0.4, z: 32.4, r: 2.0 },                      // spawn (on the landing)
+      { x: 0.4, z: 33.5, r: 2.0 },                      // spawn (on the landing)
       { x0: -2, z0: 26, x1: 2, z1: 28.2, pad: 0.3 },    // procession door lane
       { x0: -7, z0: 28, x1: -5, z1: 31, pad: 0.3 },     // stair door lane
       { x0: -3.5, z0: 27.7, x1: 3.5, z1: 29.3, pad: 0.3 }, // the gate-ward's line
-      { x0: 4.4, z0: 26.6, x1: 6.7, z1: 31.4, pad: 0.2 }, // the ramp
+      { x0: 4.4, z0: 26.6, x1: 6.7, z1: 33.3, pad: 0.2 }, // the ramp
       { x: 0, z: 28, r: 1.2 },                          // the gate lamp
       { x: 0, z: 30, r: 1.4 },                          // checkpoint pad
     ];
@@ -488,7 +488,7 @@ export function buildVault() {
       { x0: -2, z0: -6, x1: 2, z1: -4.5, pad: 0.3 },          // shrine arch lane
       { x0: -9.65, z0: 1.7, x1: -3.35, z1: 8.3, pad: 0.25 },  // west pool + curbs
       { x0: 3.35, z0: 1.7, x1: 9.65, z1: 8.3, pad: 0.25 },    // east pool + curbs
-      { x0: -13, z0: 8.2, x1: -10.7, z1: 13.7, pad: 0.2 },    // the overwalk ramp
+      { x0: -13, z0: 7.2, x1: -10.7, z1: 13.7, pad: 0.2 },    // the overwalk ramp
       { x: 0, z: 9, r: 1.6 },                                 // checkpoint pad
       { x: -6.8, z: 10.6, r: 1.1 },                           // pool-head lamps
       { x: 6.8, z: 10.6, r: 1.1 },
@@ -512,7 +512,7 @@ export function buildVault() {
     // sits ON it, against the parapet wall.)
     lift(kit.crate(-12.35, 6.6, { size: 0.8, rot: 0.06, seed: 31 }));
     lift(kit.sack(-12.3, 5.75, { r: 0.3, seed: 32 }));
-    lift(kit.brazier(-12.4, 7.5, { lit: false, seed: 33 }).group);
+    lift(kit.brazier(-12.4, 7.0, { lit: false, seed: 33 }).group); // held clear of the ramp's receded platform edge (7.4)
     kit.banner(-3.4, 3.9, 13.76, "s", { w: 1.1, color: 0xffb46a, seed: 34 }); // nave cloth, north wall
     kit.banner(5.2, 3.9, 13.76, "s", { w: 1.0, color: 0xffd76a, seed: 35 });
     kit.fogPatch(-10, 1, 10, 9, { density: 0.028 });    // (volumetrics on: lamp shafts over the water)
