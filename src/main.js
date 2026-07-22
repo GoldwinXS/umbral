@@ -41,6 +41,11 @@ const PROGRESS_KEY = "umbral.progress";
 const VIS_ENV = 0.2;    // sky/env floor — the world is never pitch black
 const VIS_MOON = 1.0;   // moon (directional) weight
 const VIS_NORM = 7.0;   // lower = lit areas expose you sooner (harder)
+// GROWTH COSTS CONCEALMENT — a fed, bulky Hush is harder to hide. `bulk` is
+// (scale-1), 0 for a fresh blob, capped ~1.4 for a maxed snake.
+const SIZE_EXPOSE_MUL = 0.5;    // lit readings scale up this much per unit bulk
+const SIZE_EXPOSE_FLOOR = 0.07; // the darkest you can get rises this much per bulk
+const SIZE_BULK_CAP = 1.4;
 // CUMULATIVE progression by level index — Hush only ever gets stronger. This
 // is the single source of truth (per-level bag.upgrades are ignored), so a
 // later level can never silently regress an earlier grant.
@@ -668,10 +673,17 @@ class Game {
       raw += w.light.intensity * 0.25 * f * f * (0.4 + 0.6 * centering);
     }
 
-    // the relic is a blazing beacon strapped to you — always reads exposed
     let vis = raw / VIS_NORM;
+    // GROWTH COSTS CONCEALMENT: a bigger Hush catches more light and can't hide
+    // as deep. bulk 0 (fresh blob) = no change; a maxed snake reads ~1.7x in
+    // light and its darkest shadow rises toward the seen-threshold, so it needs
+    // the deepest cover and tolerates almost no stray light. (The bigger collider
+    // already costs it the tightest gaps — this is the detection half.)
+    const bulk = Math.min(SIZE_BULK_CAP, Math.max(0, this.player.scale - 1));
+    vis *= 1 + bulk * SIZE_EXPOSE_MUL;
+    // the relic is a blazing beacon strapped to you — always reads exposed
     if (this.level.scepter && this.scepterTaken) vis = Math.max(vis, 0.62);
-    return Math.min(1, Math.max(0.06, vis));
+    return Math.min(1, Math.max(0.06 + bulk * SIZE_EXPOSE_FLOOR, vis));
   }
 
   /**
