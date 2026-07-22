@@ -206,7 +206,7 @@ export function buildTutorial() {
     }
   };
 
-  // Taking the Wickstone (interact at the plinth) fires this — no threats to
+  // Taking the Wickstone (walking up to the plinth) fires this — no threats to
   // rouse in the primer; it is purely Hush's first flash of memory.
   bag.onAlarm = (game) => {
     game.setObjective("Escape through the rift");

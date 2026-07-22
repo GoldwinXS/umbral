@@ -3,7 +3,7 @@
  * on-screen action buttons. Produces a single `Input` state the game reads:
  *   move {x,z} (-1..1 analog), sneak (bool), run (bool),
  * and edge-triggered actions consumed via consume(name):
- *   blink, strike, vial, interact, pause
+ *   blink, strike, vial, pause
  */
 export class Input {
   constructor() {
@@ -24,7 +24,6 @@ export class Input {
       if (k === " ") this._actions.add("blink");
       if (k === "f") this._actions.add("strike");
       if (k === "q") this._actions.add("vial");
-      if (k === "e") this._actions.add("interact");
       if (k === "escape" || k === "p") this._actions.add("pause");
       if (k === "m") this._actions.add("mute");
     });
@@ -87,7 +86,6 @@ export class Input {
     bind("btnBlink", "blink");
     bind("btnStrike", "strike");
     bind("btnVial", "vial");
-    bind("btnInteract", "interact");
     bind("pauseBtn", "pause");
 
     // coarse pointer → touch UI visible

@@ -98,7 +98,6 @@ class Game {
     this.maxDanger = 0;
     this.guardSpeedMul = 1;
     this.scepterTaken = false;
-    this.interactHint = false;
     this.checkpoint = new THREE.Vector3();
 
     this._ray = new THREE.Raycaster();
@@ -914,7 +913,6 @@ class Game {
     // relic pickup — AUTOMATIC on reaching it, no button press. The pedestal
     // collider stops the blob ~1.1 from the centre, so d < 1.5 fires as it
     // arrives; walking up to the relic IS taking it.
-    this.interactHint = false;
     const sc = level.scepter;
     if (sc && !this.scepterTaken) {
       const d = Math.hypot(sc.x - player.pos.x, sc.z - player.pos.z);
@@ -1063,7 +1061,7 @@ class Game {
     } else {
       // consume stray actions so they don't queue up in menus
       this.input.consume("blink"); this.input.consume("strike");
-      this.input.consume("vial"); this.input.consume("interact");
+      this.input.consume("vial");
       if (this.state === "paused" && this.input.consume("pause")) this.resume();
       else this.input.consume("pause");
     }

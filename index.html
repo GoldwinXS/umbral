@@ -152,8 +152,8 @@
     display: none; flex-direction: column; gap: 10px; pointer-events: none; }
   body.coarse #touchBtns { display: flex; }
   /* LANDSCAPE (phones held sideways): a short screen pushed the button column too
-     high to reach. Hug the bottom-right corner and put the grab/interact button
-     nearest the thumb (column-reverse → first child renders at the bottom). */
+     high to reach. Hug the bottom-right corner and keep the first button nearest
+     the thumb (column-reverse → first child renders at the bottom). */
   @media (orientation: landscape) {
     body.coarse #touchBtns { bottom: max(12px, env(safe-area-inset-bottom)); flex-direction: column-reverse; gap: 8px; }
     body.coarse .tbtn { width: 54px; height: 54px; font-size: 21px; }
@@ -174,7 +174,6 @@
   .tbtn:active { background: rgba(138,92,255,.4); }
   .tbtn .count { position: absolute; bottom: 4px; right: 8px; font-size: 11px; color: var(--teal); }
   .tbtn .cd { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(rgba(5,6,10,.85) var(--p, 0%), transparent 0); pointer-events: none; }
-  #btnInteract { border-color: var(--teal); color: var(--teal); }
   #pauseBtn { position: absolute; top: max(10px, env(safe-area-inset-top)); right: 12px;
     width: 38px; height: 38px; border-radius: 8px; background: rgba(8,10,16,.6);
     border: 1px solid rgba(138,92,255,.25); color: var(--dim); font-size: 15px;
@@ -222,7 +221,6 @@
   <div id="touchLayer">
     <div id="joyBase"></div><div id="joyKnob"></div>
     <div id="touchBtns">
-      <div class="tbtn hidden" id="btnInteract">✦</div>
       <div class="tbtn" id="btnVial">◍<span class="count" id="vialCountT">0</span></div>
       <div class="tbtn" id="btnStrike">❖</div>
       <div class="tbtn" id="btnBlink">⤞<div class="cd" id="cdBlinkT"></div></div>
@@ -267,7 +265,7 @@
         <div><span class="keycap">SPACE</span> shadowstep — blink a short distance (cooldown)</div>
         <div><span class="keycap">F</span> strike — knock out a warden <b>from behind</b></div>
         <div><span class="keycap">Q</span> hurl a void vial — douses flames and lamps</div>
-        <div><span class="keycap">E</span> interact &nbsp; <span class="keycap">ESC</span> pause &nbsp; <span class="keycap">M</span> mute</div>
+        <div><span class="keycap">ESC</span> pause &nbsp; <span class="keycap">M</span> mute</div>
       </div>
       <div class="stat" style="line-height:1.8">
         The <b style="color:var(--amber)">eye gem</b> shows how lit you are. Wardens see light, not you —

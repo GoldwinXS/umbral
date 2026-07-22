@@ -25,7 +25,6 @@ export class Hud {
       prompt: document.getElementById("prompt"),
       vignette: document.getElementById("vignette"),
       flash: document.getElementById("flash"),
-      btnInteract: document.getElementById("btnInteract"),
     };
     this._promptT = 0;
     this._gem = 0;
@@ -120,9 +119,6 @@ export class Hud {
     // danger vignette tracks the hottest warden
     const danger = game.maxDanger;
     this.el.vignette.style.opacity = danger > 0.05 ? String(Math.min(0.85, danger)) : "0";
-
-    // contextual interact button (touch)
-    this.el.btnInteract.classList.toggle("hidden", !game.interactHint);
 
     // prompt timeout
     if (this._promptT > 0) {

@@ -457,7 +457,7 @@ export class Player {
       // swell to envelop (first half), then contract as it's absorbed (second half)
       const grow = p < 0.5 ? 0.5 + p * 2 * 1.7 : Math.max(0.001, 2.2 * (1 - (p - 0.5) * 2));
       this.engulf.visible = true;
-      this.engulf.position.set(cx, 0.5 * this.scale + 0.1, cz);
+      this.engulf.position.set(cx, this.groundY + 0.5 * this.scale + 0.1, cz);
       this.engulf.scale.setScalar(grow * this.scale);
       this.engulf.rotation.y += dt * 9;
       this.engulf.rotation.x += dt * 5;
@@ -531,7 +531,11 @@ export class Player {
     // blob) and SQUASHES vertically — so the eyes must ride out with that same
     // `stretch`, or the elongating nose swallows them, and sit down with `squash`
     // so they stay on the flattened surface rather than floating above it.
-    const eyeOut = 0.34 * stretch * this.scale;
+    // 0.38: the surface at the eyes' lateral offset sits at ~0.40*stretch, so
+    // the eye centre must track close behind it — at 0.34 the gap (0.06*stretch)
+    // outgrows the eye's fixed 0.055 poke-out radius on a big fast blob and the
+    // roil re-submerges them.
+    const eyeOut = 0.38 * stretch * this.scale;
     for (const e of this.eyes) {
       const s = e.userData.side;
       const px = this.pos.x + fx * eyeOut - fz * s * 0.13 * this.scale;
@@ -548,7 +552,7 @@ export class Player {
       this.reticle.visible = true;
       const rx = this.pos.x + this.facing.x * THROW_DIST;
       const rz = this.pos.z + this.facing.y * THROW_DIST;
-      this.reticle.position.set(rx, 0.06, rz);
+      this.reticle.position.set(rx, this.groundY + 0.06, rz);
       this.reticle.material.opacity = this._reticleOp * this.fxOpacity;
     } else {
       this.reticle.visible = false;
@@ -559,7 +563,7 @@ export class Player {
     this._mawOp += ((wantMaw ? 0.5 : 0) - this._mawOp) * Math.min(1, dt * 8);
     if (this._mawOp > 0.01) {
       this.mawRing.visible = true;
-      this.mawRing.position.set(this.pos.x, 0.06, this.pos.z);
+      this.mawRing.position.set(this.pos.x, this.groundY + 0.06, this.pos.z);
       this.mawRing.scale.setScalar(this.swallowRange / SWALLOW_RANGE); // ring shows the true (size-scaled) reach
       this.mawRing.material.opacity = this._mawOp * 0.8 * this.fxOpacity; // steady, no pulse
     } else {
