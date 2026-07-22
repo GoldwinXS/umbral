@@ -196,12 +196,14 @@ export class Player {
   /** Swallow a warden: consume a maw charge, engulf it, gulp, and grow. */
   beginDevour(gx, gz) {
     this.mawCharges = Math.max(0, this.mawCharges - 1);
-    this.growth = Math.min(this.growthCap, this.growth + 0.08); // cap the bloat
+    this.growth = Math.min(this.growthCap, this.growth + 0.08); // visual bulk
     this.devourAnim = 1;
     this.eyeFlash = 1;
     if (gx != null) this.engulfTarget = { x: gx, z: gz };
-    // every third feast thickens the hide — one more hit to spare
-    if (this.growth > 0 && Math.round(this.growth / 0.08) % 3 === 0 && this.maxHealth < this.maxHealthCap) {
+    // EVERY feast adds a SIZE: +1 max life, and the new pip arrives filled —
+    // grow past 3 and a 4th pip appears, past 4 a 5th, up to the cap. Dying
+    // completely rebuilds a fresh 3-life blob (loadLevel without carry).
+    if (this.maxHealth < this.maxHealthCap) {
       this.maxHealth++;
       this.health = Math.min(this.maxHealth, this.health + 1);
     }

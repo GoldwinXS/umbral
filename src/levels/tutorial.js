@@ -63,7 +63,6 @@ export function buildTutorial() {
   // EXIT alcove x[34,38] z[0,3]: OPEN west into BLINK, capped east
   const exitRoom = kit.room(34, 0, 38, 3, { doors: { w: [[0, 3]] }, surface: "moss" });
   kit.extraction(36, 1.5);
-  kit.trim(2.6, 0.2, 36, 2.4, 0.05, 0, 0x39f0c0, 2.2);
 
   // light towers (SOUND room)
   const towerN = kit.torch(1, 7, TUNE.towerN);   // a great lantern

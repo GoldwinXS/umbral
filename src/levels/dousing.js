@@ -68,7 +68,6 @@ export function buildDousing() {
   kit.room(58, -6, 66, 6, { doors: { w: [[-1.5, 1.5]] }, surface: "moss" });                      // H EXTRACTION
 
   kit.extraction(62, 0);
-  kit.trim(3.4, 0.2, 62, 2.4, 5.7, 0, 0x39f0c0, 2.0);
 
   // ================= LANTERNS (small pools + two GREAT lanterns) ============== [KEPT]
   kit.torch(-15, 0, TUNE.torchChoke);      // small — CHOKE #1 (E1 lit door)
@@ -92,7 +91,6 @@ export function buildDousing() {
 
   // ================= relic ===================================================== [KEPT]
   kit.scepterPedestal(50, 0);
-  kit.trim(5, 0.2, 53.7, 3.0, 0, Math.PI / 2, 0xffd76a, 2.0); // amber wall trim behind pedestal
 
   // ==========================================================================
   // ENVIRONMENTAL STORYTELLING + COVER (composed via the placement system).

@@ -62,7 +62,6 @@ export function buildSwallow() {
   kit.room(54, -6, 62, 6, { doors: { w: [[-1.5, 1.5]] }, surface: "moss" });                     // D EXTRACTION
 
   kit.extraction(58, 0);
-  kit.trim(3.4, 0.2, 61.7, 2.4, 0, Math.PI / 2, 0x39f0c0, 2.0);
 
   // ================= LANTERNS (small pools + two GREAT lanterns) ===============
   // [KEPT] work-lamps; [MODIFIED] the dim violet-ish Snuffed torch (22,0) DROPPED
@@ -90,7 +89,6 @@ export function buildSwallow() {
 
   // ================= relic (in the alcove beneath the Eye) =====================
   kit.scepterPedestal(46, -8);                                    // [KEPT]
-  kit.trim(5, 0.2, 40, 3.0, -10.7, 0, 0xffd76a, 2.0);            // south-wall glow near the pedestal alcove
 
   // ================= E1 · KI — "THE FIRST MOUTHFUL" ===========================
   // [MODIFIED — dressing] The feeding-cut: a place of consumption. Abandoned haul

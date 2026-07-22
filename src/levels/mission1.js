@@ -153,9 +153,7 @@ export function buildMission1() {
     // houses (trims recoloured amber — palette fix), the well.
     kit.pillar(1.3, 10, -13, 29, kit.mats.pillar);      // gate tower
     kit.solid(5, 6.5, 4, 8, 20, kit.mats.wall, 0.15);   // house
-    kit.trim(3.4, 0.14, 8, 6.2, 22, 0, TUNE.trimAmber, 1.3);
     kit.solid(4, 5, 5, -6, 14, kit.mats.wall, -0.1);    // house
-    kit.trim(2.8, 0.14, -6, 4.7, 16.5, -0.1, TUNE.trimAmber, 1.3);
     kit.pillar(0.9, 0.9, 5, 17, kit.mats.pillar);       // the well
     // the market: stalls along the back (north) wall, a parked cart, urns at the well
     kit.wallRunSide(outerCourt, "n", [{ prop: "crateStack", w: 1 }, { prop: "barrel", w: 1 }, "urn"],
@@ -166,7 +164,6 @@ export function buildMission1() {
     kit.banner(8, 3.2, 29.6, Math.PI, { w: 1.2, color: TUNE.trimAmber, seed: 33 });
     // KEPT liturgy + rift
     kit.extraction(0, 27);
-    kit.trim(4, 0.2, 0, 2.6, 29.7, Math.PI, 0x39f0c0, 2.2); // rift trim (teal — Hush's, fine)
     kit.inscription(0, 2.3, 6.35, "KEEP THE FIRES FED, the stones say. The sun feeds itself.", 0, "#ffb46a");
   }
 
@@ -271,11 +268,9 @@ export function buildMission1() {
       { x: 9, z: -33.5, r: 1.0 },                         // m2 mote
       { x: -6.5, z: -28, r: 1.0 }, { x: 6.5, z: -28, r: 1.0 }, // KEPT pillar rows (approx)
     ];
-    for (const zz of [-24, -28, -32]) {                 // KEPT columned rows — trims now amber
+    for (const zz of [-24, -28, -32]) {                 // KEPT columned rows
       kit.pillar(0.6, 4.5, -6.5, zz);
       kit.pillar(0.6, 4.5, 6.5, zz);
-      kit.trim(1.4, 0.14, -6.5, 3.8, zz + 0.6, 0, TUNE.trimAmber, 2.0);
-      kit.trim(1.4, 0.14, 6.5, 3.8, zz + 0.6, 0, TUNE.trimAmber, 2.0);
     }
     kit.torch(-3, -27, TUNE.keepLantern);
     kit.torch(3, -27, TUNE.keepLantern);
@@ -286,7 +281,6 @@ export function buildMission1() {
     kit.wallRunSide(keep, "s", [{ prop: "urn", w: 2 }, { prop: "brazier", opts: { lit: false } }],
       { spacing: 3.0, inset: 0.6, clear: clearK, seed: 103 });
     kit.banner(0, 3.4, -35.5, 0, { w: 1.4, color: TUNE.trimAmber, seed: 35 });
-    kit.trim(6, 0.25, 0, 4.0, -35.8, 0, 0xffd76a, 2.2);
     kit.cache("c3", -9, -33.5, 2);
     kit.mawMote("m2", 9, -33.5);
     kit.inscription(0, 2.4, -20.35, "TAKE ONLY WHAT THE DARK WILL CARRY", 0, "#ffd76a");

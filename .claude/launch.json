@@ -4,8 +4,20 @@
     {
       "name": "umbral",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "port": 5180
+    },
+    {
+      "name": "umbral2",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev2"
+      ],
+      "port": 5181
     }
   ]
 }
