@@ -205,9 +205,70 @@ export function makeKit(scene) {
       return m;
     },
 
-    /** Wall segment helper (axis-aligned). */
-    wall(w, h, d, x, z, y = h / 2) {
-      return kit.solid(w, h, d, x, z, mats.wall, 0, y);
+    /**
+     * WALL — two call forms.
+     *
+     * RUN form (preferred): `wall(x0, z0, x1, z1, opts)` — an axis-aligned wall
+     * run from endpoint A to endpoint B, with the geometry hygiene from
+     * docs/PLACES.md baked in so joints are systematic, not per-level diligence:
+     *   - the box extends th/2 PAST each endpoint, so a perpendicular run that
+     *     shares the endpoint OVERLAPS it instead of butting flush (flush seams
+     *     z-fight and leak traced light through zero-width gaps);
+     *   - `piers:true` (default) caps each endpoint with a masonry pier — a
+     *     kit.pillar quoin slightly fatter than the wall and slightly taller,
+     *     hiding the joint and reading as real construction. Pass piers:false
+     *     on runs whose endpoints are already piered by a neighbouring run
+     *     (two piers at one corner would be coincident coplanar cylinders);
+     *   - a tiny deterministic height offset (0.02..0.05, hashed from the
+     *     endpoints) keeps any two overlapping runs from sharing an exactly
+     *     coplanar top face.
+     * opts: { h=3.2, th=0.4, piers=true, pierR=th*0.72, pierH=h+0.25,
+     *         mat=mats.wall, pierMat=mats.pillar }
+     * Colliders/occluders/fxOcclude come via kit.solid, exactly like any wall.
+     * Returns { mesh, piers:[...] }.
+     *
+     * LEGACY form: `wall(w, h, d, x, z, y?)` — a raw box in wall material.
+     * Kept because older levels (lanternways/mission1/spire) still call it;
+     * detected by the 5th argument being a number (the run form's 5th argument
+     * is the opts object or omitted).
+     */
+    wall(a, b, c, d, e, f) {
+      if (typeof e === "number") return kit.solid(a, b, c, d, e, mats.wall, 0, f ?? b / 2);
+      const x0 = a, z0 = b, x1 = c, z1 = d;
+      const {
+        h = 3.2, th = 0.4, piers = true,
+        mat = mats.wall, pierMat = mats.pillar,
+      } = e || {};
+      const dx = Math.abs(x1 - x0), dz = Math.abs(z1 - z0);
+      if (dx > 1e-6 && dz > 1e-6)
+        console.warn(`kit.wall run (${x0},${z0})→(${x1},${z1}) is not axis-aligned; snapping to the longer axis`);
+      // anti-coplanar top: deterministic per-run height wobble (invisible at
+      // wall scale, guarantees no two overlapping runs share an exact top face)
+      const hEff = h + 0.02 + rand(x0 * 3.1 + z0 * 7.7 + x1 * 1.3 + z1 * 0.9) * 0.03;
+      let mesh;
+      if (dx >= dz) {
+        // runs along x — box overshoots each end by th/2
+        mesh = kit.solid(dx + th, hEff, th, (x0 + x1) / 2, z0, mat);
+      } else {
+        mesh = kit.solid(th, hEff, dz + th, x0, (z0 + z1) / 2, mat);
+      }
+      const out = { mesh, piers: [] };
+      if (piers) {
+        const pierR = (e && e.pierR) ?? th * 0.72;
+        const pierH = (e && e.pierH) ?? hEff + 0.25;
+        out.piers.push(kit.pillar(pierR, pierH, x0, z0, pierMat));
+        out.piers.push(kit.pillar(pierR, pierH, x1, z1, pierMat));
+      }
+      return out;
+    },
+
+    /**
+     * PIER — a freestanding masonry quoin/stump (readability alias for
+     * kit.pillar with wall-corner argument order). Cap an exposed corner a
+     * wall run left bare, or scatter broken pier stumps through a ruin.
+     */
+    pier(x, z, h = 3.4, r = 0.29, mat = mats.pillar) {
+      return kit.pillar(r, h, x, z, mat);
     },
 
     /**
