@@ -455,8 +455,13 @@ export function makeKit(scene) {
       const geo = boxGeo(axis === "x" ? slabLen : w, 0.16, axis === "x" ? d : slabLen);
       const m = new THREE.Mesh(geo, mat);
       m.position.set(cx, (y0 + y1) / 2, cz);
+      // Pitch sign must match the PHYSICS slope (groundHeightAt: y0 at the
+      // x0/z0 end -> y1 at the x1/z1 end). Right-hand rotations: +z rotation
+      // lifts the +x end; +x rotation lifts the -z end. Both signs were
+      // inverted here, so every ramp DREW its slope mirrored while the player
+      // climbed the physics slope (user-reported: "ramps are backwards").
       const ang = Math.atan2(rise, runLen);
-      if (axis === "x") m.rotation.z = -ang; else m.rotation.x = ang;
+      if (axis === "x") m.rotation.z = ang; else m.rotation.x = -ang;
       m.userData.fxOcclude = true;
       scene.add(m);
       bag.occluders.push(m);
@@ -574,7 +579,10 @@ export function makeKit(scene) {
      * it render as visible shafts. Purely visual: no concealment, no collider.
      */
     fogPatch(x0, z0, x1, z1, { density = 0.05 } = {}) {
-      bag.fogZones.push({ min: [x0, -1, z0], max: [x1, 6, z1], density });
+      // GLOBAL fog thinning (user: "make all fog less dense"): one multiplier
+      // here trims every volumetric zone in every level uniformly, instead of
+      // hand-editing dozens of call sites. Tune the campaign's fog weight HERE.
+      bag.fogZones.push({ min: [x0, -1, z0], max: [x1, 6, z1], density: density * 0.7 });
       return new THREE.Group();
     },
 
@@ -612,7 +620,9 @@ export function makeKit(scene) {
       const puffs = [];
       const COLS = Math.max(3, Math.round(w / 1.1));
       const ROWS = 4, DEPTH = dense ? 3 : 2;
-      const baseOp = dense ? 0.34 : 0.22;
+      // Second global thinning pass (user feedback): the walls must still read
+      // as impassable, but as a veil you can SEE INTO, not soup.
+      const baseOp = dense ? 0.26 : 0.15;
       let i = 0;
       for (let cx = 0; cx < COLS; cx++) {
         for (let cy = 0; cy < ROWS; cy++) {
