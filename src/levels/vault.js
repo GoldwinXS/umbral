@@ -236,7 +236,11 @@ export function buildVault() {
   // sliver — and the landing is the finale's spawn stage and extraction point.
   // A steep vault stair reads right for a descent gate; the landing wins.
   kit.platform(-2.6, 31.4, 6.7, 31.4 + 2.6, { y: DECK, mat: kit.mats.stone, surface: "moss", support: false });
-  kit.railing(-2.6, 31.4, 6.7, 31.4, { y: 0, h: 2.24, t: 0.35 });   // skirt, south (passes under the ramp's top lip — its band never touches a deck walker)
+  kit.railing(-2.6, 31.4, 6.7, 31.4, { y: 0, h: 1.9, t: 0.35 });    // skirt, south. h MUST stay below ~2.0: the collider band is checked against
+  // the climber's LAST-frame ground height, so a blob climbing the ramp reaches
+  // the skirt with feet at ~2.1-2.2 — the old h 2.24 blocked the ascent (you
+  // could descend but never climb back; user-reported). Ground walkers
+  // (feet 0, body 0.84) are still fully blocked by the 0..1.9 band.
   kit.railing(-2.6, 31.4, -2.6, 34, { y: 0, h: 2.24, t: 0.35 });    // skirt, west
   kit.railing(-2.6, 31.4, -2.6, 34, { y: DECK, h: 0.85, mat: kit.mats.pillar });   // west lip — or blink-drop it
   kit.railing(-2.6, 31.4, 4.3, 31.4, { y: DECK, h: 0.85, mat: kit.mats.pillar });  // south lip, west of the ramp mouth
@@ -386,11 +390,18 @@ export function buildVault() {
   // --- seal never held: the floor is a pit where the stairs were, and the
   // --- crypt-keepers still stock oil against the door they deny. The kind
   // --- road: slip the gate-ward, blink the pit.
-  kit.floor(6, 4, -10, 30);
-  kit.surface(-13, 28, -7, 32, "moss");
+  // Floor only EAST of the pit: the old full-width slab (x -13..-7) visually
+  // covered the hole's x -13..-12 strip — solid-looking moss you fell through
+  // (user-reported invisible void). The pit now owns the west end wall-to-wall.
+  kit.floor(4, 4, -9, 30);
+  kit.surface(-11, 28, -7, 32, "moss");
   kit.wall(-13, 32, -7, 32, { h: 3.8, piers: false });  // north wall (west corner piered by the crypts' north run; east tees into the gate wall)
   kit.wall(-13, 28, -7, 28, { h: 3.8, piers: false });  // south wall (jambs owned by the gate's west runs)
-  kit.hole(-14, 28.6, -12, 31);                         // [KEPT] the pit where the stairs were — shadowstep it
+  kit.hole(-13, 28.2, -11, 31.8);                       // [KEPT] the pit where the stairs were — shadowstep it.
+  // Rect fixed: it used to sit at x -14..-12 — half buried in the west wall,
+  // half under the visible floor slab (a floor-through-death trap). Now it
+  // spans the alcove wall-to-wall so the blink-across reads honestly, with
+  // the violet rims on real darkness.
   kit.inscription(-10, 1.7, 31.76, "You remember the way down.", "s", "#9a86d8"); // Hush, at the pit
 
   // ======================= THE CRYPTS (x -24..-13) ===========================
