@@ -105,6 +105,30 @@ export class Warden {
       scene.add(l);
       scene.add(l.target);
       this.light = l;
+
+      // LANTERN FLAME (0.6.0): a small low-poly emissive body (octahedron, 8 tris)
+      // hung just beneath the lantern so it reads as a real lamp casting a soft
+      // warm pool on the ground/nearby walls. Registered as a dynamic NEE emitter
+      // (added to dynamicMeshes in main.js) so it moves with the sentinel and its
+      // tier. The SpotLight stays the dominant light — this is a GARNISH: modest
+      // spill within a couple of metres. A constant warm flame (frozen at compile;
+      // the lib does not propagate runtime emissive to the NEE table anyway).
+      // Child of `this.body`, so it inherits the float-bob, tier offset AND the
+      // devour teardown (body.scale→0 / body.visible=false) for free — no orphan.
+      // Offset well below the body centre so its faces sit OUTSIDE the opaque
+      // body sphere (r=0.34) and are not self-occluded.
+      this.flame = new THREE.Mesh(
+        new THREE.OctahedronGeometry(0.17, 0),
+        new THREE.MeshStandardMaterial({
+          color: 0x000000, roughness: 1, metalness: 0,
+          // intensity chosen by looking (lantern-probe): a warm pool that reaches
+          // ~2m under the lamp without competing with the SpotLight (which points
+          // down-FORWARD, leaving the spot directly beneath the lamp for the flame).
+          emissive: new THREE.Color(spec.color), emissiveIntensity: 14,
+        })
+      );
+      this.flame.position.set(0, -0.42, 0); // hangs beneath the lantern housing
+      this.body.add(this.flame);
     }
 
     // --- alert glow halo: a soft additive aura enveloping the WHOLE body that

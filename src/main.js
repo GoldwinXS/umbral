@@ -180,6 +180,15 @@ class Game {
       // danger. Global across levels — keep it a restrained night tone.
       envColor: new THREE.Color(0x243450),  // deeper, bluer night sky (was 0x1a2234)
       envIntensity: 0.9,                    // gentle lift of sky/reflections (was 0.72)
+      // DISPERSION (0.6.0): stochastic spectral refraction for the relic gem's
+      // transmission glass — the faceted amber jewel splits light into a faint
+      // rainbow along its edges. Zero extra rays; it rides temporal accumulation
+      // so it shimmers slightly in motion. Value chosen by looking at the L7
+      // reliquary close-up (see rt060 dispersion probe): 0.12 gives a tasteful
+      // chromatic edge at the default perf preset (renderScale 0.4) without the
+      // busy rainbow-noise of 0.25; 0 is byte-identical to off. Global, but only
+      // transmission materials (the gem) react — nothing else in the game is glass.
+      dispersion: 0.12,
       volumetric: { enabled: true, density: 0 },
       overscan: 0.05,          // orbit/rotate cleanly — leading-edge convergence
                                // noise is born off-screen (0.4.0 feature)
@@ -461,7 +470,9 @@ class Game {
     this.rt.compileScene(this.scene, {
       dynamicMeshes: [
         this.player.mesh,
+        this.player.beaconPool, // 0.6.0 dynamic NEE emitter — the beacon molten pool (light from beneath)
         ...this.wardens.map((w) => w.body),
+        ...this.wardens.map((w) => w.flame).filter(Boolean), // lantern-flame area lights (non-blind)
         ...(bag.mirrors || []).map((m) => m.mesh), // deforming mirror-water pools
       ],
     });

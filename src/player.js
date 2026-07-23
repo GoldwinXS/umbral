@@ -122,6 +122,45 @@ export class Player {
     this.beaconLight.userData.rtRadius = 0.3;
     scene.add(this.beaconLight);
 
+    // BEACON MOLTEN POOL (0.6.0 dynamic NEE emitter): the PointLight above feeds
+    // the analytic meter and is the KEY light, but casts no *area* light. So the
+    // stolen light "leaks home" as an amber emissive DISC pooled at the blob's
+    // feet — a real area light that underlights Hush and spills onto the floor +
+    // nearby walls. Crucially the disc is OFF the body: the dark creature stays
+    // FULLY VISIBLE above it, its goop morph (settle/pour/contact) intact, lit
+    // from beneath. (A translucent shell was tried first but transparency
+    // disqualifies a mesh from the NEE table — SceneCompiler skips any transparent
+    // material at compile, verified: 0 emitter rows. So the pool is OPAQUE.)
+    //
+    // Runtime emissive changes do NOT reach the NEE table (the lib freezes emit
+    // colour+intensity at compile and only re-derives world geometry + the power
+    // CDF each updateDynamic — confirmed in SceneCompiler._refreshDynamicEmissive).
+    // So the pool is COMPILED at full amber; we modulate its light at runtime by
+    // SCALING the mesh: area→~0 when not carrying (no glow at spawn), growing with
+    // _beaconGlow. The power CDF tracks area, so scale IS the dimmer. Compiling at
+    // full scale also guarantees it survives the shared MAX_EMISSIVE_TRIS cap.
+    // A DEEP amber emissive (not the pale blaze colour) holds hue instead of
+    // clipping to white; the disc reads as molten light, not a lamp.
+    // Radius 2.0x the body: an amber RING extends beyond the blob's footprint so
+    // the pool is not fully occluded by the creature sitting on it — the exposed
+    // ring spills onto the floor + grazes nearby walls, while the rim under the
+    // blob underlights the goop.
+    const poolR = PLAYER_R * 2.0;
+    this.beaconPool = new THREE.Mesh(
+      new THREE.CircleGeometry(poolR, 14), // 14 tris, up-facing when laid flat
+      new THREE.MeshStandardMaterial({
+        color: 0x000000, roughness: 1, metalness: 0,
+        // DEEP amber holds hue at brightness instead of clipping to white.
+        emissive: new THREE.Color(1.0, 0.6, 0.24), emissiveIntensity: 5.0,
+        side: THREE.DoubleSide,
+      })
+    );
+    this.beaconPool.rotation.x = -Math.PI / 2; // lie flat on the ground, normal +y
+    // a SEPARATE scene object (not a child of the deforming body); update() places
+    // it at the blob's feet each frame. Lifted a hair to avoid floor z-fighting.
+    this.beaconPool.position.set(this.mesh.position.x, 0.04, this.mesh.position.z);
+    scene.add(this.beaconPool);
+
     // eyes — rasterized glow only (rtExclude), they track the facing direction.
     // Calm violet normally; they smoulder RED while the maw is charged (hungry).
     this.eyeCalm = new THREE.Color(0xb9a0ff);
@@ -558,12 +597,30 @@ export class Player {
     const bg = this._beaconGlow;
     if (bg > 0.01) {
       const em = this.mesh.material.emissive;
-      em.setRGB(0.141 + bg * (1.0 - 0.141), 0.063 + bg * (0.84 - 0.063), 0.251 + bg * (0.42 - 0.251));
-      this.mesh.material.emissiveIntensity = 0.55 + bg * 7.6 + Math.sin(t * 8) * 0.3 * bg;
+      // hue shifts to a deep EMBER (not bright amber): the emissive COLOUR itself
+      // must stay dark or the near-black body renders pale after sRGB gamma.
+      em.setRGB(0.141 + bg * (1.0 - 0.141), 0.063 + bg * (0.6 - 0.063), 0.251 + bg * (0.24 - 0.251));
+      // DARK CREATURE, not a glowing ball: the self-emissive nearly EXTINGUISHES
+      // during carry (~0.08) so the body is near-black albedo LIT FROM BENEATH by
+      // the molten pool — a dark shadow-thing with an amber underglow gradient
+      // (dark crown, molten belly), not a self-luminous ball. The amber BLAZE is
+      // the pool + PointLight. (Director note: dark creature in an amber blaze.)
+      this.mesh.material.emissiveIntensity = 0.55 - bg * 0.47 + Math.sin(t * 8) * 0.04 * bg;
       this.beaconLight.intensity = bg * 13.5 * (0.92 + Math.sin(t * 8) * 0.08);
       this.beaconLight.position.set(this.pos.x, this.pos.y + 0.25, this.pos.z);
     } else if (this.beaconLight.intensity !== 0) {
       this.beaconLight.intensity = 0;
+    }
+    // BEACON MOLTEN POOL area light: scale IS the dimmer (see constructor). It
+    // pours from BENEATH the blob — placed at the feet (pos.x/z + groundY, lifted
+    // a hair off the floor) so it follows Hush and underlights the goop while the
+    // creature stays fully visible above it. Near-zero + hidden when not carrying
+    // (no glow at spawn); RT registration is already baked at compile.
+    if (this.beaconPool) {
+      const bp = bg > 0.01 ? bg * (0.96 + Math.sin(t * 7) * 0.06) : 0.0015;
+      this.beaconPool.scale.setScalar(bp);
+      this.beaconPool.position.set(this.pos.x, this.groundY + 0.04, this.pos.z);
+      this.beaconPool.visible = bg > 0.02;
     }
 
     // engulf: the blob reaches out a dark sac, swells to swallow the warden,
@@ -587,12 +644,14 @@ export class Player {
     }
 
     // eyes smoulder red while hungry (maw charged), flaring on a devour.
-    // BEACON INVERSION: when the body blazes with light, the eyes go DARK so
-    // they read as two shadow-pupils against the glow (light-monster's eyes).
+    // The eyes stay LIT while carrying (only a slight dim): Hush is now a DARK
+    // creature standing in the amber pool, so its glowing eyes are the read — the
+    // old beacon-inversion (near-total dim) only made sense when the body blazed
+    // white, which it no longer does.
     const hunger = this.mawCharges > 0 ? 1 : 0;
     this._eyeColor.lerp(hunger ? this.eyeHungry : this.eyeCalm, Math.min(1, dt * 6));
     const eyeGlow = (4 + hunger * (1.2 + Math.sin(t * 5) * 0.6) + this.eyeFlash * 8 + this.blinkAnim * 3)
-      * (1 - this._beaconGlow * 0.94);
+      * (1 - this._beaconGlow * 0.2);
     for (const e of this.eyes) {
       e.material.emissive.copy(this._eyeColor);
       e.material.emissiveIntensity = eyeGlow;
