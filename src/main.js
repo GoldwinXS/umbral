@@ -31,6 +31,16 @@ const LEVELS = [
 ];
 const CAM_OFFSET = new THREE.Vector3(0, 12.5, 6.3);
 const PROGRESS_KEY = "umbral.progress";
+// UNDER-DECK CHASE CAMERA — when a raised deck/catwalk is directly overhead the
+// high 3/4 boom cannot look down through it; instead of crushing the camera
+// straight down the view ray (a claustrophobic close-up), we ease into a LOW,
+// LONG chase boom that shows the space ahead. Tuned by looking on L4/L6.
+const CHASE_HYST = 0.25;   // s the under/open condition must hold before the mode flips (kills strobe under a beam)
+const CHASE_TAU = 0.30;    // s time-constant of the enter/exit ease (monotonic → no overshoot)
+const CHASE_BOOM = 8.0;    // base horizontal distance behind the blob in chase mode (scaled a little by zoom)
+const CHASE_BOOM_MIN = 5.5, CHASE_BOOM_MAX = 12.0; // clamp so zoom can't make it silly
+const CHASE_LOOK_AHEAD = 2.5; // units the look-at is pushed AHEAD of the blob (along camera-forward)
+const CHASE_CEIL_MARGIN = 0.6; // camera sits this far below the deck (== the old clamp height)
 // Light-gem calibration. The analytic direct-light SUM at the player's feet is
 // mapped to 0 (shadow) .. 1 (fully lit). The tracer runs gi:false, so a LOS-gated
 // sum of the real scene lights matches what's on screen — and it's deterministic,
@@ -109,6 +119,11 @@ class Game {
     this._camOff2 = new THREE.Vector3(); // scratch dir for the camera whisker
     this.camDist = 1;   // zoom (0.5 close … 2.0 far)
     this.camYaw = 0;    // orbit rotation about the player
+    // under-deck chase-camera state (see CHASE_* consts near CAM_OFFSET)
+    this._chaseBlend = 0;    // 0 = normal orbit boom, 1 = full under-deck chase
+    this._chaseWant = false; // debounced target mode (flipped by hysteresis)
+    this._chaseHoldT = 0;    // s the raw condition has disagreed with _chaseWant
+    this._chaseCeilY = Infinity; // remembered deck height, so an exit eases from the real ceiling
 
     this._initRenderer();
     this._initUI();
@@ -229,6 +244,97 @@ class Game {
       if (px >= p.x0 && px <= p.x1 && pz >= p.z0 && pz <= p.z1 && p.y > feetY + headroom && p.y < ceil) ceil = p.y;
     }
     return ceil;
+  }
+
+  /**
+   * The follow camera: a high 3/4 orbit boom that tracks the blob, with a
+   * per-frame lerp toward the target. When a raised deck/catwalk is directly
+   * overhead the boom cannot look down through it, so we ease (hysteretic,
+   * critically-damped) into an UNDER-DECK CHASE: a low, long boom just below
+   * the deck, looking AHEAD of the blob to reveal the space it's moving into,
+   * instead of the old crush that slid the camera straight down its own view
+   * ray into a claustrophobic close-up. A wall whisker still pulls the camera
+   * in past any wall between it and the blob. On flat levels (no platforms)
+   * and whenever no deck is overhead (_chaseBlend==0) this is byte-identical
+   * to the original orbit follow. Split out of _step so the playtest harness
+   * can drive it in isolation with a fabricated player pose. `dt` in seconds.
+   */
+  _followCamera(dt) {
+    const { player } = this;
+    const off = this._camOffset();
+    const lead = 0.4;
+    const elev = player.groundY || 0;
+    const lookX = player.pos.x + player.vel.x * lead * 0.15;
+    const lookY = 0.4 + elev;
+    const lookZ = player.pos.z + player.vel.z * lead * 0.15;
+    let camX = player.pos.x + off.x + player.vel.x * lead * 0.2;
+    let camY = off.y + elev;
+    let camZ = player.pos.z + off.z + player.vel.z * lead * 0.2;
+    // CAMERA-UNDER-CEILINGS → UNDER-DECK CHASE: if a raised deck/awning/roof is
+    // directly overhead the high 3/4 boom would look down THROUGH it. Rather than
+    // crushing the camera straight down its own view ray (which collapses the
+    // horizontal boom and buries the player in a claustrophobic close-up), ease
+    // into a LOW, LONG chase boom: drop to just under the ceiling but LENGTHEN
+    // the horizontal distance and push the look-at AHEAD of the blob, so the
+    // frame shows the space the player is moving into. The switch is hysteretic
+    // + eased so skimming a deck edge never strobes the camera. The look target
+    // (tgtLook*) is blended too. (Flat levels have no platforms → all skipped,
+    // and with _chaseBlend==0 the math below is byte-identical to the old orbit.)
+    let tgtLookX = lookX, tgtLookY = lookY, tgtLookZ = lookZ;
+    if (this.level.platforms && this.level.platforms.length) {
+      const ceilY = this._ceilingAbove(player.pos.x, player.pos.z, player.groundY);
+      // raw predicate is the ORIGINAL trigger (keeps parity with the old code)
+      const rawUnder = ceilY < camY - 0.1;
+      // hysteresis: only flip the desired mode once it has held CHASE_HYST seconds
+      if (rawUnder === this._chaseWant) { this._chaseHoldT = 0; }
+      else {
+        this._chaseHoldT += dt;
+        if (this._chaseHoldT >= CHASE_HYST) { this._chaseWant = rawUnder; this._chaseHoldT = 0; }
+      }
+      // ease the blend toward the desired mode (exponential → monotonic, no overshoot)
+      const bTarget = this._chaseWant ? 1 : 0;
+      this._chaseBlend += (bTarget - this._chaseBlend) * (1 - Math.exp(-dt / CHASE_TAU));
+      if (bTarget === 0 && this._chaseBlend < 1e-4) this._chaseBlend = 0; // settle to EXACT 0 → orbit byte-identical
+      // Remember the deck height. If the blob skims out from under (ceilY→Inf)
+      // while blend is still easing down, we KEEP using the last real ceiling so
+      // the exit glides instead of snapping the target back up to the high boom.
+      // Forget it only once fully back in orbit (blend==0) → byte-identical there.
+      if (ceilY < Infinity) this._chaseCeilY = ceilY;
+      else if (this._chaseBlend === 0) this._chaseCeilY = Infinity;
+
+      if (this._chaseBlend > 0 && this._chaseCeilY < Infinity) {
+        const b = this._chaseBlend, bs = b * b * (3 - 2 * b);   // smoothstep ease
+        const s = Math.sin(this.camYaw), c = Math.cos(this.camYaw);
+        // horizontal boom BEHIND the blob along the current yaw (yaw+zoom still apply)
+        const boom = Math.max(CHASE_BOOM_MIN, Math.min(CHASE_BOOM_MAX, CHASE_BOOM * (0.55 + 0.45 * this.camDist)));
+        const chaseCamX = player.pos.x + (-s) * boom + player.vel.x * lead * 0.2;
+        const chaseCamZ = player.pos.z + ( c) * boom + player.vel.z * lead * 0.2;
+        const chaseCamY = this._chaseCeilY - CHASE_CEIL_MARGIN; // just under the (remembered) deck
+        // look AHEAD of the blob along camera-forward (robust vs noisy facing)
+        const chaseLookX = player.pos.x + ( s) * CHASE_LOOK_AHEAD;
+        const chaseLookZ = player.pos.z + (-c) * CHASE_LOOK_AHEAD;
+        const chaseLookY = Math.min(lookY, chaseCamY - 0.4);   // keep a slight downward bias
+        camX += (chaseCamX - camX) * bs; camY += (chaseCamY - camY) * bs; camZ += (chaseCamZ - camZ) * bs;
+        tgtLookX += (chaseLookX - tgtLookX) * bs;
+        tgtLookY += (chaseLookY - tgtLookY) * bs;
+        tgtLookZ += (chaseLookZ - tgtLookZ) * bs;
+      }
+      // wall whisker: never let the boom (chase OR orbit) sit behind a wall.
+      const dx = camX - tgtLookX, dy = camY - tgtLookY - 0.2, dz = camZ - tgtLookZ;
+      const cd = Math.hypot(dx, dy, dz);
+      if (cd > 0.2) {
+        this._camRay.set(this._tmpDir.set(tgtLookX, tgtLookY + 0.2, tgtLookZ), this._camOff2.set(dx, dy, dz).normalize());
+        this._camRay.far = cd - 0.1;
+        const hit = this._camRay.intersectObjects(this.level.occluders, false)[0];
+        if (hit) {
+          const f = Math.max(0.08, (hit.distance - 0.3) / cd);
+          camX = tgtLookX + dx * f; camY = (tgtLookY + 0.2) + dy * f; camZ = tgtLookZ + dz * f;
+        }
+      }
+    }
+    this._camPos.set(camX, camY, camZ);
+    this.camera.position.lerp(this._camPos, 1 - Math.pow(0.001, dt));
+    this.camera.lookAt(tgtLookX, tgtLookY, tgtLookZ);
   }
 
   _initCameraControls() {
@@ -995,48 +1101,9 @@ class Game {
     this.rt.updateLights(this.scene);
     this.rt.updateDynamic();
 
-    // camera follows with a little velocity lead, at the current zoom + orbit.
-    // Height tracks the blob's ELEVATION (groundY) so a raised catwalk doesn't
-    // drop it off-screen; on flat ground groundY=0 → byte-identical to before.
-    const off = this._camOffset();
-    const lead = 0.4;
-    const elev = player.groundY || 0;
-    const lookX = player.pos.x + player.vel.x * lead * 0.15;
-    const lookY = 0.4 + elev;
-    const lookZ = player.pos.z + player.vel.z * lead * 0.15;
-    let camX = player.pos.x + off.x + player.vel.x * lead * 0.2;
-    let camY = off.y + elev;
-    let camZ = player.pos.z + off.z + player.vel.z * lead * 0.2;
-    // CAMERA-UNDER-CEILINGS: if a raised deck/awning/roof is directly overhead,
-    // the high boom would look down THROUGH it — slide the camera DOWN its own
-    // view ray to sit just below that ceiling so the blob stays visible. Then a
-    // whisker pulls it in past any WALL between it and the blob. (Only vertical
-    // levels have platforms, so flat levels skip all of this — no regression.)
-    if (this.level.platforms && this.level.platforms.length) {
-      const ceilY = this._ceilingAbove(player.pos.x, player.pos.z, player.groundY);
-      if (ceilY < camY - 0.1) {
-        const denom = camY - lookY;                          // full boom vertical span
-        const ratio = denom > 1e-3 ? Math.max(0.06, (ceilY - 0.6 - lookY) / denom) : 1;
-        camX = player.pos.x + off.x * ratio + player.vel.x * lead * 0.2;
-        camZ = player.pos.z + off.z * ratio + player.vel.z * lead * 0.2;
-        camY = lookY + denom * ratio;                        // == ceilY-0.6, on the same ray
-      }
-      // wall whisker: never let the (now lower) camera sit behind a wall
-      const dx = camX - lookX, dy = camY - lookY - 0.2, dz = camZ - lookZ;
-      const cd = Math.hypot(dx, dy, dz);
-      if (cd > 0.2) {
-        this._camRay.set(this._tmpDir.set(lookX, lookY + 0.2, lookZ), this._camOff2.set(dx, dy, dz).normalize());
-        this._camRay.far = cd - 0.1;
-        const hit = this._camRay.intersectObjects(this.level.occluders, false)[0];
-        if (hit) {
-          const f = Math.max(0.08, (hit.distance - 0.3) / cd);
-          camX = lookX + dx * f; camY = (lookY + 0.2) + dy * f; camZ = lookZ + dz * f;
-        }
-      }
-    }
-    this._camPos.set(camX, camY, camZ);
-    this.camera.position.lerp(this._camPos, 1 - Math.pow(0.001, dt));
-    this.camera.lookAt(player.pos.x + player.vel.x * lead * 0.15, lookY, player.pos.z + player.vel.z * lead * 0.15);
+    // camera follows with a little velocity lead, at the current zoom + orbit
+    // (extracted so the playtest harness can drive it in isolation).
+    this._followCamera(dt);
 
     // camera-obstruction hint: if the blob is hidden behind geometry (a tall
     // building/wall between camera and player) for a few seconds, teach the
