@@ -17,7 +17,10 @@
     --line: rgba(138, 92, 255, 0.25);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; overflow: hidden; background: #05060a; }
+  /* overscroll-behavior kills iOS/Android rubber-band: without it a downward
+     drag on the joystick bounces the whole page and Safari steals the gesture
+     mid-drag (the pointer gets a pointercancel and the stick goes dead). */
+  html, body { height: 100%; overflow: hidden; background: #05060a; overscroll-behavior: none; }
   /* touch-action does NOT inherit: without a universal rule, every overlay /
      HUD button keeps the default and a double-tap there ZOOMS the page —
      `manipulation` allows taps but kills double-tap-zoom everywhere. The game
@@ -29,8 +32,15 @@
     -webkit-user-select: none; user-select: none;
     touch-action: none;
     -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none; /* long-press on the stick must not pop the iOS callout */
   }
-  #app, #app canvas, #joyBase, #joyKnob, #touchBtns, .tbtn { touch-action: none; }
+  /* #touchLayer is THE element the joystick's pointer events land on (it is
+     inset:0 over the whole screen), so it MUST be touch-action: none. While it
+     inherited `manipulation` from the universal rule, iPad Safari read a stick
+     drag as a page pan, took the gesture, and cancelled the pointer mid-drag —
+     the "dragging the whole screen instead of the stick" bug. Same reason the
+     two-finger camera pinch/twist could zoom the page instead of the camera. */
+  #app, #app canvas, #touchLayer, #joyBase, #joyKnob, #touchBtns, .tbtn { touch-action: none; }
   #app, #app canvas { position: fixed; inset: 0; }
   #app canvas { display: block; }
 
@@ -42,7 +52,7 @@
     border-radius: 14px;
     padding: 28px 32px;
     max-width: min(560px, 92vw);
-    max-height: 88vh; overflow-y: auto;
+    max-height: 88vh; overflow-y: auto; overscroll-behavior: contain; /* scrolling to the end must not chain to the page */
     box-shadow: 0 0 60px rgba(138,92,255,.12), 0 20px 60px rgba(0,0,0,.6);
     text-align: center;
   }
@@ -216,6 +226,28 @@
     border: 1px solid rgba(138,92,255,.25); color: var(--dim); font-size: 15px;
     pointer-events: auto; display: flex; align-items: center; justify-content: center; }
 
+  /* --- icon buttons: fullscreen + view toggle ---
+     A quiet vertical cluster hugging the right edge, tucked directly under
+     #pauseBtn/#stats and well above #tools / the coarse #touchBtns column —
+     the whole right-edge strip between them is free at every viewport size
+     this game supports (see hud.js for the placement notes). Sits above
+     .overlay (z-index 80) so the fullscreen button keeps working from the
+     title/menu screens, where #hud itself is hidden. */
+  #hudIcons { position: fixed; z-index: 85;
+    top: calc(max(10px, env(safe-area-inset-top)) + 46px); right: 12px;
+    display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+  .iconBtn { pointer-events: auto; width: 44px; height: 44px; padding: 0;
+    border-radius: 10px; background: rgba(8,10,16,.6); border: 1px solid rgba(138,92,255,.22);
+    color: var(--dim); cursor: pointer; -webkit-tap-highlight-color: transparent;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .15s, border-color .15s, color .15s; }
+  .iconBtn svg { width: 21px; height: 21px; display: block; fill: none;
+    stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .iconBtn:hover { background: rgba(138,92,255,.16); border-color: var(--violet); color: var(--ink); }
+  .iconBtn:active { transform: scale(.94); }
+  .iconBtn.active { color: var(--teal); border-color: rgba(57,240,192,.4); background: rgba(57,240,192,.08); }
+  .iconBtn.hidden { display: none !important; }
+
   #boot { position: fixed; inset: 0; z-index: 90; display: flex; align-items: center; justify-content: center;
     background: #05060a; flex-direction: column; gap: 14px; transition: opacity .4s; }
   #boot.hidden { display: none !important; }
@@ -250,6 +282,14 @@
       <div class="tool" id="toolVial"><span class="key">Q</span>◍<span class="count" id="vialCount">0</span></div>
     </div>
     <div id="prompt"></div>
+  </div>
+
+  <!-- fullscreen + camera-view icon buttons: not part of #hud so the
+       fullscreen toggle keeps working on the title/menu screens too.
+       Behaviour lives entirely in hud.js. -->
+  <div id="hudIcons">
+    <button type="button" id="btnFullscreen" class="iconBtn" title="Enter fullscreen" aria-label="Enter fullscreen"></button>
+    <button type="button" id="btnView" class="iconBtn hidden" title="Toggle camera view" aria-label="Toggle camera view"></button>
   </div>
 
   <div id="vignette"></div>
@@ -393,6 +433,25 @@
     </div>
   </div>
 
+  <script>
+    // iPad/iPhone Safari IGNORES `user-scalable=no` in the viewport meta (it has
+    // since iOS 10), and pinch-zoom arrives as these non-standard gesture events
+    // rather than as anything touch-action can suppress. Without this, a
+    // two-finger camera pinch zooms the PAGE. Non-passive so preventDefault is
+    // honoured; harmless no-op on every other browser, which never fires them.
+    for (const ev of ["gesturestart", "gesturechange", "gestureend"]) {
+      document.addEventListener(ev, (e) => e.preventDefault(), { passive: false });
+    }
+    // Belt-and-braces for older iOS, where touch-action alone does not always
+    // stop a drag that began on the game surface from scrolling the document.
+    document.addEventListener("touchmove", (e) => {
+      // .panel is the one scrollable surface in the game (max-height:88vh;
+      // overflow-y:auto — the missions list and the settings rows live there),
+      // so a touch that starts inside one keeps its native scrolling.
+      if (e.target && e.target.closest && e.target.closest(".panel")) return;
+      e.preventDefault();
+    }, { passive: false });
+  </script>
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>

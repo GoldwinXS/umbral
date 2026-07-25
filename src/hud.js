@@ -127,3 +127,108 @@ export class Hud {
     }
   }
 }
+
+/* ----------------------------------------------------------------------
+ * Icon buttons: fullscreen toggle + camera-view toggle.
+ *
+ * Self-contained — wires its own DOM and runs once at module load (this
+ * file is only ever imported once, by main.js). Deliberately independent
+ * of the Hud class/instance above: the fullscreen button must work from
+ * the title screen, before any Hud.update() loop or level is running.
+ *
+ * View toggle is a thin client of a contract owned elsewhere (the camera
+ * work in main.js): window.UMBRAL.toggleView() flips the mode and
+ * dispatches a "umbral-view" CustomEvent with { detail: { mode } }, mode
+ * being "tactical" or "shoulder". We only ever read window.UMBRAL.viewMode
+ * once up front and then listen for that event — no rAF polling, and no
+ * camera logic lives here.
+ * -------------------------------------------------------------------- */
+
+const ICON_EXPAND =
+  '<svg viewBox="0 0 24 24"><path d="M4,9 L4,4 L9,4 M15,4 L20,4 L20,9 M20,15 L20,20 L15,20 M9,20 L4,20 L4,15"/></svg>';
+const ICON_CONTRACT =
+  '<svg viewBox="0 0 24 24"><path d="M9,4 L9,9 L4,9 M15,4 L15,9 L20,9 M15,20 L15,15 L20,15 M9,20 L9,15 L4,15"/></svg>';
+const ICON_CAMERA =
+  '<svg viewBox="0 0 24 24"><path d="M4,8 L7,8 L8.5,5.5 L15.5,5.5 L17,8 L20,8 A1,1 0 0 1 21,9 L21,18 A1,1 0 0 1 20,19 L4,19 A1,1 0 0 1 3,18 L3,9 A1,1 0 0 1 4,8 Z"/><circle cx="12" cy="13.5" r="3.2"/></svg>';
+
+function initHudIcons() {
+  const fsBtn = document.getElementById("btnFullscreen");
+  const viewBtn = document.getElementById("btnView");
+  const hudRoot = document.getElementById("hud");
+
+  // keep the touch joystick from ever treating a tap on these as a grab —
+  // same defensive pattern as the other on-screen controls (see input.js).
+  const guard = (btn) => {
+    btn.addEventListener("pointerdown", (e) => e.stopPropagation());
+    btn.addEventListener("click", (e) => {
+      if (e.currentTarget && e.currentTarget.blur) e.currentTarget.blur(); // Space/Enter shouldn't re-fire it
+    });
+  };
+
+  // --- fullscreen ---
+  if (fsBtn) {
+    const requestFs = () =>
+      document.documentElement.requestFullscreen
+        ? document.documentElement.requestFullscreen()
+        : document.documentElement.webkitRequestFullscreen
+        ? document.documentElement.webkitRequestFullscreen()
+        : null;
+    const exitFs = () =>
+      document.exitFullscreen
+        ? document.exitFullscreen()
+        : document.webkitExitFullscreen
+        ? document.webkitExitFullscreen()
+        : null;
+    const supported = !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen);
+
+    if (!supported) {
+      fsBtn.classList.add("hidden"); // no dead controls
+    } else {
+      const isFs = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+      const syncIcon = () => {
+        const on = isFs();
+        fsBtn.classList.toggle("active", on);
+        fsBtn.innerHTML = on ? ICON_CONTRACT : ICON_EXPAND;
+        const label = on ? "Exit fullscreen" : "Enter fullscreen";
+        fsBtn.title = label;
+        fsBtn.setAttribute("aria-label", label);
+      };
+      guard(fsBtn);
+      fsBtn.addEventListener("click", () => {
+        try {
+          const p = isFs() ? exitFs() : requestFs();
+          if (p && p.catch) p.catch(() => {}); // rejects without a user gesture; nothing to do
+        } catch (_) {
+          // some browsers throw synchronously instead of rejecting
+        }
+      });
+      document.addEventListener("fullscreenchange", syncIcon);
+      document.addEventListener("webkitfullscreenchange", syncIcon);
+      syncIcon();
+    }
+  }
+
+  // --- view toggle (third-person / tactical) ---
+  if (viewBtn && hudRoot) {
+    const syncMode = (mode) => {
+      const shoulder = mode === "shoulder";
+      viewBtn.classList.toggle("active", shoulder);
+      const label = shoulder ? "Tactical view (V)" : "Third-person view (V)";
+      viewBtn.title = label;
+      viewBtn.setAttribute("aria-label", label);
+    };
+    viewBtn.innerHTML = ICON_CAMERA;
+    guard(viewBtn);
+    viewBtn.addEventListener("click", () => window.UMBRAL?.toggleView?.());
+    window.addEventListener("umbral-view", (e) => syncMode(e.detail && e.detail.mode));
+    syncMode(window.UMBRAL?.viewMode); // initial read only — no polling
+
+    // mirror #hud's own hidden state (view only makes sense during play);
+    // this is purely reflecting existing state, not new game-state logic.
+    const syncVisible = () => viewBtn.classList.toggle("hidden", hudRoot.classList.contains("hidden"));
+    syncVisible();
+    new MutationObserver(syncVisible).observe(hudRoot, { attributes: true, attributeFilter: ["class"] });
+  }
+}
+
+initHudIcons();
