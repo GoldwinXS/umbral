@@ -34,6 +34,58 @@ export const SWALLOW_RANGE = 2.7; // reach of the maw (buffed) — a warden insi
 const SHADOW_SPEED = 2.4;
 const LIT_SPEED = 0.72;
 
+// ---------------- SHADOW HUE (dark-purple-in-shadow) -----------------------
+// Shadow is the blob's element (see above) — now its COLOUR sells that too.
+// Deep in a level's moonlit blue-grey shadow the body reads as a low, just-
+// legible violet; stepping into the light it settles back to today's near-
+// black void look (unchanged). Driven by the same time-smoothed _litSmooth
+// (+ smoothstep) the shadow-speed curve uses, so the hue can't strobe on a
+// skimmed light edge either. Re-tune against real renders if these read too
+// lavender or too invisible on screen — see harness/shot-safe-probe.mjs
+// (writes harness/shots/L0-shadow-purple.png at L0's dark ashpit corner).
+// The purple must come from ALBEDO catching the moon, not from self-glow. The
+// first pass raised the emissive hue AND its intensity (0x33135f at 0.85) and
+// the blob rendered as a bright grape lamp lighting its own floor — legible,
+// but it stopped reading as a shadow-thing, which is the whole creature. So:
+// push the albedo further violet (it only shows where light lands) and pull the
+// self-glow back to the value the game already shipped with, so in true dark it
+// is a shape you can just make out rather than a light source.
+const SHADOW_BODY_COLOR = new THREE.Color(0x1a0d33); // albedo, pitch dark — violet-black, reads as colour only when lit
+const LIT_BODY_COLOR = new THREE.Color(0x07080d);    // today's albedo, fully lit (unchanged)
+const SHADOW_BODY_EMISSIVE = new THREE.Color(0x2a1050); // emissive, pitch dark — a deep violet, not a bright one
+const LIT_BODY_EMISSIVE = new THREE.Color(0x241040);    // today's emissive, fully lit (unchanged)
+const SHADOW_EMISSIVE_INTENSITY = 0.5;  // BELOW the lit value on purpose: darkness should dim the creature, not kindle it
+const LIT_EMISSIVE_INTENSITY = 0.55;    // today's value (unchanged)
+
+// ---------------- BEACON GLOW (carrying the relic) --------------------------
+// The player asked for this MUCH brighter than the original "dark creature
+// lit from beneath" look. Three independent knobs — see harness/shot-safe-
+// probe.mjs (writes harness/shots/L0-carry-*) to render + eyeball a carry
+// frame and re-tune these if they read wrong on screen:
+//   1) BEACON_POOL_RADIUS_MUL / BEACON_POOL_EMISSIVE_INTENSITY are COMPILE-TIME
+//      values baked into the pool mesh's NEE emitter row (see the constructor
+//      comment below) — runtime scale only dims a fixed compiled brightness,
+//      so a bigger/brighter blaze has to be built in at construction.
+//   2) BEACON_LIGHT_PEAK is the moving PointLight's intensity at full carry —
+//      a real analytic light, so it (unlike the pool) DOES take effect purely
+//      at runtime. Confirmed via harness/probe: the stealth meter already
+//      saturates (_computePlayerVis pegs to 1.0) at the OLD peak of 13.5
+//      because the light sits exactly at the player's feet (distance term is
+//      always ~0) — raising the peak further is visual-only headroom, not a
+//      gameplay change. Still measured before/after, not assumed.
+//   3) CARRY_EMISSIVE_INTENSITY replaces the old near-extinguished 0.08 floor:
+//      the body itself now blazes, not just the pool beneath it. It cannot
+//      raise the light the body CASTS (runtime emissive doesn't reach the NEE
+//      table either), only how the body's own surface shades — which is
+//      exactly what "glow more brightly" needs here.
+const BEACON_POOL_RADIUS_MUL = 3.0;       // was 2.0 — a bigger molten disc under the blob
+const BEACON_POOL_EMISSIVE_INTENSITY = 9.0; // was 5.0 — compiled brightness of that disc
+const BEACON_LIGHT_PEAK = 19;             // was 13.5 — stronger key light at full carry
+const BEACON_LIGHT_PULSE = 0.08;          // unchanged — fraction of peak the pulse swings
+const CARRY_EMISSIVE_INTENSITY = 2.4;     // was 0.55-0.47=0.08 (near-extinguished, overruled) —
+                                           // a genuinely glowing creature, capped short of white-out
+const CARRY_EMISSIVE_PULSE = 0.22;        // was 0.04 — a livelier pulse to match the bigger blaze
+
 // ---------------- GHIBLI-GOOP FEEL (each independently toggleable) ----------
 // Diagnosis: the blob read as a RIGID BODY wearing effects — the roil, tail and
 // smear all deform the surface but nothing gave it WEIGHT (a mass that pools
@@ -141,17 +193,19 @@ export class Player {
     // full scale also guarantees it survives the shared MAX_EMISSIVE_TRIS cap.
     // A DEEP amber emissive (not the pale blaze colour) holds hue instead of
     // clipping to white; the disc reads as molten light, not a lamp.
-    // Radius 2.0x the body: an amber RING extends beyond the blob's footprint so
-    // the pool is not fully occluded by the creature sitting on it — the exposed
-    // ring spills onto the floor + grazes nearby walls, while the rim under the
-    // blob underlights the goop.
-    const poolR = PLAYER_R * 2.0;
+    // Radius BEACON_POOL_RADIUS_MUL x the body: an amber RING extends beyond
+    // the blob's footprint so the pool is not fully occluded by the creature
+    // sitting on it — the exposed ring spills onto the floor + grazes nearby
+    // walls, while the rim under the blob underlights the goop. Pushed bigger
+    // + brighter than the original per the player's "glow much more" ask —
+    // both are compile-time (see BEACON GLOW block above).
+    const poolR = PLAYER_R * BEACON_POOL_RADIUS_MUL;
     this.beaconPool = new THREE.Mesh(
       new THREE.CircleGeometry(poolR, 14), // 14 tris, up-facing when laid flat
       new THREE.MeshStandardMaterial({
         color: 0x000000, roughness: 1, metalness: 0,
         // DEEP amber holds hue at brightness instead of clipping to white.
-        emissive: new THREE.Color(1.0, 0.6, 0.24), emissiveIntensity: 5.0,
+        emissive: new THREE.Color(1.0, 0.6, 0.24), emissiveIntensity: BEACON_POOL_EMISSIVE_INTENSITY,
         side: THREE.DoubleSide,
       })
     );
@@ -583,30 +637,45 @@ export class Player {
       const target = lifeT * bigLife * (1 + this.growth) * gulp;
       this.scale += (target - this.scale) * Math.min(1, dt * 8);
       this.mesh.scale.setScalar(this.scale);
+      // SHADOW HUE: lerp albedo + emissive from the dark violet toward today's
+      // near-black lit look, smoothstepped on _litSmooth exactly like the
+      // shadow-speed curve in move() (same reasoning there: no strobing on a
+      // skimmed light edge). The beacon block below OVERRIDES this during carry.
+      const litE = this._litSmooth * this._litSmooth * (3 - 2 * this._litSmooth);
+      this.mesh.material.color.copy(SHADOW_BODY_COLOR).lerp(LIT_BODY_COLOR, litE);
+      this.mesh.material.emissive.copy(SHADOW_BODY_EMISSIVE).lerp(LIT_BODY_EMISSIVE, litE);
+      const baseEmissiveIntensity = SHADOW_EMISSIVE_INTENSITY
+        + (LIT_EMISSIVE_INTENSITY - SHADOW_EMISSIVE_INTENSITY) * litE;
       // flicker while invulnerable
       this.mesh.material.emissiveIntensity = this.invuln > 0
-        ? 0.55 + Math.sin(t * 30) * 0.4 : 0.55;
+        ? baseEmissiveIntensity + Math.sin(t * 30) * 0.4 : baseEmissiveIntensity;
     }
 
     // BEACON transformation — shadow-monster → light-monster while carrying a
-    // relic (carrySpeedMul>1). The blob's emissive lerps from its dark violet
-    // toward blazing amber and a real point light kindles at its body; both fade
-    // back if the beacon is ever dropped. Overrides the emissive set just above.
+    // relic (carrySpeedMul>1). The blob's emissive lerps from whatever the
+    // shadow-hue block above just set (dark violet or lit near-black) toward
+    // blazing amber, and a real point light kindles at its body; both fade back
+    // if the beacon is ever dropped. Overrides the emissive set just above.
     const beaconOn = this.carrySpeedMul > 1 ? 1 : 0;
     this._beaconGlow += (beaconOn - this._beaconGlow) * Math.min(1, dt * 2.2);
     const bg = this._beaconGlow;
     if (bg > 0.01) {
       const em = this.mesh.material.emissive;
       // hue shifts to a deep EMBER (not bright amber): the emissive COLOUR itself
-      // must stay dark or the near-black body renders pale after sRGB gamma.
-      em.setRGB(0.141 + bg * (1.0 - 0.141), 0.063 + bg * (0.6 - 0.063), 0.251 + bg * (0.24 - 0.251));
-      // DARK CREATURE, not a glowing ball: the self-emissive nearly EXTINGUISHES
-      // during carry (~0.08) so the body is near-black albedo LIT FROM BENEATH by
-      // the molten pool — a dark shadow-thing with an amber underglow gradient
-      // (dark crown, molten belly), not a self-luminous ball. The amber BLAZE is
-      // the pool + PointLight. (Director note: dark creature in an amber blaze.)
-      this.mesh.material.emissiveIntensity = 0.55 - bg * 0.47 + Math.sin(t * 8) * 0.04 * bg;
-      this.beaconLight.intensity = bg * 13.5 * (0.92 + Math.sin(t * 8) * 0.08);
+      // must stay dark-saturated, not pale, or the body clips toward white once
+      // its intensity is pushed up below. Blends from the CURRENT colour (violet
+      // in shadow, near-black in light) so there's no hue pop at carry's onset.
+      const er = em.r, eg = em.g, eb = em.b;
+      em.setRGB(er + bg * (1.0 - er), eg + bg * (0.6 - eg), eb + bg * (0.24 - eb));
+      // GENUINELY GLOWING CREATURE (player-overruled: the old near-extinguished
+      // "dark shape lit from beneath" read as too restrained). The body itself
+      // blazes as it carries — still amber/ember hued, still pulsing, capped
+      // short of white-out. Blends from the CURRENT intensity for the same
+      // no-pop reason as the colour above.
+      const ei = this.mesh.material.emissiveIntensity;
+      this.mesh.material.emissiveIntensity = ei + bg * (CARRY_EMISSIVE_INTENSITY - ei)
+        + Math.sin(t * 8) * CARRY_EMISSIVE_PULSE * bg;
+      this.beaconLight.intensity = bg * BEACON_LIGHT_PEAK * (1 - BEACON_LIGHT_PULSE + Math.sin(t * 8) * BEACON_LIGHT_PULSE);
       this.beaconLight.position.set(this.pos.x, this.pos.y + 0.25, this.pos.z);
     } else if (this.beaconLight.intensity !== 0) {
       this.beaconLight.intensity = 0;
@@ -615,7 +684,8 @@ export class Player {
     // pours from BENEATH the blob — placed at the feet (pos.x/z + groundY, lifted
     // a hair off the floor) so it follows Hush and underlights the goop while the
     // creature stays fully visible above it. Near-zero + hidden when not carrying
-    // (no glow at spawn); RT registration is already baked at compile.
+    // (no glow at spawn); RT registration is already baked at compile (bigger +
+    // brighter than before — see BEACON_POOL_RADIUS_MUL / _EMISSIVE_INTENSITY).
     if (this.beaconPool) {
       const bp = bg > 0.01 ? bg * (0.96 + Math.sin(t * 7) * 0.06) : 0.0015;
       this.beaconPool.scale.setScalar(bp);
