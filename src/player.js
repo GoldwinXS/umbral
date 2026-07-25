@@ -418,7 +418,9 @@ export class Player {
     if (gx != null) this.engulfTarget = { x: gx, z: gz };
     // EVERY feast adds a SIZE: +1 max life, and the new pip arrives filled —
     // grow past 3 and a 4th pip appears, past 4 a 5th, up to the cap. Dying
-    // completely rebuilds a fresh 3-life blob (loadLevel without carry).
+    // rebuilds the blob at the level's CARRY-IN size (loadLevel with
+    // _levelCarry), so a feast eaten on this attempt is lost but the lives you
+    // arrived with are not.
     if (this.maxHealth < this.maxHealthCap) {
       this.maxHealth++;
       this.health = Math.min(this.maxHealth, this.health + 1);

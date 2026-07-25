@@ -102,6 +102,36 @@ const SH_AYAW_HOLD_FADE = 0.5; // s to fade to nothing after that
 const SH_AYAW_NEW_DIR = 0.25;  // rad of change in the stick's camera-space angle that counts as a NEW steer and refills the budget
 const SH_LOOK_YAW = 0.008;     // rad per px of look-stick drag — the same rate as the desktop right-drag orbit, so the two feel like one control
 const SH_LOOK_PITCH = 0.006;   // rad per px vertically — a shade hotter than the mouse's SH_PITCH_SENS because a thumb drag is much shorter than a mouse drag
+
+// ============================ EXPERIMENT 2026-07-25 ==========================
+// "Third-person view looks noisy" investigation. Flip to false to restore the
+// previous (shipping) behaviour exactly — nothing else in the game reads it.
+//
+// three-realtime-rt's integration checklist says: call `rt.setSize(w, h)` with
+// DRAWING-BUFFER (device) pixels — `renderer.getDrawingBufferSize(...)`.
+// _onResize was passing CSS pixels while `renderer.setPixelRatio()` is set to
+// `dpr * settings.resolution * governorScale` (0.6 on the default "perf"
+// preset). So on a 1280x720 window the drawing buffer is 768x432 but every
+// internal tracer target was built at 1408x792 — 2.78x the pixels — and the
+// oversized image was then BILINEAR-MINIFIED (1.83x, 4 taps) onto the canvas,
+// which ALIASES the per-pixel lighting noise back into the visible band instead
+// of averaging it away. It also means the Settings "trace resolution" slider
+// lies: 40% was really ~67% of the canvas.
+//
+// Measured (level 0, shoulder camera turning at 2.4 rad/s, perf preset):
+//   high-frequency grain  -47%   (0.2972 -> 0.1564)
+//   frame cost            -60%   (7.92 ms -> 3.20 ms)
+// See the scratchpad harness noise-probe.mjs / cost-probe.mjs for the method.
+//
+// TRADE-OFF, and why this ships OFF: with the sizes correct, "40% trace
+// resolution" really is 40% of a 768x432 buffer (338x190) instead of the ~67%
+// it was accidentally getting, so the image is visibly SOFTER — shadow edges
+// and small props lose definition. The framing/crop is unaffected. The right
+// follow-up is to turn this on AND spend some of the freed 2.5x on renderScale
+// and on `overscan` (which is what actually fixes the turning camera), not to
+// ship the fix alone. Flip to true to A/B it.
+const EXP_RT_SETSIZE_DRAWINGBUFFER = false;
+// =============================================================================
 // Light-gem calibration. The analytic direct-light SUM at the player's feet is
 // mapped to 0 (shadow) .. 1 (fully lit). The tracer runs gi:false, so a LOS-gated
 // sum of the real scene lights matches what's on screen — and it's deterministic,
@@ -170,6 +200,17 @@ class Game {
     this.guardSpeedMul = 1;
     this.scepterTaken = false;
     this.checkpoint = new THREE.Vector3();
+    // CROSS-LEVEL PERSISTENCE (see loadLevel's `carry` block, _captureCarry and
+    // _win). Declared here so nothing can ever read them undefined.
+    //   _carry      — snapshot taken on WIN, spent when ADVANCING to the next level
+    //   _levelCarry — what the player walked INTO the current level with. This is
+    //                 what a restart (death or the pause menu) must re-apply: a
+    //                 fresh attempt at a level starts from the state the level was
+    //                 first entered in, not from a stripped base blob.
+    //   _pendingReset — a death queued for the next safe frame (see onCaught/_step)
+    this._carry = null;
+    this._levelCarry = null;
+    this._pendingReset = false;
 
     this._ray = new THREE.Raycaster();
     this._camRay = new THREE.Raycaster(); // camera-collision whisker (vertical levels)
@@ -302,7 +343,17 @@ class Game {
       this.camera.aspect = w / h;
       this.camera.updateProjectionMatrix();
     }
-    if (this.rt) this.rt.setSize(w, h);
+    if (this.rt) {
+      if (EXP_RT_SETSIZE_DRAWINGBUFFER) this.rt.setSize(...this._drawingBufferSize());
+      else this.rt.setSize(w, h);
+    }
+  }
+
+  /** Drawing-buffer (device) pixels — see EXP_RT_SETSIZE_DRAWINGBUFFER. */
+  _drawingBufferSize() {
+    this._dbSize = this._dbSize || new THREE.Vector2();
+    this.renderer.getDrawingBufferSize(this._dbSize);
+    return [this._dbSize.x, this._dbSize.y];
   }
 
   // ---------------- camera zoom + orbit ----------------
@@ -783,7 +834,10 @@ class Game {
       });
     }
     click("btnResume", () => this.resume());
-    click("btnRestart", () => { hideAll(); this.loadLevel(this.levelIndex); });
+    // Restart / Replay are the same contract as a death reset: put me back at the
+    // START of this level exactly as I entered it — so they re-apply _levelCarry,
+    // NOT _carry (which by then holds the END-of-level snapshot taken on the win).
+    click("btnRestart", () => { hideAll(); this.loadLevel(this.levelIndex, this._levelCarry); });
     click("btnPauseSettings", () => { this._settingsReturn = "pause"; hideAll(); show("settings"); });
     click("btnQuit", () => this._toTitle());
     click("btnNext", () => {
@@ -792,7 +846,7 @@ class Game {
       if (next < LEVELS.length && next <= this.progress.unlocked) this.loadLevel(next, this._carry);
       else this._toTitle();
     });
-    click("btnReplay", () => { hideAll(); this.loadLevel(this.levelIndex); });
+    click("btnReplay", () => { hideAll(); this.loadLevel(this.levelIndex, this._levelCarry); });
     click("btnWinTitle", () => this._toTitle());
 
     this.settings.buildUI();
@@ -862,6 +916,18 @@ class Game {
     boot.classList.remove("hidden");
     this.isTouch = document.body.classList.contains("coarse"); // reflects the control-mode setting
     this.levelIndex = index;
+    // REMEMBER THE CARRY-IN, so a restart of THIS level can reproduce the exact
+    // state the player first arrived in. Dying used to reload with carry=null,
+    // which did not just reset the level — it confiscated everything earned in
+    // the PREVIOUS levels for the rest of the run (a fed 5-life Hush with 2 maw
+    // charges and 0.3 growth came back as a base 3-life blob). Copied, not
+    // aliased, so a later _captureCarry/_win can never mutate it.
+    this._levelCarry = carry ? { ...carry } : null;
+    // A death queued on the level we are LEAVING must never fire against the one
+    // we are loading. _step consumes _pendingReset at the top of the next frame,
+    // so if a level change slipped in between, that stale flag would immediately
+    // reload the new level and throw away its carry-in.
+    this._pendingReset = false;
     this._disposeScene();
     this._makeRT(); // fresh raytracer for the fresh scene (no stale GPU state)
 
@@ -912,10 +978,12 @@ class Game {
     if (up.maxHealthCap) this.player.maxHealthCap = up.maxHealthCap;
     if (up.maxHealth) { this.player.maxHealth = up.maxHealth; this.player.health = up.maxHealth; }
 
-    // PERSISTENCE across levels — applied ONLY when ADVANCING to the next level
-    // (a death-reset reloads with carry=null, so it stays a real penalty). Keep
-    // hoarded vials + devour charges; size (growth) and lives capacity
-    // (maxHealth) carry forward and only ever grow; health refills to full.
+    // PERSISTENCE across levels — passed in when ADVANCING to the next level
+    // (_carry, captured on the win) and re-passed on a RESTART of this level
+    // (_levelCarry, the state it was entered with). Keep hoarded vials + devour
+    // charges; size (growth) and lives capacity (maxHealth) carry forward and
+    // only ever grow; health refills to full. The penalty for dying is the lost
+    // run inside the level — never the run-long progression that got you here.
     if (carry) {
       this.player.vialCount = Math.max(this.player.vialCount, carry.vials);
       this.player.mawCharges = Math.min(3, Math.max(this.player.mawCharges, carry.maw));
@@ -1030,12 +1098,14 @@ class Game {
     if (result === "dead") {
       this.caughtCount++;
       this.sfx.caught();
-      // All lives spent: the whole heist resets from the level's start with ZERO
-      // progress kept. Deferred to the next frame (_step) because we're currently
-      // deep inside a warden's update() — reloading the scene here would dispose
-      // it out from under the code still running. loadLevel() builds a FRESH
-      // player + level, so scepterTaken/carry is cleared and the objective is NOT
-      // still in hand (otherwise the extraction check would fire on respawn).
+      // All lives spent: the LEVEL resets to its start — no in-level progress
+      // kept, but the run's progression (what you walked in with) is restored,
+      // see _step's _pendingReset block. Deferred to the next frame (_step)
+      // because we're currently deep inside a warden's update() — reloading the
+      // scene here would dispose it out from under the code still running.
+      // loadLevel() builds a FRESH player + level, so scepterTaken is cleared and
+      // the objective is NOT still in hand (otherwise the extraction check would
+      // fire on respawn).
       this._pendingReset = true;
     } else {
       this.sfx.hitFlesh();
@@ -1262,11 +1332,24 @@ class Game {
   _step(dt, t) {
     // A pending full-reset (all lives lost) — do it here, at a safe frame
     // boundary, before touching any now-stale scene refs. loadLevel rebuilds
-    // everything from the level start with no carried objective.
+    // everything from the level start with no carried objective; what it does
+    // NOT undo is the run's cross-level progression (see _levelCarry below).
     if (this._pendingReset) {
       this._pendingReset = false;
+      // The death tally is the one counter that must SURVIVE the reload — it is
+      // the record that you died, and loadLevel zeroes the per-level stats. Kept
+      // across the rebuild so the HUD's "N caught" is not permanently "0 caught"
+      // and the win rating can still see that the run was not clean.
+      const deaths = this.caughtCount;
+      // Reload with the SAME carry-in the level was first entered with: a death
+      // resets the LEVEL, it does not roll back the run.
+      this.loadLevel(this.levelIndex, this._levelCarry);
+      this.caughtCount = deaths;
+      // Prompt AFTER the reload, not before. loadLevel ends by firing the level's
+      // own onStart line (or the level-0 tutorial line), which overwrote this
+      // message in the same frame — so the player was yanked back to the entrance
+      // with no explanation at all, which is what "restarting is buggy" looked like.
       this.hud.prompt("Caught. The dark unravels — and gathers again at the threshold.", 3.5);
-      this.loadLevel(this.levelIndex);
       return;
     }
 
