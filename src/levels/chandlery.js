@@ -391,7 +391,12 @@ export function buildChandlery() {
       { x0: 3.6, z0: 16.5, x1: 5.2, z1: 28.5, pad: 0.2 }, // the east work aisle past the vats
     ];
     // hearth-fuel billets, staged under the walk where the planks keep them dry
-    kit.cluster(14.2, 17.6, [{ prop: "crateStack", w: 2, foot: 0.8 }, "barrel"], { count: 3, footprint: 1.0, backDir: Math.atan2(1, 0.3), clear, seed: 33 });
+    // FIX (geometry audit): the skimming walk's deck sits at y≈2.55 here
+    // (bottom ≈2.25) — a 4-box crateStack (its random 3-4 count occasionally
+    // rolling 4) reaches ~2.30m tall and punched ~0.05m into the deck's
+    // underside. Capping the stack at 3 boxes keeps its top well clear of the
+    // low headroom under the walk without changing the dressing's footprint.
+    kit.cluster(14.2, 17.6, [{ prop: "crateStack", w: 2, foot: 0.8, opts: { count: 3 } }, "barrel"], { count: 3, footprint: 1.0, backDir: Math.atan2(1, 0.3), clear, seed: 33 });
     kit.barrel(14.6, 21.2, { seed: 34 });
     // the skim-cask queue at the ramp's foot — full casks go up empty, come down heavy
     workRank(kit, 5.4, 24.6, 5.4, 20.6, { prop: "barrel", count: 3, face: "wall", clear, seed: 35 });

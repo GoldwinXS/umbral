@@ -285,8 +285,13 @@ export function buildLanternWays() {
   // fall-guard — there is no drop on this edge.)
   // the two HIGH LANTERNS the road exists to feed — tall standards whose
   // flames burn at gallery height. Douseable (E3's rehabilitated DOUSE).
-  kit.torch(14.2, 10.4, TUNE.highLamp);                   // over the wharf gallery's north segment
-  kit.torch(-2.5, 16.35, TUNE.highLamp);                  // over the north gallery's middle
+  // FIX (geometry audit): kit.torch always builds its pole from y=0 up; with
+  // no `base` these stood as GROUND fixtures tall enough that the pole punched
+  // straight through the gallery deck overhead and the flame ended up floating
+  // above the planks instead of standing on them — "lamps clipping through the
+  // second floor". `base` seats each standard on its own gallery's deck.
+  kit.torch(14.2, 10.4, { ...TUNE.highLamp, base: 2.5 });    // over the wharf gallery's north segment (deck y=2.5)
+  kit.torch(-2.5, 16.35, { ...TUNE.highLamp, base: 2.52 });  // over the north gallery's middle (deck y=2.52)
   // the six QUAY LANTERNS — the doubling rows, standing AT the parapets
   kit.torch(-10.5, 4.55, TUNE.quay[0]);
   kit.torch(-3.4, 4.55, TUNE.quay[1]);

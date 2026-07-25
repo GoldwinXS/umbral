@@ -503,25 +503,36 @@ export function makeKit(scene) {
 
     /** Douseable torch/lamp: PointLight + pole + rtExclude flame. `scale` makes
      *  a bigger, taller lantern (pass higher intensity/range for a brighter one)
-     *  so the map can carry a mix of small and great lanterns. */
-    torch(x, z, { color = 0xffb36b, intensity = 6, range = 9, h = 2.2, scale = 1 } = {}) {
+     *  so the map can carry a mix of small and great lanterns. `base` raises
+     *  the whole fixture's foot off y=0 — REQUIRED for any torch meant to
+     *  stand on a raised deck/platform: the pole/light/flame were always built
+     *  from literal y=0 up with no way to relocate them afterward (unlike the
+     *  crate/urn/brazier/deadLantern builders, kit.torch returns no positioned
+     *  group a level could `lift()`), so a deck-height standard placed with
+     *  just (x,z) actually built as a GROUND fixture — tall enough that its
+     *  pole punched straight through the deck slab overhead, and its flame
+     *  ended up floating above the walkway it was meant to light from. Found
+     *  auditing "lamps clipping through the second floor" (5 shipped torches
+     *  across THE LANTERN-WAYS and THE SPIRE ASCENT, all explicitly commented
+     *  as deck-height standards but never given a way to actually sit there). */
+    torch(x, z, { color = 0xffb36b, intensity = 6, range = 9, h = 2.2, scale = 1, base = 0 } = {}) {
       intensity *= 2.2; // global lantern brightness lift — the lamps burn brighter
       const ph = h * scale;
       const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06 * scale, 0.09 * scale, ph, 8), mats.dark);
-      pole.position.set(x, ph / 2, z);
+      pole.position.set(x, base + ph / 2, z);
       scene.add(pole);
       // NOTE: the pole is NOT an occluder — a thin stick shouldn't block sight or
       // (crucially) the torch's own light. Adding it made a torch directly
       // overhead self-occlude, so standing on a torch read as unlit.
       const light = new THREE.PointLight(color, intensity, range);
-      light.position.set(x, ph + 0.15, z);
+      light.position.set(x, base + ph + 0.15, z);
       light.userData.rtRadius = 0.12 * scale;
       scene.add(light);
       const flame = new THREE.Mesh(
         new THREE.OctahedronGeometry(0.16 * scale),
         new THREE.MeshStandardMaterial({ color: 0x000000, emissive: color, emissiveIntensity: 5 })
       );
-      flame.position.set(x, ph + 0.15, z);
+      flame.position.set(x, base + ph + 0.15, z);
       flame.userData.rtExclude = true; // rasterized glow, stays out of the BVH/NEE
       scene.add(flame);
       const t = { x, z, light, flame, baseIntensity: intensity, doused: false };

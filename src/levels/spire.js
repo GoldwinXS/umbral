@@ -312,9 +312,15 @@ export function buildSpire() {
   kit.railing(1, 3.5, 5.5, 3.5, { y: 4.74, h: 0.28, t: 0.22, mat: kit.mats.wood });   // east headstock beam
   kit.railing(-1.85, 3.5, -0.65, 3.5, { y: 3.4, h: 1.0, t: 1.0, mat: kit.mats.dark }); // the GREAT BELL — impassable; there is no duck mechanic, so the deck routes around it
   kit.railing(2.55, 3.5, 3.75, 3.5, { y: 3.44, h: 1.0, t: 1.0, mat: kit.mats.dark });  // the second bell
-  kit.torch(-11, 5.2, TUNE.stairHead);                  // the upper station lamp at the flight's head (deck-height standard)
-  kit.torch(1.2, 1.1, TUNE.belfry);                     // the dais standard                                     [KEPT 8/11]
-  kit.torch(11.2, 1.2, TUNE.belfry);                    // the rope-store standard                               [KEPT 8/11]
+  // FIX (geometry audit): these three are all authored as deck-height
+  // standards (see comments), but kit.torch always built its pole from y=0 up
+  // with no way to relocate it afterward — so unlifted, each one stood as a
+  // GROUND fixture tall enough to punch its pole straight through the belfry
+  // deck overhead, flame ending up floating above the planks instead of
+  // standing on them. `base` seats each standard on the deck it names.
+  kit.torch(-11, 5.2, { ...TUNE.stairHead, base: 2.52 }); // the upper station lamp at the flight's head (west-arm deck y=2.52)
+  kit.torch(1.2, 1.1, { ...TUNE.belfry, base: 2.54 });    // the dais standard (dais deck y=2.54)                  [KEPT 8/11]
+  kit.torch(11.2, 1.2, { ...TUNE.belfry, base: 2.5 });    // the rope-store standard (rope-store deck y=2.5)       [KEPT 8/11]
   kit.fogPatch(-16, 0, 15.7, 7, { density: 0.03 });     // the crown stands in cloud — shafts through lancet + around the bells
   const gHigh = kit.guard([[-14, 4.8], [-6.8, 4.8], [-11.2, 6.2], [-6.8, 4.8]], TUNE.vStairHigh);
   gHigh.y = 2.52;                                       // UPPER STAIR-WARD — flight-head round; the hour-call pause looks down the flight
