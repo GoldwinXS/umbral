@@ -1,9 +1,11 @@
 /**
- * Unified input: keyboard + an analog virtual joystick (touch / pointer) and
- * on-screen action buttons. Produces a single `Input` state the game reads:
+ * Unified input: keyboard + an analog virtual joystick (touch / pointer), a
+ * right-side LOOK drag, and on-screen action buttons. Produces a single
+ * `Input` state the game reads:
  *   move {x,z} (-1..1 analog), sneak (bool), run (bool),
+ *   look {dx,dy} (accumulated pixels, game zeroes it after applying),
  * and edge-triggered actions consumed via consume(name):
- *   blink, strike, vial, pause
+ *   blink, strike, vial, pause, mute, view
  */
 export class Input {
   constructor() {
@@ -12,6 +14,11 @@ export class Input {
     this.sneak = false;
     this.run = false;
     this._actions = new Set();
+    // RIGHT-SIDE LOOK STICK: pixels dragged since the game last read them. It
+    // is raw DELTAS, not a camera edit — main.js owns camYaw/camPitch and
+    // zeroes this after applying, so there is exactly one place that steers.
+    this.look = { dx: 0, dy: 0 };
+    this.lookEnabled = false; // third-person only (main.js sets it on view change)
     this.enabled = false; // game captures input only while playing
 
     // --- keyboard ---
@@ -26,6 +33,9 @@ export class Input {
       if (k === "q") this._actions.add("vial");
       if (k === "escape" || k === "p") this._actions.add("pause");
       if (k === "m") this._actions.add("mute");
+      // v = swap tactical <-> third-person camera. Edge-triggered like every
+      // other action (consumed in Game._step) so a held key can't strobe it.
+      if (k === "v") this._actions.add("view");
     });
     window.addEventListener("keyup", (e) => this.keys.delete(e.key.toLowerCase()));
     window.addEventListener("blur", () => this.keys.clear());
@@ -59,10 +69,46 @@ export class Input {
       this.joy.active = false; this.joy.x = 0; this.joy.z = 0; this.joy.mag = 0;
       base.classList.remove("on"); knob.classList.remove("on");
     };
+    // --- right-side look drag (third-person only) ---
+    // Deliberately invisible and origin-less: a drag anywhere in the right zone
+    // steers the camera by its own delta. No markup, no knob, no CSS — it rides
+    // the SAME #touchLayer pointer events as the move stick, and because each
+    // gesture is keyed to its own pointerId, walking with the left thumb and
+    // looking with the right work at the same time (the whole point).
+    let lookId = null, lx = 0, ly = 0;
+    const lookMove = (e) => {
+      if (e.pointerId !== lookId) return;
+      this.look.dx += e.clientX - lx;
+      this.look.dy += e.clientY - ly;
+      lx = e.clientX; ly = e.clientY;
+      e.preventDefault();
+    };
+    const lookEnd = (e) => {
+      if (e.pointerId !== lookId) return;
+      lookId = null; // any unread delta stays queued — a release flick still counts
+    };
+
     layer.addEventListener("pointerdown", (e) => {
+      const guard = (el) => !!(el && el.closest && el.closest(".tbtn, #pauseBtn, #hudIcons, .overlay, button"));
+      if (e.clientX > window.innerWidth * 0.55) {
+        // RIGHT = look zone. HUD controls win: the #hudIcons cluster
+        // (fullscreen / view buttons) lives up here, and a look-drag that ate
+        // those presses would make them unusable on touch. Checked against the
+        // element under the POINT as well as the event target, because
+        // #hudIcons is a SIBLING of this layer rather than a child — a press
+        // there never bubbles here at all, so the target test alone proves
+        // nothing, and a coordinate test also covers anything stacked later.
+        if (!this.lookEnabled || !this.enabled || lookId !== null) return;
+        if (guard(e.target) || guard(document.elementFromPoint(e.clientX, e.clientY))) return;
+        lookId = e.pointerId;
+        try { layer.setPointerCapture(lookId); } catch (_) {}
+        lx = e.clientX; ly = e.clientY;
+        e.preventDefault();
+        return;
+      }
+      // LEFT = move stick, with exactly the guard it always had.
       if (joyId !== null) return;
-      if (e.clientX > window.innerWidth * 0.55) return; // left zone only
-      if (e.target.closest && e.target.closest(".tbtn, #pauseBtn, .overlay, button")) return;
+      if (guard(e.target)) return;
       joyId = e.pointerId;
       try { layer.setPointerCapture(joyId); } catch (_) {}
       ox = e.clientX; oy = e.clientY;
@@ -74,6 +120,9 @@ export class Input {
     layer.addEventListener("pointermove", joyMove);
     layer.addEventListener("pointerup", joyEnd);
     layer.addEventListener("pointercancel", joyEnd);
+    layer.addEventListener("pointermove", lookMove);
+    layer.addEventListener("pointerup", lookEnd);
+    layer.addEventListener("pointercancel", lookEnd);
 
     // --- touch action buttons ---
     const bind = (id, action) => {

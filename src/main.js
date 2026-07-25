@@ -41,6 +41,67 @@ const CHASE_BOOM = 8.0;    // base horizontal distance behind the blob in chase 
 const CHASE_BOOM_MIN = 5.5, CHASE_BOOM_MAX = 12.0; // clamp so zoom can't make it silly
 const CHASE_LOOK_AHEAD = 2.5; // units the look-at is pushed AHEAD of the blob (along camera-forward)
 const CHASE_CEIL_MARGIN = 0.6; // camera sits this far below the deck (== the old clamp height)
+// SHOULDER (THIRD-PERSON) CAMERA — an optional CLOSE, LOW boom just behind the
+// blob, toggled with V / the HUD button / the Settings row. The tactical boom
+// reads a level like a map; the shoulder view reads it like a place — you see
+// the alley walls, a torch at eye height, how tall a warden really is. It is
+// deliberately a SECOND view rather than a replacement: stealth routing needs
+// the overview, so tactical stays the default and the toggle blends between
+// them (a snap between two framings this different is nauseating).
+const VIEW_TAU = 0.35;        // s time-constant of the tactical<->shoulder ease; a touch slower than CHASE_TAU because the move is much bigger
+const SH_PIVOT_Y = 0.9;       // m above the blob's ground plane the boom pivots around. THIS is the framing knob: the pivot lands dead centre of frame, so aiming this far ABOVE the blob is what pushes the blob low and fills the middle of the screen with the ground you are walking into. 1.15 ("head height") put the blob two thirds of the way down and the horizon up in the top quarter — 0.9 reads better in a screenshot.
+const SH_BOOM = 3.4;          // base boom length: short enough that the blob reads as a character, long enough that its own bulk doesn't eat the frame
+const SH_BOOM_MIN = 2.2, SH_BOOM_MAX = 6.0; // clamp the zoom-scaled boom so wheel/pinch still does something without ending up inside the blob or back at tactical range
+const SH_PITCH_DEFAULT = 0.2; // rad; gentle downward tilt — the floor ahead (where the light pools are) is visible without losing the skyline
+const SH_PITCH_MIN = -0.15;   // rad; barely above level — looking further up is disorienting and shows only sky
+const SH_PITCH_MAX = 0.9;     // rad; steeply down, the "where exactly is that ledge" pitch, short of a top-down that would just duplicate tactical
+const SH_PITCH_SENS = 0.005;  // rad per px of vertical mouse look-drag
+const SH_LOOK_AHEAD = 2.6;    // units the look target is pushed PAST the pivot, ALONG the same ray. It cannot change where the camera points (same direction) — what it buys is the cross-fade: the tactical and shoulder look targets are lerped as POINTS, and a target this far out keeps that interpolation from swinging as the views trade places.
+const SH_SHOULDER = 0.55;     // lateral over-the-shoulder slide — breaks the dead-centre symmetry so the blob never covers the exact spot you are steering toward
+const SH_FLOOR_CLEAR = 0.75;  // camera never gets closer than this to the floor it is over. Well above the 0.35 a near-plane needs: the levels are dressed with knee-high clutter (crates ~0.55 tall) and a probe sweep found the camera dipping THROUGH those at negative pitch. 0.75 clears the clutter belt.
+const SH_CEIL_MARGIN = 0.45;  // …nor within this of a deck overhead. Tighter than CHASE_CEIL_MARGIN: the shoulder boom is short, so it can sit closer without the deck filling the frame
+const SH_SQUEEZE_MIN = 1.8;   // boom length below which the camera counts as SQUEEZED by a wall and tries to recover by tilting down (see _shoulderTarget)
+const SH_SQUEEZE_LIFT = 0.75; // rad of extra downward pitch at a full squeeze — enough to climb over a head-high wall, short of a top-down
+const SH_WHISK_AHEAD = 0.4;   // the wall whisker looks this far PAST the camera. The tactical whisker stops short of its own camera, which is fine for a 12m boom but leaves a 3.4m one sitting a few cm inside a wall it only just reached.
+const CAM_FOV = 48;           // the base (tactical) field of view the camera is built with
+const SH_FOV = 58;            // shoulder FOV — a close boom needs a wider cone or the frame is all blob; blended, so tactical is untouched
+// AUTO-FOLLOW YAW — in third-person the camera eases around behind the blob's
+// heading so the player rarely has to steer it by hand. The delicate part is
+// that movement is CAMERA-RELATIVE: turning the camera also turns what "push
+// forward" means, so a naive follow spirals on any held off-axis input, and
+// whips 180 degrees the instant you back toward the camera. Both are handled by
+// weighting the correction (rear dead zone) and hard-capping its rate.
+const SH_AYAW_TAU = 0.20;      // s ease constant toward the heading. Was 0.7 and read as sluggish in playtest: the camera lagged the turn instead of leading it.
+const SH_AYAW_MIN_SPEED = 1.1; // m/s below which heading is ignored (SPEEDS.sneak is 1.35): an idle or barely-creeping blob has a noisy heading and would make the camera hunt
+const SH_AYAW_DEADZONE = 0.22; // rad (~13 deg) of error left uncorrected — kills micro-jitter when you are already running straight at the camera's forward. Widened alongside the faster rate below: with a quick correction, a narrow dead zone lets a held diagonal chase its own tail visibly.
+const SH_AYAW_SOFT = 1.75;     // rad (~100 deg): beyond this the correction starts fading out
+const SH_AYAW_HARD = 2.44;     // rad (~140 deg): past here it is ZERO. This is the backing-up case — the camera holds still and you walk toward it, instead of the camera whipping around behind you and inverting your controls mid-step.
+const SH_AYAW_MAX_RATE = 3.2;  // rad/s hard cap (~185 deg/s). THIS, not the tau, was what made the follow feel slow: at the old 0.7 a 90-degree turn took over two seconds regardless of the ease. It still exists to bound the held-diagonal case (camera-relative input means a held strafe never resolves its error), but it must sit well ABOVE the rate a real turn needs, or it caps every turn instead of just the pathological one.
+const SH_AYAW_RESUME = 1.2;    // s of no manual camera input before auto-follow takes over again — manual always wins instantly, or the player fights the camera
+// INPUT-ALIGNMENT WEIGHT. Movement is camera-relative, so turning the camera
+// also turns what the stick means: a HELD off-axis push has a heading error
+// that can never resolve, and the loop spins forever (measured: a held strafe
+// drifts ~183 deg/s — a full revolution every two seconds — once the rate cap
+// is high enough to make ordinary turns feel fast). The cap cannot fix that
+// without also slowing the turns the player asked to be fast, so the fix is to
+// judge the REQUEST, not just the heading: a forward push whose heading has
+// drifted is a camera problem and gets corrected hard; a deliberate sideways or
+// backward push is the player choosing to strafe and gets left alone.
+const SH_AYAW_IN_FULL = 0.35;  // rad (20 deg) of stick-vs-camera-forward offset that still counts as "running forward" — full correction
+const SH_AYAW_IN_ZERO = 0.90;  // rad (52 deg) and beyond: no correction at all. Between the two it fades, so steering a diagonal round a corner still arcs the camera gently instead of stopping dead.
+// TURN-IN BUDGET. Alignment weighting alone still leaves a slow spin for a
+// SMALL held diagonal (measured: 22 deg off-axis held for 5s dragged the camera
+// 530 deg — one and a half revolutions). So an off-axis push gets a BURST, not
+// a permanent torque: it turns the camera at full speed while the stick
+// direction is new, then fades out if you just keep holding it. Steering into a
+// corner feels fast and the camera settles into the diagonal run instead of
+// circling. A near-forward push is exempt — that is the drift-correction case
+// (wall slide, shove, momentum), which must be able to work indefinitely.
+const SH_AYAW_HOLD = 0.6;      // s an off-axis push turns the camera at full weight
+const SH_AYAW_HOLD_FADE = 0.5; // s to fade to nothing after that
+const SH_AYAW_NEW_DIR = 0.25;  // rad of change in the stick's camera-space angle that counts as a NEW steer and refills the budget
+const SH_LOOK_YAW = 0.008;     // rad per px of look-stick drag — the same rate as the desktop right-drag orbit, so the two feel like one control
+const SH_LOOK_PITCH = 0.006;   // rad per px vertically — a shade hotter than the mouse's SH_PITCH_SENS because a thumb drag is much shorter than a mouse drag
 // Light-gem calibration. The analytic direct-light SUM at the player's feet is
 // mapped to 0 (shadow) .. 1 (fully lit). The tracer runs gi:false, so a LOS-gated
 // sum of the real scene lights matches what's on screen — and it's deterministic,
@@ -119,6 +180,19 @@ class Game {
     this._camOff2 = new THREE.Vector3(); // scratch dir for the camera whisker
     this.camDist = 1;   // zoom (0.5 close … 2.0 far)
     this.camYaw = 0;    // orbit rotation about the player
+    this.camPitch = SH_PITCH_DEFAULT; // shoulder-view tilt ONLY — tactical never reads it
+    // VIEW MODE (see SH_* consts near CAM_OFFSET). The real boot value comes
+    // from the saved setting just after _initRenderer() creates Settings; the
+    // field is declared here so nothing can read it undefined.
+    this.viewMode = "tactical"; // "tactical" (high 3/4 orbit boom) | "shoulder" (close third-person)
+    this._viewBlend = 0;        // 0 = pure tactical, 1 = pure shoulder; eased, settles to EXACT 0/1
+    this._shCam = new THREE.Vector3();  // shoulder position target (filled by _shoulderTarget)
+    this._shLook = new THREE.Vector3(); // shoulder look target
+    this._camManualT = 0; // s of auto-follow suspension left after hand-steering the camera
+    this._moveInX = 0; this._moveInZ = 0; // last movement request in CAMERA space (see _noteMoveInput)
+    this._moveInT = 99;                   // age of that snapshot, seconds — starts stale
+    this._moveInAngle = 0;                // camera-space angle of the current steer
+    this._moveInHoldT = 0;                // s that steer has been held (spends the turn-in budget)
     // under-deck chase-camera state (see CHASE_* consts near CAM_OFFSET)
     this._chaseBlend = 0;    // 0 = normal orbit boom, 1 = full under-deck chase
     this._chaseWant = false; // debounced target mode (flipped by hysteresis)
@@ -126,6 +200,12 @@ class Game {
     this._chaseCeilY = Infinity; // remembered deck height, so an exit eases from the real ceiling
 
     this._initRenderer();
+    // Settings exists only after _initRenderer, so the saved view choice is
+    // applied here. _viewBlend starts already settled at the chosen end so a
+    // third-person player doesn't watch the camera swoop down on every boot.
+    this.viewMode = this.settings.view3p ? "shoulder" : "tactical";
+    this._viewBlend = this.viewMode === "shoulder" ? 1 : 0;
+    this.input.lookEnabled = this.viewMode === "shoulder";
     this._initUI();
     this.input.enabled = true;
 
@@ -142,6 +222,9 @@ class Game {
     requestAnimationFrame(this._loop);
 
     window.UMBRAL = this; // debug / test hook
+    // Announce the boot view so the HUD's view button starts on the right
+    // label. The Hud is constructed above, so its listener is already attached.
+    window.dispatchEvent(new CustomEvent("umbral-view", { detail: { mode: this.viewMode } }));
   }
 
   // ---------------- setup ----------------
@@ -225,6 +308,115 @@ class Game {
   // ---------------- camera zoom + orbit ----------------
 
   _clampZoom() { this.camDist = Math.max(0.5, Math.min(2.0, this.camDist)); }
+  _clampPitch() { this.camPitch = Math.max(SH_PITCH_MIN, Math.min(SH_PITCH_MAX, this.camPitch)); }
+  /** Any hand-driven camera input: auto-follow yields for SH_AYAW_RESUME seconds. */
+  _camManual() { this._camManualT = SH_AYAW_RESUME; }
+
+  /**
+   * Record the movement request in CAMERA space — i.e. before _step rotates it
+   * into world space. Auto-follow needs the request, not just the resulting
+   * heading, to tell "I am running forward and the camera has drifted off my
+   * back" from "I am deliberately strafing" (see SH_AYAW_IN_*). Goes stale on
+   * its own, so a caller that drives _followCamera without feeding input (the
+   * playtest harness) simply gets the unweighted controller.
+   */
+  _noteMoveInput(x, z) { this._moveInX = x; this._moveInZ = z; this._moveInT = 0; }
+
+  /**
+   * AUTO-FOLLOW YAW (third-person only — see the SH_AYAW_* block). Eases camYaw
+   * toward the direction the blob is actually MOVING, so the camera ends up
+   * behind you without being steered. Deliberately conservative:
+   *   - nothing below SH_AYAW_MIN_SPEED (a still blob has a garbage heading),
+   *   - nothing inside SH_AYAW_DEADZONE (no hunting when already aligned),
+   *   - shortest angular path, so it never takes the long way round,
+   *   - the correction fades to ZERO as the heading approaches straight-back,
+   *     which is what makes backing up feel right: walk toward the camera and
+   *     it simply holds, rather than whipping around and inverting your stick
+   *     halfway through the step,
+   *   - and the whole thing is rate-capped, because camera-relative movement
+   *     means a held diagonal never resolves — capped, that reads as a slow
+   *     arc; uncapped it is a spin.
+   * Manual input (drag, twist, look stick, , / .) suspends it outright.
+   */
+  _autoYaw(dt) {
+    this._camManualT = Math.max(0, this._camManualT - dt);
+    if (!this.settings.autoFollow || this._camManualT > 0) return;
+    const v = this.player.vel;
+    const sp = Math.hypot(v.x, v.z);
+    if (sp < SH_AYAW_MIN_SPEED) return;
+    // camera-forward is (sin yaw, -cos yaw), so the yaw that looks along the
+    // heading is atan2(vx, -vz).
+    const want = Math.atan2(v.x / sp, -v.z / sp);
+    let d = want - this.camYaw;
+    while (d > Math.PI) d -= Math.PI * 2;
+    while (d < -Math.PI) d += Math.PI * 2;
+    const err = Math.abs(d);
+    if (err < SH_AYAW_DEADZONE) return;
+    let w = 1;
+    if (err > SH_AYAW_SOFT) {
+      const u = Math.min(1, (err - SH_AYAW_SOFT) / (SH_AYAW_HARD - SH_AYAW_SOFT));
+      w = 1 - u * u * (3 - 2 * u); // smoothstep out — no hard edge at the boundary
+    }
+    // …and weight by the REQUEST as well (see SH_AYAW_IN_*). Only counted while
+    // the snapshot is fresh; a zero/tiny stick still gets full correction,
+    // because then any heading at all is drift (a shove, a slope, a slide).
+    this._moveInT += dt;
+    if (this._moveInT < 0.25) {
+      const ml = Math.hypot(this._moveInX, this._moveInZ);
+      if (ml > 0.05) {
+        const aiS = Math.atan2(this._moveInX / ml, -this._moveInZ / ml);
+        // has the player steered somewhere new? that refills the turn-in budget
+        let ad = aiS - this._moveInAngle;
+        while (ad > Math.PI) ad -= Math.PI * 2;
+        while (ad < -Math.PI) ad += Math.PI * 2;
+        if (Math.abs(ad) > SH_AYAW_NEW_DIR) { this._moveInAngle = aiS; this._moveInHoldT = 0; }
+        else this._moveInHoldT += dt;
+        const ai = Math.abs(aiS);
+        if (ai > SH_AYAW_IN_FULL) {
+          const u = Math.min(1, (ai - SH_AYAW_IN_FULL) / (SH_AYAW_IN_ZERO - SH_AYAW_IN_FULL));
+          w *= 1 - u * u * (3 - 2 * u);
+          // spend the turn-in budget (see SH_AYAW_HOLD)
+          const h = Math.min(1, Math.max(0, (this._moveInHoldT - SH_AYAW_HOLD) / SH_AYAW_HOLD_FADE));
+          w *= 1 - h * h * (3 - 2 * h);
+        }
+      }
+    }
+    if (w <= 0) return;
+    // ease, then clamp the per-frame step to the rate cap
+    let step = d * w * (1 - Math.exp(-dt / SH_AYAW_TAU));
+    const maxStep = SH_AYAW_MAX_RATE * dt;
+    if (step > maxStep) step = maxStep;
+    else if (step < -maxStep) step = -maxStep;
+    this.camYaw += step;
+  }
+
+  /**
+   * Switch the camera view (and persist it). NAME CONTRACT: `toggleView()`,
+   * the "umbral-view" event and its `detail.mode` shape are what the HUD's
+   * view button calls and listens for — do not rename any of the three.
+   */
+  setViewMode(mode) {
+    const next = mode === "shoulder" ? "shoulder" : "tactical";
+    if (next === this.viewMode) return;
+    this.viewMode = next;
+    // the right-side look drag exists only in third-person (tactical keeps the
+    // two-finger pinch/twist it always had)
+    this.input.lookEnabled = next === "shoulder";
+    this.sfx.ui();
+    this.hud.prompt(next === "shoulder"
+      ? (this.isTouch
+        ? "<b>Third-person</b> view. Two-finger drag up/down to tilt."
+        : "<b>Third-person</b> view. <b>Right-drag</b> up/down to tilt · <span class='keycap'>V</span> to switch back.")
+      : (this.isTouch
+        ? "<b>Tactical</b> view — the high boom."
+        : "<b>Tactical</b> view — the high boom. <span class='keycap'>V</span> for third-person."), 3);
+    // Persist through Settings (not localStorage directly) so the settings
+    // panel row, the saved file and the live camera can never disagree.
+    if (this.settings.view3p !== (next === "shoulder")) this.settings.set("view3p", next === "shoulder");
+    window.dispatchEvent(new CustomEvent("umbral-view", { detail: { mode: this.viewMode } }));
+  }
+
+  toggleView() { this.setViewMode(this.viewMode === "shoulder" ? "tactical" : "shoulder"); }
 
   /** The follow offset for the current zoom + yaw (base is a high 3/4 view). */
   _camOffset() {
@@ -247,6 +439,106 @@ class Game {
   }
 
   /**
+   * THIRD-PERSON target: a close, low boom behind the blob at `camPitch`, with
+   * the look target pushed PAST the pivot along the SAME ray — so camPitch is
+   * literally the on-screen camera pitch. The pivot therefore sits dead centre
+   * of frame, and because it is SH_PIVOT_Y above the blob's feet, the blob
+   * itself rides low and the middle of the screen is the ground ahead.
+   * Fills this._shCam/_shLook.
+   *
+   * All the close-camera safety lives HERE, on the shoulder target itself
+   * (floor clamp, deck clamp, wall whisker), so _followCamera only ever blends
+   * between two points that are each already known-good — no mid-transition
+   * clamp can yank the tactical boom when the blend is barely off zero.
+   */
+  _shoulderTarget() {
+    const { player } = this;
+    const s = Math.sin(this.camYaw), c = Math.cos(this.camYaw);
+    const pitch0 = Math.max(SH_PITCH_MIN, Math.min(SH_PITCH_MAX, this.camPitch));
+    // zoom still matters, but compressed: the wheel should nudge the framing,
+    // not travel all the way back out to the tactical boom.
+    const boom = Math.max(SH_BOOM_MIN, Math.min(SH_BOOM_MAX, SH_BOOM * (0.55 + 0.45 * this.camDist)));
+    const ground = player.groundY || 0;
+    const pivotY = ground + SH_PIVOT_Y;
+    // (-s, c) is "behind" and (s, -c) "ahead" — the same yaw basis the orbit
+    // boom and the under-deck chase use, so camera-relative movement (the
+    // camYaw rotation of input.move in _step) is unchanged by the view swap.
+    // (c, s) is that forward crossed with up: the over-the-shoulder slide.
+    const pivX = player.pos.x + c * SH_SHOULDER;
+    const pivZ = player.pos.z + s * SH_SHOULDER;
+    // Whisker origin: the BLOB itself, not the shoulder-shifted pivot. The
+    // property being protected is "you can always see the blob", and a probe
+    // sweep found the 0.55 lateral shift putting the ray on the far side of a
+    // wall the camera was then happily parked inside.
+    const ox = player.pos.x, oy = ground + 0.6, oz = player.pos.z;
+
+    // One candidate placement at a given pitch, fully safety-clamped. Returned
+    // `dist` is how much boom survived — that is what tells the caller the
+    // camera got squeezed and a different pitch is worth trying.
+    const place = (pitch) => {
+      const cp = Math.cos(pitch), sp = Math.sin(pitch);
+      let camX = pivX + (-s) * boom * cp;
+      let camY = pivotY + boom * sp;
+      let camZ = pivZ + ( c) * boom * cp;
+      // floor: a camera at floor height clips through every kerb and step edge.
+      camY = Math.max(camY, ground + SH_FLOOR_CLEAR);
+      // deck overhead (tested at the CAMERA's column, not the blob's — the boom
+      // is what ends up under the catwalk when you walk out from under one).
+      const ceilY = this._ceilingAbove(camX, camZ, ground);
+      if (ceilY < Infinity) camY = Math.min(camY, Math.max(ground + SH_FLOOR_CLEAR, ceilY - SH_CEIL_MARGIN));
+      // wall whisker — same idea as the tactical one, but cast from the blob
+      // (not the look target, which now sits past the blob and would give a ray
+      // that misses the wall actually between you and the camera).
+      const dx = camX - ox, dy = camY - oy, dz = camZ - oz;
+      let cd = Math.hypot(dx, dy, dz);
+      if (cd > 0.2) {
+        this._camRay.set(this._tmpDir.set(ox, oy, oz), this._camOff2.set(dx, dy, dz).normalize());
+        this._camRay.far = cd + SH_WHISK_AHEAD; // see SH_WHISK_AHEAD: also catch a wall the camera has only just entered
+        const hit = this._camRay.intersectObjects(this.level.occluders, false)[0];
+        if (hit) {
+          // Pull IN to 0.25 short of the surface, but never closer to the blob
+          // than an ABSOLUTE 0.15 (not a fraction of the boom — a fraction
+          // scales with zoom, and at max zoom the "minimum" landed further out
+          // than the wall it was avoiding, parking the camera inside it). 0.15
+          // is inside the blob's own radius, so no wall is ever nearer.
+          // The 1 ceiling stops a hit past the camera from pushing it out.
+          const f = Math.min(1, Math.max(0.15 / cd, (hit.distance - 0.25) / cd));
+          camX = ox + dx * f; camY = oy + dy * f; camZ = oz + dz * f;
+          cd *= f;
+        }
+      }
+      return { camX, camY, camZ, cd, cp, sp, pitch };
+    };
+
+    // SQUEEZE RECOVERY. In a tight space (L7's entry alcove was the case that
+    // caught this) the boom collapses onto the blob and the screen is nothing
+    // but blob. Rather than accept that, tilt DOWN — a steeper pitch lifts the
+    // camera over the wall that is doing the squeezing and buys the boom back.
+    // The lift is proportional to how squeezed we are, so it eases in with the
+    // wall instead of snapping when a threshold is crossed, and the retry is
+    // only kept if it genuinely recovers more boom.
+    let r = place(pitch0);
+    if (r.cd < SH_SQUEEZE_MIN) {
+      const sq = Math.min(1, (SH_SQUEEZE_MIN - r.cd) / (SH_SQUEEZE_MIN - 0.15));
+      const r2 = place(Math.min(SH_PITCH_MAX, pitch0 + SH_SQUEEZE_LIFT * sq));
+      if (r2.cd > r.cd) r = r2;
+    }
+    let camX = r.camX, camY = r.camY, camZ = r.camZ;
+    const lookX = pivX + ( s) * r.cp * SH_LOOK_AHEAD;
+    const lookY = pivotY - r.sp * SH_LOOK_AHEAD;
+    const lookZ = pivZ + (-c) * r.cp * SH_LOOK_AHEAD;
+    // NOTE the two floors. SH_FLOOR_CLEAR (0.75) is the clearance in the open,
+    // applied above; the whisker can slide the camera below it when it squeezes
+    // toward the blob, and the HARD floor in that case is the whisker's own
+    // origin height (0.6 over the ground). Deliberately not re-clamped here:
+    // lifting the camera back up after the pull-in moves it OFF the ray that
+    // was just proven clear, and a probe sweep caught exactly that putting it
+    // back inside a wall on 18 of 900 frames.
+    this._shCam.set(camX, camY, camZ);
+    this._shLook.set(lookX, lookY, lookZ);
+  }
+
+  /**
    * The follow camera: a high 3/4 orbit boom that tracks the blob, with a
    * per-frame lerp toward the target. When a raised deck/catwalk is directly
    * overhead the boom cannot look down through it, so we ease (hysteretic,
@@ -261,6 +553,10 @@ class Game {
    */
   _followCamera(dt) {
     const { player } = this;
+    // Auto-follow runs FIRST (it edits camYaw, which everything below reads)
+    // and only in third-person, so tactical is untouched — it is the one place
+    // camYaw moves by itself, and tactical must stay bit-identical.
+    if (this.viewMode === "shoulder") this._autoYaw(dt);
     const off = this._camOffset();
     const lead = 0.4;
     const elev = player.groundY || 0;
@@ -332,6 +628,36 @@ class Game {
         }
       }
     }
+    // ---- TACTICAL <-> SHOULDER CROSS-FADE ----
+    // Ease toward the selected view and blend BOTH targets. Two properties are
+    // load-bearing: the ease settles to EXACT 0 (so a settled tactical view
+    // skips this block entirely and takes the byte-identical original path)
+    // and to EXACT 1 (so a settled shoulder view is a real shoulder framing,
+    // not a 0.999 lerp that leaves the boom subtly wrong forever).
+    // The CHASE_* state above keeps RUNNING while in shoulder mode but its
+    // result is fully cross-faded out at blend 1 — a low chase boom is
+    // pointless when the camera is already low. Letting the state machine tick
+    // (rather than freezing it) is what keeps it uncorrupted: it stays in sync
+    // with the deck the blob is actually under, so blending back to tactical
+    // resumes mid-stride instead of easing out of a stale ceiling.
+    const vTarget = this.viewMode === "shoulder" ? 1 : 0;
+    this._viewBlend += (vTarget - this._viewBlend) * (1 - Math.exp(-dt / VIEW_TAU));
+    if (vTarget === 0 && this._viewBlend < 1e-4) this._viewBlend = 0;
+    if (vTarget === 1 && this._viewBlend > 1 - 1e-4) this._viewBlend = 1;
+    if (this._viewBlend > 0) {
+      const v = this._viewBlend, vs = v * v * (3 - 2 * v); // smoothstep ease
+      this._shoulderTarget();
+      const mix = (a, b) => (vs >= 1 ? b : a + (b - a) * vs); // exact at the ends
+      camX = mix(camX, this._shCam.x); camY = mix(camY, this._shCam.y); camZ = mix(camZ, this._shCam.z);
+      tgtLookX = mix(tgtLookX, this._shLook.x);
+      tgtLookY = mix(tgtLookY, this._shLook.y);
+      tgtLookZ = mix(tgtLookZ, this._shLook.z);
+    }
+    // FOV rides the same ease: a 3.4m boom through a 48-degree cone is all
+    // blob. At _viewBlend 0 this evaluates to exactly CAM_FOV and the equality
+    // test skips the write, so tactical never even rebuilds its projection.
+    const b2 = this._viewBlend, wantFov = CAM_FOV + (SH_FOV - CAM_FOV) * (b2 * b2 * (3 - 2 * b2));
+    if (this.camera.fov !== wantFov) { this.camera.fov = wantFov; this.camera.updateProjectionMatrix(); }
     this._camPos.set(camX, camY, camZ);
     this.camera.position.lerp(this._camPos, 1 - Math.pow(0.001, dt));
     this.camera.lookAt(tgtLookX, tgtLookY, tgtLookZ);
@@ -347,14 +673,41 @@ class Game {
       e.preventDefault();
     }, { passive: false });
     // desktop: right-drag = orbit
-    let rx = null;
-    window.addEventListener("pointerdown", (e) => { if (e.pointerType === "mouse" && e.button === 2 && playing()) { rx = e.clientX; this._rotating = true; } });
-    window.addEventListener("pointermove", (e) => { if (rx != null) { this.camYaw += (e.clientX - rx) * 0.008; rx = e.clientX; } });
-    window.addEventListener("pointerup", () => { rx = null; this._rotating = false; });
+    let rx = null, ry = null;
+    window.addEventListener("pointerdown", (e) => {
+      if (e.pointerType !== "mouse" || !playing()) return;
+      const shoulder = this.viewMode === "shoulder";
+      // Right-drag always steers the camera. In third-person a plain LEFT-drag
+      // does too: desktop movement is WASD, so the left button is otherwise
+      // dead weight, and third-person is the view people actually want to aim.
+      if (e.button !== 2 && !(shoulder && e.button === 0)) return;
+      // …but never when the press lands on a HUD control (the icon cluster,
+      // touch buttons, menus), or the drag eats the click.
+      if (e.button === 0 && e.target && e.target.closest && e.target.closest("button, .tbtn, #hudIcons, .overlay")) return;
+      rx = e.clientX; ry = e.clientY;
+      // The movement LOCK is a tactical affordance (a drag there is never a
+      // walk command). In third-person you must be able to walk while looking,
+      // so the lock is skipped — WASD keeps working through the drag.
+      if (!shoulder) this._rotating = true;
+      this._camManual();
+    });
+    window.addEventListener("pointermove", (e) => {
+      if (rx == null) return;
+      if (e.clientX !== rx || e.clientY !== ry) this._camManual();
+      this.camYaw += (e.clientX - rx) * 0.008; rx = e.clientX;
+      // SHOULDER ONLY: the vertical component tilts. Sign follows the same
+      // "grab the world and drag it" sense as the yaw above — pulling DOWN
+      // swings the camera down toward eye level, pushing UP lifts it to look
+      // at the floor. Tactical has no pitch at all, and camPitch is left
+      // untouched there so switching views never reveals a surprise tilt.
+      if (this.viewMode === "shoulder") { this.camPitch -= (e.clientY - ry) * SH_PITCH_SENS; this._clampPitch(); }
+      ry = e.clientY;
+    });
+    window.addEventListener("pointerup", () => { rx = null; ry = null; this._rotating = false; });
     window.addEventListener("contextmenu", (e) => { if (playing()) e.preventDefault(); });
     // touch: two-finger pinch = zoom, twist = orbit
     const pts = new Map();
-    let pd = 0, pa = 0;
+    let pd = 0, pa = 0; // pinch distance, twist angle
     const two = () => { const it = [...pts.values()]; return [it[0], it[1]]; };
     window.addEventListener("pointerdown", (e) => {
       if (e.pointerType !== "touch") return;
@@ -365,14 +718,29 @@ class Game {
       if (e.pointerType !== "touch" || !pts.has(e.pointerId)) return;
       pts.set(e.pointerId, e);
       if (pts.size >= 2 && playing()) {
-        this._rotating = true;
         const [a, b] = two();
         const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
         const ang = Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX);
+        // In THIRD-PERSON the right half of the screen is the look stick (see
+        // input.js), so the common two-pointer case is "left thumb walking,
+        // right thumb looking" — which must NOT read as a pinch/twist, and must
+        // NOT set _rotating (that would freeze the walk). Only a real gesture
+        // with BOTH fingers on the right survives, and it keeps pinch-zoom
+        // alone: yaw and tilt belong to the look stick.
+        const rightZone = window.innerWidth * 0.55;
+        if (this.viewMode === "shoulder") {
+          if (a.clientX > rightZone && b.clientX > rightZone && pd > 0) {
+            this.camDist *= pd / Math.max(1, dist); this._clampZoom();
+          }
+          pd = dist; pa = ang;
+          return;
+        }
+        this._rotating = true;
         if (pd > 0) {
           this.camDist *= pd / Math.max(1, dist); this._clampZoom();
           let da = ang - pa; while (da > Math.PI) da -= Math.PI * 2; while (da < -Math.PI) da += Math.PI * 2;
           this.camYaw += da;
+          this._camManual();
         }
         pd = dist; pa = ang;
         e.preventDefault();
@@ -566,10 +934,19 @@ class Game {
     this._collectLights();
     this._occludedT = 0; this._camHintCd = 3; this._camHintCount = 0; // fresh camera-hint state
 
-    this.camDist = 1; this.camYaw = 0; // reset view each level
-    this.camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.1, 160);
+    this.camDist = 1; this.camYaw = 0; this.camPitch = SH_PITCH_DEFAULT; // reset view each level
+    this.camera = new THREE.PerspectiveCamera(CAM_FOV, window.innerWidth / window.innerHeight, 0.1, 160);
     this.camera.position.copy(bag.spawn).add(this._camOffset());
     this.camera.lookAt(bag.spawn);
+    // A third-person player should OPEN on the shoulder framing, not watch the
+    // camera fall out of the sky into it — the blend is for toggling mid-play.
+    if (this.viewMode === "shoulder") {
+      this._viewBlend = 1;
+      this._shoulderTarget();
+      this.camera.position.copy(this._shCam);
+      this.camera.lookAt(this._shLook);
+      this.camera.fov = SH_FOV; this.camera.updateProjectionMatrix();
+    }
 
     bootMsg.textContent = "tracing light…";
     const t0 = performance.now();
@@ -682,6 +1059,9 @@ class Game {
     this.maxDanger = 0;
     this.rt.resetAccumulation();
     this.camera.position.copy(this.checkpoint).add(this._camOffset());
+    // …and in third-person, land at the shoulder framing directly (same reason
+    // as loadLevel: a respawn should not begin with a drop from the tactical boom).
+    if (this.viewMode === "shoulder") { this._shoulderTarget(); this.camera.position.copy(this._shCam); }
   }
 
   pause() {
@@ -889,17 +1269,42 @@ class Game {
 
     if (input.consume("pause")) { this.pause(); return; }
     if (input.consume("mute")) { this.settings.sound = !this.settings.sound; this.settings.apply(); }
+    if (input.consume("view")) this.toggleView();
+    // The Settings panel row writes view3p directly (Settings.set), so mirror
+    // it here — the V key, the HUD button and the panel are then one state
+    // with one code path, and no cross-module listener to keep in sync.
+    if (this.settings.view3p !== (this.viewMode === "shoulder")) {
+      this.setViewMode(this.settings.view3p ? "shoulder" : "tactical");
+    }
 
     // while orbiting the camera (right-drag / two-finger twist), lock movement so
     // a stray thumb/drag doesn't walk the blob when you meant to rotate
     if (this._rotating) { input.move.x = 0; input.move.z = 0; if (input.joy) input.joy.active = false; }
 
+    // TOUCH LOOK STICK — input.js only ACCUMULATES the right-side drag; the
+    // camera is applied here so camYaw/camPitch stay owned by one file. Ignored
+    // outright in tactical (that view has no pitch and its own twist gesture).
+    if (input.look && (input.look.dx || input.look.dy)) {
+      if (this.viewMode === "shoulder") {
+        this.camYaw += input.look.dx * SH_LOOK_YAW;
+        // same sign as the mouse look-drag, so the two controls agree
+        this.camPitch -= input.look.dy * SH_LOOK_PITCH;
+        this._clampPitch();
+        this._camManual();
+      }
+      input.look.dx = 0; input.look.dy = 0;
+    }
+
     // keyboard camera: , / . orbit, - / = zoom
     const k = input.keys;
-    if (k.has(",")) this.camYaw -= dt * 1.7;
-    if (k.has(".")) this.camYaw += dt * 1.7;
+    if (k.has(",")) { this.camYaw -= dt * 1.7; this._camManual(); }
+    if (k.has(".")) { this.camYaw += dt * 1.7; this._camManual(); }
     if (k.has("-")) { this.camDist += dt * 1.1; this._clampZoom(); }
     if (k.has("=") || k.has("+")) { this.camDist -= dt * 1.1; this._clampZoom(); }
+
+    // snapshot the request in camera space before it is rotated away — the only
+    // consumer is auto-follow (see _noteMoveInput / SH_AYAW_IN_*)
+    this._noteMoveInput(input.move.x, input.move.z);
 
     // movement is camera-relative: rotate the input by the orbit so "up" is
     // always away from the camera, whatever the yaw
@@ -1108,8 +1513,13 @@ class Game {
     // camera-obstruction hint: if the blob is hidden behind geometry (a tall
     // building/wall between camera and player) for a few seconds, teach the
     // player they can rotate/zoom around it. Shown a couple of times per level.
+    // Suppressed in third-person: the hint's advice (rotate/zoom AROUND the
+    // obstruction) is tactical advice — the shoulder boom is 3.4m long with its
+    // own wall whisker, so a "blocked" reading there is a momentary near-clip,
+    // not a building in the way, and telling the player to zoom out is wrong.
     const cp = this.camera.position;
-    const blocked = !player.frozen && !this.los(cp.x, cp.y, cp.z, player.pos.x, player.pos.y + 0.35, player.pos.z);
+    const blocked = !player.frozen && this._viewBlend <= 0.5 &&
+      !this.los(cp.x, cp.y, cp.z, player.pos.x, player.pos.y + 0.35, player.pos.z);
     this._occludedT = blocked ? this._occludedT + dt : 0;
     this._camHintCd = Math.max(0, this._camHintCd - dt);
     if (this._occludedT > 2.5 && this._camHintCd <= 0 && this._camHintCount < 3) {

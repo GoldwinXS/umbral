@@ -1,7 +1,8 @@
 /**
  * Graphics settings: state, persistence (localStorage), live-apply to the
- * RealtimeRaytracer, and the settings-panel UI. GI is deliberately not
- * exposed — direct-light + emissive NEE is the look.
+ * RealtimeRaytracer, and the settings-panel UI. Direct light + emissive NEE is
+ * the default look; GI is an opt-in row (rt.gi is a live uniform, so it needs
+ * no recompile) and is half-rate when on — see apply().
  */
 // DEFAULTS start on the CONSERVATIVE "perf" tier ON PURPOSE — the game should
 // load and run on weak/integrated GPUs out of the box, so a machine that still
@@ -23,6 +24,9 @@ export const DEFAULTS = {
   sound: true,
   overlayOpacity: 0.2, // multiplier for in-world effects (sound rings, reticles…); 0.2 is the new "100%"
   touch: null,        // null = auto-detect; true = on-screen controls, false = desktop
+  view3p: false,      // camera view: false = tactical 3/4 boom (the default — stealth routing needs the overview), true = close third-person
+  autoFollow: true,   // third-person only: swing the camera behind the blob's heading. ON by default — hand-steering a low camera every corner is the main reason third-person views feel bad
+  gi: false,          // one bounce of indirect light. OFF by default: it is the single most expensive switch here and the game targets weak GPUs
 };
 
 const PRESETS = {
@@ -61,6 +65,7 @@ export class Settings {
         reflections: this.reflections, stochastic: this.stochastic,
         adaptive: this.adaptive, targetFps: this.targetFps, sound: this.sound,
         overlayOpacity: this.overlayOpacity, touch: this.touch,
+        view3p: this.view3p, autoFollow: this.autoFollow, gi: this.gi,
       }));
     } catch (_) {}
   }
@@ -95,6 +100,18 @@ export class Settings {
       rt.stochasticLights = this.stochastic;
       rt.adaptiveQuality = this.adaptive;
       rt.targetFps = this.targetFps;
+      // GI: `gi` feeds a per-frame uniform, so this is a LIVE toggle — no
+      // recompile, no tracer rebuild. It is always paired with giHalfRate
+      // (bounce traced on alternating checkerboard parity: unbiased, converges
+      // to the same brightness, ~half the ray cost), because this game targets
+      // weak GPUs and full-rate GI is not a trade they should have to discover.
+      // One user-facing knob, not two.
+      const giWas = rt.gi;
+      rt.gi = this.gi;
+      rt.giHalfRate = this.gi;
+      // ...and drop the temporal history, or the pre-GI lighting smears through
+      // the accumulation for a second after the switch.
+      if (giWas !== this.gi && rt.resetAccumulation) rt.resetAccumulation();
       rt.renderScale = this.renderScale; // setter reallocates targets
     }
     this._applyResolution();
@@ -108,7 +125,12 @@ export class Settings {
     this[key] = value;
     // The governor owns these three while it runs — touching them turns it off.
     if (["renderScale", "denoise", "stochastic"].includes(key)) this.adaptive = false;
-    if (key !== "touch") this.preset = "custom"; // control mode isn't a graphics preset
+    // Neither the control mode nor the camera view is a GRAPHICS setting, so
+    // neither one should knock the preset off "perf"/"bal"/"beauty" — a player
+    // who picks third-person has not customised their quality tier.
+    // GI is deliberately NOT exempt — it is a real graphics cost, so turning it
+    // on is exactly the kind of change "custom" is meant to record.
+    if (key !== "touch" && key !== "view3p" && key !== "autoFollow") this.preset = "custom";
     this.apply();
   }
 
@@ -155,9 +177,12 @@ export class Settings {
     toggle("Temporal AA", "taa", "Smooths edges, slight lag");
     toggle("Volumetric light beams", "volumetric", "Visible light shafts through haze");
     toggle("Reflections", "reflections", "Traced gloss on crystal floors — costly");
+    toggle("Indirect light (GI)", "gi", "One bounce of light off walls — the costliest option here. Looks richer; hiding is unchanged, so a corner can now look brighter than the gem reads.");
     toggle("Stochastic shadows", "stochastic", "1 shadow ray/px — faster, noisier");
     toggle("Adaptive quality", "adaptive", "Auto-tunes quality to hold target FPS");
     toggle("Touch controls", "touch", "On-screen stick + buttons (mobile). Off = desktop keys.");
+    toggle("Third-person camera", "view3p", "Low view just behind you (V). Off = the high tactical boom.");
+    toggle("Auto-follow camera", "autoFollow", "Third-person: the camera swings behind the way you are moving. Steering it by hand always takes over.");
 
     // preset buttons
     const pres = { prePerf: "perf", preBal: "bal", preBeauty: "beauty" };
@@ -178,7 +203,7 @@ export class Settings {
       if (input) input.value = this[key];
       if (val) val.textContent = this._fmt[key](this[key]);
     }
-    for (const key of ["taa", "volumetric", "reflections", "stochastic", "adaptive", "touch"]) {
+    for (const key of ["taa", "volumetric", "reflections", "gi", "stochastic", "adaptive", "touch", "view3p", "autoFollow"]) {
       const t = document.getElementById("set_" + key);
       if (t) t.classList.toggle("on", !!this[key]);
     }
