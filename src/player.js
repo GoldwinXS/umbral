@@ -57,6 +57,16 @@ const LIT_BODY_EMISSIVE = new THREE.Color(0x241040);    // today's emissive, ful
 const SHADOW_EMISSIVE_INTENSITY = 0.5;  // BELOW the lit value on purpose: darkness should dim the creature, not kindle it
 const LIT_EMISSIVE_INTENSITY = 0.55;    // today's value (unchanged)
 
+// ---------------- UMBRAL SIGHT (seeing in the dark) -------------------------
+// A faint cold pool under the creature so unlit rooms are navigable. Tuned to
+// be a HINT of shape, not a lantern: if this reads as a light source it breaks
+// both the mood and the fiction that darkness is where you are safe. Gameplay
+// invariant by construction — the meter never looks at emissive meshes.
+const SIGHT_COLOR = 0x2a55ff;  // deep blue, well away from the amber the Vigil owns — this is Hush's own sight, not their fire
+const SIGHT_INTENSITY = 1.5;   // keep it a HINT of shape. It is free of the stealth meter, so the only thing stopping it becoming a floodlight is restraint
+const SIGHT_RANGE = 7.5;       // reveals the floor and near walls, not the room
+const SIGHT_CARRY_FADE = 1.0;  // how completely the blue yields to the beacon while carrying (1 = gone)
+
 // ---------------- BEACON GLOW (carrying the relic) --------------------------
 // The player asked for this MUCH brighter than the original "dark creature
 // lit from beneath" look. Three independent knobs — see harness/shot-safe-
@@ -199,6 +209,24 @@ export class Player {
     // walls, while the rim under the blob underlights the goop. Pushed bigger
     // + brighter than the original per the player's "glow much more" ask —
     // both are compile-time (see BEACON GLOW block above).
+    // UMBRAL SIGHT — a faint cold PointLight riding with the blob so the player
+    // can actually see in unlit rooms. It is a real light, but the stealth meter
+    // never counts it: `_collectLights` in main.js skips any light tagged
+    // userData.meterIgnore, so this cannot lift playerVis and cannot get you
+    // spotted. Fictionally it is how Hush perceives, not a lamp it carries.
+    //
+    // An emissive DISC was built first (the beacon-pool pattern, which the meter
+    // ignores for free since it only sums isLight objects) and then REPLACED:
+    // emissive triangles compete for a shared 256-tri NEE budget where LARGEST
+    // AREA WINS, and a floor-wide disc beats every lantern flame in the level.
+    // THE LANTERN-WAYS already compiles at exactly 256 (harness/emitter-count.mjs),
+    // so the disc would silently evict flames there — torches going dark for no
+    // visible reason. A PointLight costs nothing from that budget.
+    this.sightLight = new THREE.PointLight(SIGHT_COLOR, SIGHT_INTENSITY, SIGHT_RANGE);
+    this.sightLight.userData.rtRadius = 0.5;   // soft, not a pinpoint
+    this.sightLight.userData.meterIgnore = true; // THE contract with _collectLights
+    scene.add(this.sightLight);
+
     const poolR = PLAYER_R * BEACON_POOL_RADIUS_MUL;
     this.beaconPool = new THREE.Mesh(
       new THREE.CircleGeometry(poolR, 14), // 14 tris, up-facing when laid flat
@@ -691,6 +719,16 @@ export class Player {
       this.beaconPool.scale.setScalar(bp);
       this.beaconPool.position.set(this.pos.x, this.groundY + 0.04, this.pos.z);
       this.beaconPool.visible = bg > 0.02;
+    }
+    // UMBRAL SIGHT: the cold pool that lets the player see. Rides at the feet
+    // like the beacon pool and is dimmed the same way (scale, since emit is
+    // frozen at compile). It YIELDS to the beacon while carrying — two pools
+    // fighting would muddy the amber and, worse, blue-shift the one moment the
+    // creature is supposed to read as stolen light. Sits a hair below the
+    // beacon pool's height so the two never z-fight when both are mid-fade.
+    if (this.sightLight) {
+      this.sightLight.intensity = SIGHT_INTENSITY * Math.max(0, 1 - bg * SIGHT_CARRY_FADE);
+      this.sightLight.position.set(this.pos.x, this.groundY + 0.5, this.pos.z);
     }
 
     // engulf: the blob reaches out a dark sac, swells to swallow the warden,

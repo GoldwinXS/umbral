@@ -1136,6 +1136,12 @@ class Game {
     this._lights.length = 0;
     this.scene.traverse((o) => {
       if (!o.isLight) return;
+      // OPT-OUT: a light tagged meterIgnore lights the picture but is NOT part
+      // of how exposed the player is. Currently just Hush's own see-in-the-dark
+      // glow — it must never lift the gem or the player would be permanently
+      // spotted for carrying their own eyes. Everything else counts, including
+      // the beacon, which SHOULD blaze you into view while carrying a relic.
+      if (o.userData && o.userData.meterIgnore) return;
       // moon (dir) + every point light: torches, fills, dormant lamps, scepter.
       // Warden/eye SpotLights are handled separately (cone logic), so skip them.
       if (o.isDirectionalLight) this._lights.push({ kind: "dir", light: o });
