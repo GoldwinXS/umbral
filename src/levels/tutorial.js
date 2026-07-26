@@ -305,7 +305,10 @@ export function buildTutorial() {
   // between the bands, not on the exit), moonlit through the burnt breach
   // behind it. Its glow is dimmed so the strip stays a viable dark step.
   const wick = kit.scepterPedestal(25.5, 6);          // the tally plinth, off the z0..3 lane
-  wick.core.material.emissive.set(0xffd76a);
+  bag.relicName = "Wickstone";                        // the sealed-rift answer names it (main.js)
+  // (the gold recolour that used to sit here is GONE — the relic wears the goal
+  // colour now, campaign-wide. The DIM below stays: it is a detection-design
+  // choice, so the centre strip remains a viable dark step.)
   wick.light.intensity = 1.2; wick.light.distance = 4; // a faint relic glow, not a detection pool
   {
     const clear = [

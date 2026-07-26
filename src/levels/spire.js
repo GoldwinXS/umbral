@@ -640,7 +640,8 @@ export function buildSpire() {
     for (const tc of bag.torches) {
       if (!tc.doused) tc.light.intensity = tc.baseIntensity * (0.9 + 0.1 * Math.sin(t * 6 + tc.x)); // [KEPT flicker]
     }
-    if (bag.extract) bag.extract.disc.material.emissiveIntensity = 1.5 + Math.sin(t * 2.4) * 0.7;   // [KEPT]
+    // (the old full-brightness rift pulse lived here; the rift now owns its own
+    // dormant/awake breath in levelKit — see extraction().tick)
   };
 
   return bag;

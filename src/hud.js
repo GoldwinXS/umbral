@@ -2,10 +2,20 @@
  * HUD: light gem, noise ping, tool states, devour charge, objective, stats,
  * prompt toasts.
  */
+
+// The GOAL COLOR, as CSS. Same hue as levelKit's GOAL_TEAL (0x39f0c0) — the
+// relic, the woken rift and the vial caches all wear it in the world, so the
+// OBJECTIVE line wears it too and text-goal and world-goal say the same thing.
+// Kept as a literal rather than imported: hud.js is DOM-only and has no other
+// reason to pull in the level kit.
+const GOAL_TEAL_CSS = "#39f0c0";
+
 export class Hud {
   constructor() {
     this.el = {
       hud: document.getElementById("hud"),
+      objective: document.getElementById("objective"),
+      objLabel: document.querySelector("#objective .obj-label"),
       objText: document.getElementById("objText"),
       statTime: document.getElementById("statTime"),
       statAlerts: document.getElementById("statAlerts"),
@@ -28,6 +38,14 @@ export class Hud {
     };
     this._promptT = 0;
     this._gem = 0;
+
+    // OBJECTIVE ACCENT — colour only, no layout: the label goes goal-teal and
+    // the box's hairline follows it. (Deliberately not a left border: that would
+    // add 3px of width and shift the text, and this pass is not allowed to move
+    // anything.) The violet stays everywhere else — violet is Hush's own colour,
+    // teal is "the thing you want".
+    if (this.el.objLabel) this.el.objLabel.style.color = GOAL_TEAL_CSS;
+    if (this.el.objective) this.el.objective.style.borderColor = "rgba(57,240,192,.30)";
   }
 
   show(on) { this.el.hud.classList.toggle("hidden", !on); }

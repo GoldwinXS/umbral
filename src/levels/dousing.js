@@ -307,6 +307,7 @@ export function buildDousing() {
 
   // ================= relic — the Everwick on the snuffing altar =============== [KEPT (50,0)]
   kit.scepterPedestal(50, 0);
+  bag.relicName = "Snuffrod";                      // the sealed-rift answer names it (main.js)
 
   // ==========================================================================
   // DRESSING — every prop placed where its user left it. Keep-clear discipline:
@@ -635,9 +636,8 @@ export function buildDousing() {
         s.group.position.set(s.x, 1.9 + Math.sin(t * 2) * 0.12, s.z);
       }
     }
-    if (bag.extract) {
-      bag.extract.disc.material.emissiveIntensity = 1.5 + Math.sin(t * 2.4) * 0.7;
-    }
+    // (the old full-brightness rift pulse lived here; the rift now owns its own
+    // dormant/awake breath in levelKit — see extraction().tick)
   };
 
   bag.startVials = 3;                                     // [KEPT] — the vial through-line (M2 grants 3)

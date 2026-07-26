@@ -6,12 +6,24 @@ import * as THREE from "three";
  *
  *   scene, spawn, boxes[], cylinders[], occluders[], holes[], surfaces[],
  *   guards[] (specs), torches[], caches[], scepter, extract, checkpoints[],
- *   triggers[], gates[], dormant[], fogZones[], objective, startVials,
+ *   triggers[], gates[], dormant[], fogZones[], objective, relicName, startVials,
  *   update?(t,dt,game), onTrigger?(id,game), onAlarm?(game)
  *
  * Colliders are plain data (circle-vs-OBB solver in main.js), so gates can be
  * opened without a BVH recompile — only the *ray traced* scene is structural.
  */
+
+/**
+ * THE GOAL COLOR. One hue, one meaning.
+ *
+ * Everything the player should move toward or want wears this teal — the relic,
+ * the woken extraction rift, the vial caches — and nothing hostile ever does.
+ * Flame-gold (the 0xffd76a family) is the VIGIL's colour: light that hunts you.
+ * The 2026-07-25 playtest kept asking "why can't I leave the level?" and walking
+ * INTO gold, because the game was using the same warm glow for the prize and for
+ * the threat. Exported so no call site ever re-types the hex and drifts.
+ */
+export const GOAL_TEAL = 0x39f0c0;
 
 export const SURFACES = {
   moss:     { mult: 0.3,  color: 0x10302a, rough: 1.0,  metal: 0.0 },
@@ -57,7 +69,10 @@ export function makeKit(scene) {
     reflectors: [], // reflective pools {x,z,r} that catch the player's reflection
     mirrors: [],    // deforming mirror-water pools {mesh, update(t)} — driven per frame
     scepter: null,
-    extract: null,
+    extract: null,  // the rift — see extraction(): {x,z,disc,tear,column,light,lit,setLit,setY,tick}
+    // The relic's proper noun, if the level's relic has one ("Wickstone").
+    // main.js names it when it refuses a sealed rift; blank falls back to "relic".
+    relicName: "",
     checkpoints: [],// {x,z,r,spawn}
     triggers: [],   // {id,x,z,r,fired}
     gates: [],      // {id,mesh,collider,open}
@@ -84,6 +99,13 @@ export function makeKit(scene) {
       // touch slower and softer (embers breathe; they don't gutter like wicks)
       f.light.intensity = f.baseIntensity * (0.92 + 0.08 * Math.sin(t * 6.1 + f.x * 1.7 + f.z));
     }
+    // The extraction rift breathes. Kit-owned for the same reason brazier
+    // flicker is: every level was hand-rolling the identical
+    // `extract.disc.material.emissiveIntensity = 1.5 + sin(t*2.4)*0.7` line,
+    // which pinned the rift at full brightness — the exact "the exit advertises
+    // a door that will not open" bug. One owner, so setLit() can never be
+    // overwritten by a level's own update.
+    if (bag.extract) bag.extract.tick(t);
     if (_levelUpdate) _levelUpdate(t, dt, game);
   };
   Object.defineProperty(bag, "update", {
@@ -123,6 +145,27 @@ export function makeKit(scene) {
     g2.fillStyle = grd; g2.fillRect(0, 0, 128, 128);
     _hazeTex = new THREE.CanvasTexture(c);
     return _hazeTex;
+  }
+
+  // Vertical fade strip for the extraction rift's beacon column: opaque at the
+  // BOTTOM, gone by the top, so a 14 m additive tube reads as a shaft of light
+  // dissolving into the night instead of a hard-topped pipe. Canvas row 0 is the
+  // texture's TOP (CanvasTexture flips Y), so the gradient is drawn top-clear /
+  // bottom-solid. Built lazily and shared by every rift in the campaign.
+  let _riftFadeTex = null;
+  function riftFadeTex() {
+    if (_riftFadeTex) return _riftFadeTex;
+    const c = document.createElement("canvas");
+    c.width = 4; c.height = 256;
+    const g2 = c.getContext("2d");
+    const grd = g2.createLinearGradient(0, 0, 0, 256);
+    grd.addColorStop(0.0, "rgba(255,255,255,0)");     // top of the column — nothing
+    grd.addColorStop(0.45, "rgba(255,255,255,0.28)");
+    grd.addColorStop(0.85, "rgba(255,255,255,0.85)");
+    grd.addColorStop(1.0, "rgba(255,255,255,1)");     // the rift mouth — brightest
+    g2.fillStyle = grd; g2.fillRect(0, 0, 4, 256);
+    _riftFadeTex = new THREE.CanvasTexture(c);
+    return _riftFadeTex;
   }
 
   // split a span [a,b] into solid runs around the door gaps [[g0,g1],...]
@@ -847,10 +890,18 @@ export function makeKit(scene) {
       // so the relic reads as a glowing amber jewel. Kept in the traced pass (not
       // rtExclude) so the refraction happens; transparent materials never occlude,
       // so it casts no hard shadow. Refraction rides the global rt.ior.
+      // COOL glass tint (was a warm 0xffd8a0): the refraction has to AGREE with
+      // the glow it wraps, or the relic reads gold-through-amber at a distance
+      // and teal only up close. Goal colour, one meaning — see GOAL_TEAL.
       const shell = new THREE.Mesh(
         new THREE.OctahedronGeometry(0.28, 0),
         new THREE.MeshPhysicalMaterial({
-          color: 0xffd8a0, roughness: 0.06, metalness: 0.0,
+          // NOTE (tested, 2026-07-25): pushing this tint deeper (0x6ffbe0) to
+          // fight a warm level's key light makes the gem read LIME, not teal —
+          // the tracer tints glass by material colour alone (attenuationColor is
+          // not read), so a saturated tint becomes the whole gem. The pale tint
+          // stays; the teal READ comes from the core and the light pool.
+          color: 0xb0fff0, roughness: 0.06, metalness: 0.0,
           transmission: 1.0, thickness: 0.5, ior: 1.6,
           transparent: true,
           // NO emissive: a small, close transmissive+emissive mesh is exactly the
@@ -865,11 +916,14 @@ export function makeKit(scene) {
       // → always rasterized + self-lit, whatever the tracer is doing.
       const core = new THREE.Mesh(
         new THREE.IcosahedronGeometry(0.12, 0),
-        new THREE.MeshStandardMaterial({ color: 0x1a1020, emissive: 0xffd76a, emissiveIntensity: 3.5 })
+        new THREE.MeshStandardMaterial({ color: 0x1a1020, emissive: GOAL_TEAL, emissiveIntensity: 3.5 })
       );
       core.userData.rtExclude = true;
       group.add(core);
-      const light = new THREE.PointLight(0xffd76a, 5, 8);
+      // The relic's own light goes teal too. Intensity and range are UNCHANGED,
+      // so the detection maths is untouched: _computePlayerVis reads intensity
+      // and direction, never colour — recolouring a light is meter-bit-identical.
+      const light = new THREE.PointLight(GOAL_TEAL, 5, 8);
       light.userData.rtRadius = 0.1;
       group.add(light);
       group.position.set(x, 1.9, z);
@@ -878,17 +932,152 @@ export function makeKit(scene) {
       return bag.scepter;
     },
 
-    /** Extraction rift — win trigger. */
+    /**
+     * EXTRACTION RIFT — the win trigger, and the level's single "go here" sign.
+     *
+     * DORMANT until the relic is in hand. The old rift was a flat disc blazing
+     * full teal from frame one: it advertised a door that would not open, which
+     * is precisely the playtest's "why can't I leave the level?". Now the rift
+     * SLEEPS (a dim, slow breath — something is here, and it is asleep) and
+     * WAKES on the grab, throwing a beacon column the player can see over the
+     * rooftops from anywhere in the level. main.js drives the wake; this builds
+     * the pieces and owns `setLit`.
+     *
+     * RENDER CONTRACT (three-realtime-rt 0.6.0) — every clause here is load-bearing:
+     *  - Runtime emissive changes do NOT propagate to the NEE emitter table, so
+     *    every animated-glow piece is rtExclude. This adds ZERO NEE emitters:
+     *    four levels (Lantern-Ways, Chandlery, Spire, Reliquary) already sit
+     *    EXACTLY at the shared MAX_EMISSIVE_TRIS = 256, and one more emitter
+     *    would silently evict a warden's lantern flame.
+     *  - The tear and the column are ADDITIVE transparent overlays. The traced
+     *    raster pass composites transparency as a single flat depth-writing
+     *    layer with no additive blend mode, so those two live in `fxGroup`,
+     *    which main.js moves into the overlay pass — the same move it already
+     *    makes for fog walls. Bonus, and the reason the column works at all: the
+     *    overlay pass is depth-tested against the structural depth proxy, so the
+     *    column's lower half is hidden BY the buildings and its upper half
+     *    stands over them. That is the "go this way" read.
+     *  - The PointLight is dormant at intensity 0, and syncLights SKIPS lights
+     *    at intensity <= 0 — a sleeping rift costs nothing against MAX_LIGHTS
+     *    (32; the heaviest level, Spire, measures 26). By the time a rift wakes,
+     *    the relic pickup has already zeroed the scepter's own light, so on a
+     *    relic level the slot is handed over rather than added.
+     *  - The light is `meterIgnore`: the Vigil sees by flame and riftlight is
+     *    void (lore), and mechanically it keeps _computePlayerVis bit-identical
+     *    across the wake — waking the exit can never change how exposed you are.
+     */
     extraction(x, z) {
+      // dormant / awake endpoints for the ground disc's self-glow.
+      // DORMANT_E was first shipped at 0.12 and the director's frame check
+      // failed it: in a pitch-dark level a 0.12 emissive of saturated teal
+      // still reads as a LIT green pad — i.e. exactly the "active exit"
+      // misread this rework exists to kill. 0.04 is a whisper: present when
+      // you are standing at the gate, invisible as an advertisement. Sealed
+      // discovery is carried by the touch prompt, not the glow.
+      const DORMANT_E = 0.04, LIT_E = 2.4;
+
+      // ---- the TRACED half: ground disc + rift light ----------------------
+      const group = new THREE.Group();
+      group.position.set(x, 0, z);
+
+      // slightly smaller than the old r1.3 plate: the rift is a seam in the
+      // world, not a stage. Near-black body so the dormant disc reads as a cold
+      // scar rather than a lamp.
       const disc = new THREE.Mesh(
-        new THREE.CylinderGeometry(1.3, 1.3, 0.1, 24),
-        new THREE.MeshStandardMaterial({ color: 0x06120e, emissive: 0x39f0c0, emissiveIntensity: 1.8 })
+        new THREE.CylinderGeometry(1.1, 1.1, 0.1, 24),
+        new THREE.MeshStandardMaterial({ color: 0x03100c, emissive: GOAL_TEAL, emissiveIntensity: DORMANT_E })
       );
-      disc.position.set(x, 0.05, z);
-      disc.userData.rtExclude = true; // glow-only rift — keep it out of the NEE area-light table (firefly source)
-      scene.add(disc);
-      bag.extract = { x, z, disc };
-      return bag.extract;
+      disc.position.y = 0.05;
+      disc.userData.rtExclude = true; // glow-only rift — never an NEE area light (firefly source)
+      group.add(disc);
+
+      const light = new THREE.PointLight(GOAL_TEAL, 0, 10);
+      light.position.y = 1.0;
+      light.userData.rtRadius = 0.15;
+      light.userData.meterIgnore = true; // see the render contract above
+      group.add(light);
+      scene.add(group);
+
+      // ---- the OVERLAY half: the tear + the beacon column ------------------
+      const fxGroup = new THREE.Group();
+      fxGroup.position.set(x, 0, z);
+      fxGroup.userData.riftFx = true; // tag for debugging/inspection; main.js reaches it as bag.extract.fxGroup
+
+      // THE TEAR: two crossed planes make a vertical lens that holds its shape
+      // from every angle without a billboard. One shared material, so setLit
+      // touches opacity in one place.
+      const tearMat = new THREE.MeshBasicMaterial({
+        map: hazeTex(), color: GOAL_TEAL, transparent: true, opacity: 0,
+        blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+      });
+      const tear = [];
+      for (let i = 0; i < 2; i++) {
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 2.2), tearMat);
+        m.position.y = 1.15;
+        m.rotation.y = (i * Math.PI) / 2;
+        m.renderOrder = 3;
+        m.userData.rtExclude = true;
+        fxGroup.add(m);
+        tear.push(m);
+      }
+
+      // THE BEACON COLUMN: the level-scale signal. 14 m so it clears every
+      // rooftop in the campaign, open-ended (no lid), widening slightly upward
+      // so it reads as a beam escaping rather than a pipe.
+      const colMat = new THREE.MeshBasicMaterial({
+        map: riftFadeTex(), color: GOAL_TEAL, transparent: true, opacity: 0,
+        blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+      });
+      const column = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.75, 0.5, 14, 16, 1, true),
+        colMat
+      );
+      column.position.y = 7;
+      column.renderOrder = 3;
+      column.userData.rtExclude = true;
+      fxGroup.add(column);
+      scene.add(fxGroup);
+
+      const rift = {
+        x, z, group, fxGroup, disc, tear, column, light,
+        lit: 0,          // 0 dormant … 1 awake (main.js overshoots to ~1.6 on the wake flare)
+        _baseE: DORMANT_E,
+
+        /**
+         * The ONE place the rift's four pieces are set. f is 0..1 (values above
+         * 1 are the wake flare and are allowed — opacities clamp, the light and
+         * the disc are free to blaze).
+         */
+        setLit(f) {
+          const k = Math.max(0, f);
+          rift.lit = k;
+          rift._baseE = DORMANT_E + (LIT_E - DORMANT_E) * k;
+          disc.material.emissiveIntensity = rift._baseE;
+          tearMat.opacity = Math.min(1, 0.85 * k);
+          colMat.opacity = Math.min(1, 0.45 * k);
+          light.intensity = 6 * k;
+        },
+
+        /** Per-frame breath, driven by the kit's own update (see _kitUpdate). */
+        tick(t) {
+          // ~0.15 Hz (0.94 rad/s), +/-30%. Slow on purpose: a fast pulse reads
+          // as "active", and a dormant rift must read as ASLEEP but present.
+          disc.material.emissiveIntensity = rift._baseE * (1 + 0.3 * Math.sin(t * 0.94));
+        },
+
+        /**
+         * Raise the whole rift so the disc's CENTRE sits at world y. Levels that
+         * stand the rift on a dais or a landing used to move `disc.position.y`
+         * directly; that would now leave the tear, the column and the light on
+         * the floor below.
+         */
+        setY(y) {
+          group.position.y = y - 0.05;
+          fxGroup.position.y = y - 0.05;
+        },
+      };
+      bag.extract = rift;
+      return rift;
     },
 
     checkpoint(x, z, r = 2.5, spawnX = x, spawnZ = z) {

@@ -199,6 +199,8 @@ class Game {
     this.maxDanger = 0;
     this.guardSpeedMul = 1;
     this.scepterTaken = false;
+    this._riftWakeT = -1;      // extraction-rift wake animation clock (see loadLevel / _step)
+    this._sealedTold = false;  // has this approach to a sealed rift been answered yet
     this.checkpoint = new THREE.Vector3();
     // CROSS-LEVEL PERSISTENCE (see loadLevel's `carry` block, _captureCarry and
     // _win). Declared here so nothing can ever read them undefined.
@@ -968,6 +970,19 @@ class Game {
       this.overlayScene.add(fw.group);
     }
 
+    // The extraction rift's additive pieces (the tear + the beacon column) make
+    // the same move, for the same reason plus one more: the overlay pass is the
+    // only place ADDITIVE blending is real, and it is depth-tested against the
+    // structural depth proxy above — so the beacon column is hidden by the
+    // buildings at ground level and stands OVER them higher up, which is exactly
+    // the "the way out is that way" read the column exists for. The disc and the
+    // rift light stay in the traced scene.
+    if (bag.extract && bag.extract.fxGroup) {
+      const fx = bag.extract.fxGroup;
+      if (fx.parent) fx.parent.remove(fx);
+      this.overlayScene.add(fx);
+    }
+
     this.player = new Player(this.scene, this.overlayScene);
     this.player.spawnAt(bag.spawn);
     this.player.vialCount = bag.startVials || 0;
@@ -1048,6 +1063,13 @@ class Game {
     this.elapsed = 0;
     this.guardSpeedMul = 1;
     this.scepterTaken = false;
+    // THE EXIT IS DORMANT until the relic is taken. On a level with no relic to
+    // take there is nothing to wait for, so its rift is awake from frame one.
+    // A death rebuilds the level through this same path, so dormancy resets for
+    // free — nothing has to remember to put the rift back to sleep.
+    this._riftWakeT = -1;    // >= 0 while the wake flare is playing
+    this._sealedTold = false; // the sealed-exit answer, armed for this visit
+    if (bag.extract) bag.extract.setLit(bag.scepter ? 0 : 1);
     this.maxDanger = 0;
     this.checkpoint.copy(bag.spawn);
     this.setObjective(bag.objective);
@@ -1540,14 +1562,49 @@ class Game {
         // light; the player's own beacon (player.beaconLight) now carries it.
         if (sc.group) sc.group.visible = false;
         if (sc.light) sc.light.intensity = 0;
+        // and the far end of the level answers: the rift WAKES. The player has
+        // to be told, in the world, that the door they walked past is a door now.
+        if (level.extract) this._riftWakeT = 0;
         if (level.onAlarm) level.onAlarm(this);
         else this.setObjective("Escape to the rift!");
       }
     }
-    // extraction / win
+
+    // RIFT WAKE — the exit's 0 -> 1 ignition. A plain fade reads as a lighting
+    // change; an OVERSHOOT reads as an event, so the curve punches to ~1.6 at
+    // 0.4s and settles to 1 by 1.2s. One scalar of state advanced in _step and
+    // cleared when it lands, same shape as the other one-shot pulses here.
+    if (this._riftWakeT >= 0 && level.extract) {
+      this._riftWakeT += dt;
+      const s = this._riftWakeT;
+      if (s < 0.4) {
+        level.extract.setLit(1.6 * Math.pow(s / 0.4, 0.6)); // fast, eased ignition
+      } else if (s < 1.2) {
+        level.extract.setLit(1.6 - 0.6 * ((s - 0.4) / 0.8)); // settle back to steady
+      } else {
+        level.extract.setLit(1);
+        this._riftWakeT = -1;
+      }
+    }
+
+    // extraction / win — and, when it refuses, the REASON it refuses
     if (level.extract) {
       const d = Math.hypot(level.extract.x - player.pos.x, level.extract.z - player.pos.z);
-      if (d < 1.5 && (!sc || this.scepterTaken)) this._win();
+      const sealed = !!sc && !this.scepterTaken;
+      if (d < 1.5) {
+        if (!sealed) this._win();
+        else if (!this._sealedTold) {
+          // A silent refusal taught the player nothing — they read it as a bug
+          // ("why can't I leave the level?"). Say the rule once, in the world's
+          // own voice, at the moment it first bites. Once per VISIT: re-armed
+          // below when they walk away, so it never nags while they stand there.
+          this._sealedTold = true;
+          const relic = level.relicName || "relic";
+          this.hud.prompt(`The rift is sealed. It wakes when the <b>${relic}</b> is in your grasp.`, 4.5);
+        }
+      } else if (d > 2.6) {
+        this._sealedTold = false; // left the threshold — the next approach is a new visit
+      }
     }
 
     // fog-wall barriers: idle shimmer + dissipate once opened. (Fog is no longer

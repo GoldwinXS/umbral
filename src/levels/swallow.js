@@ -277,6 +277,7 @@ export function buildSwallow() {
 
   // ================= the relic (the weigh-plinth in the alcove) ================
   kit.scepterPedestal(46, -8);                      // [KEPT] the Marrowlight, sworn against and watched
+  bag.relicName = "Marrowlight";                    // the sealed-rift answer names it (main.js)
 
   // ================= TABLEAU 1 · THE CARCASS DOCK (the wake) ===================
   // The spawn room: a night-cart caught mid-unload at the dock, its sacks spilled
@@ -533,9 +534,8 @@ export function buildSwallow() {
         s.group.position.set(s.x, 1.9 + Math.sin(t * 2) * 0.12, s.z);
       }
     }
-    if (bag.extract) {
-      bag.extract.disc.material.emissiveIntensity = 1.5 + Math.sin(t * 2.4) * 0.7;
-    }
+    // (the old full-brightness rift pulse lived here; the rift now owns its own
+    // dormant/awake breath in levelKit — see extraction().tick)
   };
 
   bag.startVials = 0;

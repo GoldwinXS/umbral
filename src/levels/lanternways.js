@@ -410,7 +410,7 @@ export function buildLanternWays() {
   kit.railing(-11, -38, -11, -31, { y: 2.52, h: 0.8, mat: kit.mats.rust }); // dais rail, west lip
   kit.ramp(-3.0, -36.2, 3.2, -33.8, { axis: "x", y0: 2.5, y1: 0 });
   kit.extraction(-7, -34);
-  bag.extract.disc.position.y = 2.59;                     // the rift stands ON the dais
+  bag.extract.setY(2.59);                                 // the rift stands ON the dais (moves the tear/column/light with the disc)
   kit.trim(4, 0.2, -7, 5.15, -39.72, 0, 0x39f0c0, 2.2);
   kit.fogPatch(-14, -38, -2, -28, { density: 0.05 });
   kit.cache("concourseCache", 10, -30, 2);                // [KEPT]
@@ -635,9 +635,8 @@ export function buildLanternWays() {
     for (const tc of bag.torches) {
       if (!tc.doused) tc.light.intensity = tc.baseIntensity * (0.88 + 0.12 * Math.sin(t * 7 + tc.x * 2)); // [KEPT flicker]
     }
-    if (bag.extract) {
-      bag.extract.disc.material.emissiveIntensity = 1.5 + Math.sin(t * 2.4) * 0.7;
-    }
+    // (the old full-brightness rift pulse lived here; the rift now owns its own
+    // dormant/awake breath in levelKit — see extraction().tick)
   };
 
   return bag;

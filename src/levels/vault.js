@@ -246,7 +246,7 @@ export function buildVault() {
   kit.railing(-2.6, 31.4, 4.3, 31.4, { y: DECK, h: 0.85, mat: kit.mats.pillar });  // south lip, west of the ramp mouth
   kit.ramp(4.4, 27.0, 6.7, 31.4, { axis: "z", y0: 0, y1: 2.5, mat: kit.mats.stone, surface: "moss" }); // the descent ramp, east wall
   kit.extraction(2.4, 33);
-  bag.extract.disc.position.y = DECK + 0.09;            // the rift stands ON the landing
+  bag.extract.setY(DECK + 0.09);                        // the rift stands ON the landing (moves the tear/column/light with the disc)
   kit.trim(3.4, 0.2, 2.4, 4.1, 33.74, 0, 0x39f0c0, 2.0);
   wainscot(6.4, 1.8, 2.4, DECK + 1.1, 33.72);           // polished panel behind the rift — it doubles there
   kit.torch(0, 28, TUNE.gateLamp);                      // the gate-ward's lamp over the door junction
@@ -371,6 +371,7 @@ export function buildVault() {
   kit.pier(-9, -13.5, 4.2);                             // keepers' door jambs
   kit.pier(-9, -9.5, 4.2);
   kit.scepterPedestal(0, -12);                          // THE FIRST EMBER [KEPT]
+  bag.relicName = "First Ember";                        // the sealed-rift answer names it (main.js)
   // the Ember's mirror — the third pool, behind the throne: the order scries
   // the relic in its own water (the showcase's centre: relic + reflection)
   kit.hole(-4, -17.6, 4, -15.6);
@@ -672,7 +673,8 @@ export function buildVault() {
       if (game.scepterTaken) s.group.position.set(game.player.pos.x, 1.5 + Math.sin(t * 3) * 0.1, game.player.pos.z);
       else s.group.position.set(s.x, 1.9 + Math.sin(t * 2) * 0.12, s.z);
     }
-    if (bag.extract) bag.extract.disc.material.emissiveIntensity = 1.5 + Math.sin(t * 2.4) * 0.7;
+    // (the old full-brightness rift pulse lived here; the rift now owns its own
+    // dormant/awake breath in levelKit — see extraction().tick)
   };
 
   return bag;

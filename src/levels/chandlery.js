@@ -578,6 +578,7 @@ export function buildChandlery() {
   glassPane(6, 1.85, -23.25, 1.5, 1.5, Math.PI / 2);
   // THE LIGHT-HEART — the kit's glass gem, stood in the blade the slot casts.
   kit.scepterPedestal(-5, -21);
+  bag.relicName = "Light-Heart";                          // the sealed-rift answer names it (main.js)
   kit.torch(-9.5, -17.5, TUNE.cryptLamp);                 // the flanking lamps: they light the DARK BAND between scar and blade. [KEPT 6/9 ×2]
   kit.torch(-0.5, -17.5, TUNE.cryptLamp);                 // Douse them and the road goes black — the blade stays. Douse shapes the road, never the sky.
   kit.guard([[-10, -15.5], [1, -15.5]], TUNE.vHeart);     // the HEART-WARD: walks the sun-scar before the pedestal [KEPT]
@@ -712,7 +713,8 @@ export function buildChandlery() {
       if (game.scepterTaken) s.group.position.set(game.player.pos.x, 1.5 + Math.sin(t * 3) * 0.1, game.player.pos.z);
       else s.group.position.set(s.x, 1.9 + Math.sin(t * 2) * 0.12, s.z);
     }
-    if (bag.extract) bag.extract.disc.material.emissiveIntensity = 1.5 + Math.sin(t * 2.4) * 0.7; // [KEPT pulse]
+    // (the old full-brightness rift pulse lived here; the rift now owns its own
+    // dormant/awake breath in levelKit — see extraction().tick)
   };
 
   return bag;
