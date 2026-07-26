@@ -12,7 +12,12 @@
 // nothing. Beauty (full res, reflections, god-rays) is an opt-in in Settings.
 export const DEFAULTS = {
   preset: "perf",
-  renderScale: 0.4,   // trace resolution (fraction of full res)
+  // TRACE RESOLUTION — fraction of the CANVAS DRAWING BUFFER that the lighting
+  // is traced at, and since 2026-07-25 that is literally true: main.js sizes the
+  // tracer in drawing-buffer pixels, so 0.55 means 0.55 on screen. It used to be
+  // sized in CSS pixels, which silently multiplied it by 1/resolution (0.40 was
+  // really ~0.67) — see SCHEMA_VERSION below for what that means for saves.
+  renderScale: 0.55,
   resolution: 0.6,    // canvas pixel ratio as a fraction of native DPR
   taa: true,
   denoise: 2,         // à-trous iterations (governor raises this as it lowers res)
@@ -29,19 +34,56 @@ export const DEFAULTS = {
   gi: false,          // one bounce of indirect light. OFF by default: it is the single most expensive switch here and the game targets weak GPUs
 };
 
+// RETUNED 2026-07-25 against corrected tracer sizing (main.js, near
+// OVERSCAN_TACTICAL). Every renderScale here used to be inflated by 1/resolution
+// on the way to the tracer, so the EFFECTIVE trace density was:
+//   perf 0.40/0.60 = 0.67   bal 0.60/0.75 = 0.80   beauty 0.90/1.00 = 0.90
+// The numbers below are the density each tier actually gets now. perf and bal
+// deliberately buy LESS density than they used to and spend the difference on
+// third-person overscan + denoise passes, which the measurements say is by far
+// the better trade for the noise players actually complain about; beauty is
+// unchanged because at resolution 1.0 on a 1x display the old maths was already
+// a no-op (on a HiDPI screen it was undersizing instead, and is now correct).
 const PRESETS = {
-  perf:   { renderScale: 0.4, resolution: 0.6, taa: true, denoise: 2, volumetric: false, reflections: false, stochastic: true, adaptive: true, targetFps: 50 },
-  bal:    { renderScale: 0.6, resolution: 0.75, taa: true, denoise: 3, volumetric: true, reflections: false, stochastic: false, adaptive: true, targetFps: 55 },
+  perf:   { renderScale: 0.55, resolution: 0.6, taa: true, denoise: 2, volumetric: false, reflections: false, stochastic: true, adaptive: true, targetFps: 50 },
+  bal:    { renderScale: 0.7, resolution: 0.75, taa: true, denoise: 3, volumetric: true, reflections: false, stochastic: false, adaptive: true, targetFps: 55 },
   beauty: { renderScale: 0.9, resolution: 1.0, taa: true, denoise: 4, volumetric: true, reflections: true, stochastic: false, adaptive: true, targetFps: 60 },
 };
 
 const KEY = "umbral.settings";
+// Bumped when a saved value's MEANING changes (not when a default changes).
+// v2: tracer sizing moved from CSS to drawing-buffer pixels, so a stored
+//     renderScale now delivers renderScale (not renderScale/resolution) of the
+//     canvas. See the migration in the constructor.
+const SCHEMA_VERSION = 2;
 
 export class Settings {
   constructor() {
     let saved = {};
     try { saved = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (_) {}
     Object.assign(this, DEFAULTS, saved);
+    // ---- SCHEMA MIGRATION (see SCHEMA_VERSION) ----------------------------
+    // A save written before the tracer-sizing fix stores a renderScale that was
+    // being multiplied by 1/resolution on its way to the tracer. Loading it
+    // as-is would silently DOWNGRADE a returning player's image (perf's 0.40
+    // used to trace ~67% of the canvas and would now trace 40%), which is
+    // exactly what a version field is for.
+    //   * On a named preset: adopt the retuned tier. A preset is the game's
+    //     definition of a quality tier, and these were re-derived against the
+    //     corrected sizing — so "perf" keeps meaning "our cheap tier", which is
+    //     what the player chose, rather than a frozen pair of numbers.
+    //   * Custom: preserve the EFFECTIVE density they had, renderScale /
+    //     resolution, snapped to the slider's 0.05 step and its 0.3..1.0 range.
+    //     Same picture, and cheaper than before, because the correctly-sized
+    //     targets are the ones being traced at that density.
+    if (Object.keys(saved).length && saved.v !== SCHEMA_VERSION) {
+      if (PRESETS[saved.preset]) Object.assign(this, PRESETS[saved.preset]);
+      else if (saved.renderScale > 0 && saved.resolution > 0) {
+        const eff = Math.round((saved.renderScale / saved.resolution) / 0.05) * 0.05;
+        this.renderScale = Math.max(0.3, Math.min(1, eff));
+      }
+    }
+    this.v = SCHEMA_VERSION;
     // effects-opacity scale was recentred so 0.2 is the new "100%": snap any
     // stale higher saved value (old default 1.0, old range up to 1.5) down into
     // the new range so nobody is stuck with the old too-strong effects.
@@ -60,6 +102,7 @@ export class Settings {
   save() {
     try {
       localStorage.setItem(KEY, JSON.stringify({
+        v: SCHEMA_VERSION, // omit and the next boot re-runs the v2 migration
         preset: this.preset, renderScale: this.renderScale, resolution: this.resolution,
         taa: this.taa, denoise: this.denoise, volumetric: this.volumetric,
         reflections: this.reflections, stochastic: this.stochastic,
@@ -169,7 +212,13 @@ export class Settings {
       rows.appendChild(row);
     };
 
-    slider("Trace resolution", "renderScale", 0.3, 1.0, 0.05, (v) => Math.round(v * 100) + "%", "Ray traced lighting sample rate");
+    // HONEST LABEL: this really is the fraction of the canvas render buffer that
+    // the lighting is traced at (main.js sizes the tracer in drawing-buffer
+    // pixels). Third-person pads the traced image off-screen, but the final draw
+    // takes the proportional central crop, so the on-screen density is this
+    // number in both views. The two resolution rows multiply: 55% trace x 60%
+    // canvas is 33% of your display's pixels.
+    slider("Trace resolution", "renderScale", 0.3, 1.0, 0.05, (v) => Math.round(v * 100) + "%", "Lighting samples per canvas pixel");
     slider("Canvas resolution", "resolution", 0.4, 1.0, 0.05, (v) => Math.round(v * 100) + "%", "Render buffer size vs native display");
     slider("Denoise passes", "denoise", 0, 5, 1, (v) => String(v), "Shadow smoothing iterations");
     slider("Target FPS", "targetFps", 30, 60, 5, (v) => String(v), "For the adaptive governor");

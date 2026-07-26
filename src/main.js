@@ -103,34 +103,63 @@ const SH_AYAW_NEW_DIR = 0.25;  // rad of change in the stick's camera-space angl
 const SH_LOOK_YAW = 0.008;     // rad per px of look-stick drag — the same rate as the desktop right-drag orbit, so the two feel like one control
 const SH_LOOK_PITCH = 0.006;   // rad per px vertically — a shade hotter than the mouse's SH_PITCH_SENS because a thumb drag is much shorter than a mouse drag
 
-// ============================ EXPERIMENT 2026-07-25 ==========================
-// "Third-person view looks noisy" investigation. Flip to false to restore the
-// previous (shipping) behaviour exactly — nothing else in the game reads it.
+// ==================== TRACER SIZING + PER-VIEW TUNING ========================
+// WHY the third-person view looked noisy (fixed 2026-07-25).
 //
 // three-realtime-rt's integration checklist says: call `rt.setSize(w, h)` with
 // DRAWING-BUFFER (device) pixels — `renderer.getDrawingBufferSize(...)`.
-// _onResize was passing CSS pixels while `renderer.setPixelRatio()` is set to
+// _onResize used to pass CSS pixels while `renderer.setPixelRatio()` is set to
 // `dpr * settings.resolution * governorScale` (0.6 on the default "perf"
 // preset). So on a 1280x720 window the drawing buffer is 768x432 but every
-// internal tracer target was built at 1408x792 — 2.78x the pixels — and the
+// internal tracer target was built at 1408x792 — 2.78x the pixels — and that
 // oversized image was then BILINEAR-MINIFIED (1.83x, 4 taps) onto the canvas,
-// which ALIASES the per-pixel lighting noise back into the visible band instead
-// of averaging it away. It also means the Settings "trace resolution" slider
-// lies: 40% was really ~67% of the canvas.
+// which ALIASES per-pixel lighting noise back into the visible band instead of
+// averaging it away. It also made the Settings "trace resolution" slider lie:
+// 40% was really ~67% of the canvas.
 //
-// Measured (level 0, shoulder camera turning at 2.4 rad/s, perf preset):
-//   high-frequency grain  -47%   (0.2972 -> 0.1564)
-//   frame cost            -60%   (7.92 ms -> 3.20 ms)
-// See the scratchpad harness noise-probe.mjs / cost-probe.mjs for the method.
+// Sizing correctly costs 0.40x the frame time. That refund is NOT pocketed: it
+// is spent on renderScale (the "perf" preset goes 0.40 -> 0.55, so 55% now
+// means a REAL 55% — see settings.js, which also migrates saved settings) and
+// on the two per-view knobs below. Net result at the default preset: the same
+// frame cost as the old build with materially less noise.
 //
-// TRADE-OFF, and why this ships OFF: with the sizes correct, "40% trace
-// resolution" really is 40% of a 768x432 buffer (338x190) instead of the ~67%
-// it was accidentally getting, so the image is visibly SOFTER — shadow edges
-// and small props lose definition. The framing/crop is unaffected. The right
-// follow-up is to turn this on AND spend some of the freed 2.5x on renderScale
-// and on `overscan` (which is what actually fixes the turning camera), not to
-// ship the fix alone. Flip to true to A/B it.
-const EXP_RT_SETSIZE_DRAWINGBUFFER = false;
+// OVERSCAN — the tracer pads its internal image by this fraction PER EDGE, so
+// pixels that are about to swing on-screen have already been converging
+// off-screen. Note the on-screen sample density is unchanged by padding (the
+// final draw takes the proportional central crop), so this buys leading-edge
+// convergence without making the slider lie again. That leading edge is exactly
+// the third-person failure mode: a fast look-around drags a band of zero-history
+// pixels in from the side of the screen. The high tactical boom barely rotates,
+// so it keeps the small library-default pad and spends nothing.
+// Changing overscan reallocates every padded target and hard-resets
+// accumulation, so this is a VIEW-TOGGLE knob and must never be driven per-frame.
+// The pad's VALUE is how noisy a zero-history pixel is, which falls as trace
+// density rises; its COST is the padded area (1 + 2*os)^2, which is charged on
+// every pass at every density. So it is worth 0.22 at the cheap presets and
+// worth nothing at "beauty" — measured, an unconditional 0.22 made beauty's
+// third-person view 1.33x slower for noise that is not there at 90% density.
+// Taper it between the two trace densities below. Driven by settings.renderScale
+// (the value the player/preset chose), NOT by rt.renderScale, because the
+// adaptive governor moves the latter in 0.05 steps every couple of seconds and
+// every overscan change is an accumulation reset — a reset per governor tick is
+// the very strobing this whole change exists to remove.
+const OVERSCAN_TACTICAL = 0.05;
+const OVERSCAN_SHOULDER = 0.22;
+const OVERSCAN_FULL_RS = 0.6; // trace density at/below which the full pad is bought
+const OVERSCAN_NONE_RS = 0.9; // ...and at/above which it is not bought at all
+// A-trous denoise iterations are a loop bound at LIGHTING resolution, so extra
+// passes are nearly free (dn2 -> dn5 measured +0.2 ms of an ~8 ms frame) while
+// the low-history pixels a turn drags in are precisely what they clean up.
+// Applied as a FLOOR on top of whatever the library's adaptive governor or the
+// settings slider currently wants — see the accessor in _makeRT.
+const SH_DENOISE_FLOOR = 5;
+//
+// Measured (level 0, shoulder camera, 2.4 rad/s turn, perf preset, ANGLE-GL):
+//   temporal flicker      -24%   (0.2287 -> 0.1744)
+//   grain hf1 / hf2 / hf4  -37% / -34% / -29%
+//   frame cost            0.98x  (7.94 ms -> 7.82 ms)
+// At 3.4 rad/s (the auto-follow cap) flicker falls -49%. Method: the scratchpad
+// harness noise-probe.mjs / cost-probe.mjs / cost-sweep.mjs.
 // =============================================================================
 // Light-gem calibration. The analytic direct-light SUM at the player's feet is
 // mapped to 0 (shadow) .. 1 (fully lit). The tracer runs gi:false, so a LOS-gated
@@ -249,6 +278,10 @@ class Game {
     this.viewMode = this.settings.view3p ? "shoulder" : "tactical";
     this._viewBlend = this.viewMode === "shoulder" ? 1 : 0;
     this.input.lookEnabled = this.viewMode === "shoulder";
+    // _makeRT ran inside _initRenderer, i.e. BEFORE the saved view was known, so
+    // it built tactical-tuned targets. Re-tune now (no-op when the save says
+    // tactical) — see _applyViewTuning.
+    this._applyViewTuning();
     this._initUI();
     this.input.enabled = true;
 
@@ -326,16 +359,36 @@ class Game {
       // rainbow along its edges. Zero extra rays; it rides temporal accumulation
       // so it shimmers slightly in motion. Value chosen by looking at the L7
       // reliquary close-up (see rt060 dispersion probe): 0.12 gives a tasteful
-      // chromatic edge at the default perf preset (renderScale 0.4) without the
+      // chromatic edge at the default perf preset (renderScale 0.55 since the
+      // 2026-07-25 sizing fix; it was 0.4-of-an-oversized-target when chosen,
+      // which traced at a comparable density) without the
       // busy rainbow-noise of 0.25; 0 is byte-identical to off. Global, but only
       // transmission materials (the gem) react — nothing else in the game is glass.
       dispersion: 0.12,
       volumetric: { enabled: true, density: 0 },
-      overscan: 0.05,          // orbit/rotate cleanly — leading-edge convergence
-                               // noise is born off-screen (0.4.0 feature)
+      overscan: OVERSCAN_TACTICAL, // per-view from here on — see _applyViewTuning
       overloadProtection: true,
     });
+    // DENOISE FLOOR (see SH_DENOISE_FLOOR). THREE separate writers own
+    // rt.denoiseIterations: Settings.apply() (the slider), the library's adaptive
+    // governor (_qualityFor picks 3..5 from renderScale) and its overload brake.
+    // Pinning a constant here would be clobbered by whichever of them ran last;
+    // pinning it from setViewMode would silently override the governor's own
+    // tuning. So intercept the property instead — every writer still owns the
+    // BASE value, and the getter only ever RAISES it, and only for the shoulder
+    // view. A player who has deliberately dragged "Denoise passes" to 0 keeps 0.
+    let denoiseBase = this.rt.denoiseIterations;
+    Object.defineProperty(this.rt, "denoiseIterations", {
+      configurable: true,
+      get: () => (denoiseBase > 0 && this.viewMode === "shoulder"
+        ? Math.max(denoiseBase, SH_DENOISE_FLOOR)
+        : denoiseBase),
+      set: (v) => { denoiseBase = v; },
+    });
     this.settings.attach(this.rt, this.renderer, () => this._onResize(), (on) => this.sfx.setEnabled(on));
+    // attach() -> apply() -> _onResize() has just given the tracer its real
+    // canvas size, so the padded targets this allocates are the right ones.
+    this._applyViewTuning();
   }
 
   _onResize() {
@@ -345,17 +398,47 @@ class Game {
       this.camera.aspect = w / h;
       this.camera.updateProjectionMatrix();
     }
+    // DRAWING-BUFFER pixels, never CSS pixels — this is the whole tracer-sizing
+    // contract (see the block near OVERSCAN_TACTICAL). renderer.setSize() above
+    // takes CSS pixels; the drawing buffer is those times the pixel ratio that
+    // Settings._applyResolution() computed, which is where the two diverge. This
+    // is the ONLY rt.setSize() call site in the game: the resolution slider, the
+    // governor's canvas ladder and a window resize all route back through here.
     if (this.rt) {
-      if (EXP_RT_SETSIZE_DRAWINGBUFFER) this.rt.setSize(...this._drawingBufferSize());
-      else this.rt.setSize(w, h);
+      this.rt.setSize(...this._drawingBufferSize());
+      // Settings.apply() routes through here, so this is also where a preset or
+      // trace-resolution change re-derives the overscan taper. Idempotent, so a
+      // plain window resize costs nothing extra.
+      this._applyViewTuning();
     }
   }
 
-  /** Drawing-buffer (device) pixels — see EXP_RT_SETSIZE_DRAWINGBUFFER. */
+  /** Drawing-buffer (device) pixels — the units rt.setSize() wants. */
   _drawingBufferSize() {
     this._dbSize = this._dbSize || new THREE.Vector2();
     this.renderer.getDrawingBufferSize(this._dbSize);
     return [this._dbSize.x, this._dbSize.y];
+  }
+
+  /**
+   * Per-view tracer tuning (see OVERSCAN_* / SH_DENOISE_FLOOR). Called from
+   * _makeRT (every level load builds a fresh tracer), from setViewMode, and once
+   * at boot after the saved view has been resolved. Idempotent and cheap: the
+   * library's overscan setter early-outs when the value is unchanged, so only a
+   * REAL view change pays the target reallocation + accumulation reset. The
+   * denoise floor needs nothing here — its accessor reads this.viewMode live.
+   */
+  _applyViewTuning() {
+    if (!this.rt || !this.rt.supported) return;
+    this.rt.overscan = this._viewOverscan();
+  }
+
+  /** Padding for the current view + trace density — see the OVERSCAN_* block. */
+  _viewOverscan() {
+    if (this.viewMode !== "shoulder") return OVERSCAN_TACTICAL;
+    const rs = this.settings ? this.settings.renderScale : OVERSCAN_FULL_RS;
+    const u = Math.min(1, Math.max(0, (rs - OVERSCAN_FULL_RS) / (OVERSCAN_NONE_RS - OVERSCAN_FULL_RS)));
+    return OVERSCAN_SHOULDER + (OVERSCAN_TACTICAL - OVERSCAN_SHOULDER) * u;
   }
 
   // ---------------- camera zoom + orbit ----------------
@@ -452,6 +535,11 @@ class Game {
     const next = mode === "shoulder" ? "shoulder" : "tactical";
     if (next === this.viewMode) return;
     this.viewMode = next;
+    // Re-tune the tracer for the view we are entering. Costs one target
+    // reallocation + accumulation reset, which is why it lives HERE and not in
+    // the frame loop — a view toggle already crossfades the camera, so the one
+    // rebuilt frame is invisible.
+    this._applyViewTuning();
     // the right-side look drag exists only in third-person (tactical keeps the
     // two-finger pinch/twist it always had)
     this.input.lookEnabled = next === "shoulder";
@@ -1616,6 +1704,31 @@ class Game {
     // how lit am I, 0 (pitch dark) → 1 (fully exposed) — drives shadow-speed,
     // footstep loudness, and the gem. Ambient floor (0.06) reads as full dark.
     this.litness = Math.min(1, Math.max(0, (this.playerVis - 0.06) / 0.64));
+
+    // "WHY AM I SLOWER IN THE LIGHT?" — the primer answers it once, out loud, at
+    // the exact moment the rule first BITES. Shadow-speed is a continuous cost
+    // the player feels long before they can name it; the towerHide trigger next
+    // door teaches HIDE (light is seen), which is a different sentence from this
+    // one (light is SLOW). Both are needed and neither covers the other.
+    // Conditions: actually moving (a lit player standing still pays nothing they
+    // could notice) AND properly lit for 0.6s CONTINUOUS, so a walk through one
+    // shadow-blade's edge never trips it.
+    // The litness signal is player._litSmooth — the same time-smoothed value the
+    // speed penalty itself is computed from (player.move), NOT this frame's raw
+    // this.litness — so the words fire off exactly the number the legs obey.
+    // LIFETIME: the flag lives on the LEVEL BAG, not the game. loadLevel() builds
+    // a fresh bag every time (new level, restart, and the all-lives-lost reset in
+    // this same function), so "once per run" resets itself with no bookkeeping in
+    // loadLevel to keep in sync. Level 0 only: past the primer this is noise.
+    if (this.levelIndex === 0 && !level._litHinted) {
+      const spd = Math.hypot(player.vel.x, player.vel.z);
+      level._litHintT = (spd > 0.8 && player._litSmooth > 0.55) ? (level._litHintT || 0) + dt : 0;
+      if (level._litHintT > 0.6) {
+        level._litHinted = true;
+        this.hud.prompt("<b>Light</b> clings to you — you are slow and seen in it. The <b>dark</b> makes you swift.", 4.5);
+      }
+    }
+
     this.maxDanger = 0;
     this.spotting = 0; // hottest awareness among wardens who can see me RIGHT NOW
     for (const w of this.threats) {
