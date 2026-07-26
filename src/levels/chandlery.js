@@ -219,6 +219,13 @@ export function buildChandlery() {
   kit.trim(3.0, 0.2, -3, 2.2, 37.72, 0, 0x39f0c0, 1.8);   // [KEPT] its glow-trim on the gate wall
   kit.torch(5.9, 30.9, TUNE.shrine);                      // the GATE-SHRINE lamp by the works door — piety burns at noon too [KEPT 5/8]
   kit.guard([[-3, 31.6], [3, 31.6]], TUNE.vDock);         // the DOCK-WARD: paces inside the works door, facing it; pauses = tally desk (E) / the wagon (W) [KEPT]
+  // CLARITY PASS (supply, not rules): one mote in a works with nine sighted
+  // wardens made devour a curiosity. This one is the first: the dock is the only
+  // room the sun never argues with, the DOCK-WARD stands alone in it with his
+  // back to the room (he faces the works door), and this sits 3 m behind his line
+  // on the walking line west to the intake lane. The most teachable devour in the
+  // level is also its first encounter.
+  kit.mawMote("dmaw", -5.2, 34.6);
   kit.inscription(0, 2.5, 30.32, "KEEP THE FIRES FED", "n", "#ffb46a"); // [KEPT] the works' liturgy over its own door
 
   // ======================= B · THE INTAKE LANE (x -18..-8, z 30..33) =========
@@ -240,6 +247,7 @@ export function buildChandlery() {
       { x0: -3.6, z0: 30.9, x1: 3.6, z1: 32.3, pad: 0.4 },// the dock-ward's line
       { x0: -2.2, z0: 29.4, x1: 2.2, z1: 31.6, pad: 0.3 },// the work-door lane
       { x0: -8.6, z0: 30, x1: -7.4, z1: 33, pad: 0.3 },   // the intake-lane mouth
+      { x: -5.2, z: 34.6, r: 1.0 },                       // dmaw — the dock mote, on the west walking line
       { x0: -2.2, z0: 36.9, x1: 2.2, z1: 38 },            // the barred gate leaves
       { x: 5.9, z: 30.9, r: 1.2 },                        // the shrine lamp
     ];
@@ -516,6 +524,11 @@ export function buildChandlery() {
   kit.solid(2.3, 3.6, 1.2, -8.6, -4.4, kit.mats.wood);
   kit.solid(2.3, 3.6, 1.2, 2.8, -4.4, kit.mats.wood);
   kit.guard([[-13, -6], [10, -6]], TUNE.vRackW);          // the RACK-WARD: the moat line, pausing to count the stacks [KEPT]
+  // …and the moat's own charge, 3 m north of his line on the step out of the
+  // rack bay. Deliberately in the OPEN, not in a stack's lee: the lees are the
+  // crossing's cover and must stay uncluttered, and a pickup that costs one
+  // exposed step is the right price for eating the man who owns the crossing.
+  kit.mawMote("courtmaw", -6.5, -3);
   kit.fogPatch(-18, -12, 16, 2, { density: 0.022 });      // (volumetrics on: the sun shafts + the visiting blade)
   kit.inscription(-3, 2.7, 1.68, "NO FLAME PASSES THE RACK DOOR", "s", "#ffd76a"); // the fire law, carved over the bay's court side
 
@@ -525,6 +538,7 @@ export function buildChandlery() {
       { x0: -14, z0: -6.7, x1: 11, z1: -5.3, pad: 0.5 },  // the rack-ward's line
       { x0: -5.8, z0: -0.4, x1: -0.2, z1: 2.5, pad: 0.3 },// the bay lane
       { x0: 8, z0: -12, x1: 11, z1: -9.6, pad: 0.3 },     // the counting door lane
+      { x: -6.5, z: -3, r: 1.0 },                         // rmaw — the moat mote
       { x: -8.6, z: -4.4, r: 1.9 },                       // the staged stacks' lees stay open
       { x: 2.8, z: -4.4, r: 1.9 },
       { x: -3, z: 0, r: 1.5 },                            // checkpoint pad

@@ -306,6 +306,13 @@ export function buildLanternWays() {
   kit.cache("plazaCache", 16.2, 6.4, 2);                  // [KEPT n=2] raised to the wharf gallery — a reward for the climb
   bag.caches[bag.caches.length - 1].mesh.position.y = DECK;
   kit.mawMote("plazaMaw", -10, -4);                       // [KEPT] the dark south-west corner the lamps never reach
+  // CLARITY PASS (supply, not rules): the quays are entered from the north and
+  // the first thing they ask is "cross a lantern row someone is walking". The
+  // charge for that belongs BEFORE the row, not after it. This sits on the dark
+  // moss lane under the north gallery's planks — the ground the quay arch spills
+  // you onto — 4 m short of the NORTH-QUAY WARD's line, and it is the only
+  // unlit floor within reach of that crossing.
+  kit.mawMote("quayMaw", -5.5, 16.2);
 
   // THE NIGHT SHIFT of the quays (Law of the Watch — posts are jobs; all
   // speed/pause/range/cone numbers [KEPT] from the shipped five):
@@ -414,6 +421,12 @@ export function buildLanternWays() {
   kit.trim(4, 0.2, -7, 5.15, -39.72, 0, 0x39f0c0, 2.2);
   kit.fogPatch(-14, -38, -2, -28, { density: 0.05 });
   kit.cache("concourseCache", 10, -30, 2);                // [KEPT]
+  // …and the last warden's charge. The concourse is walked diagonally from the
+  // basin door (-24,-15) to the dais ramp (-3,-35); this mote sits ~1 m off that
+  // line, 7 m short of THE LAST WARDEN's west pause and outside his watch-pan's
+  // 6 m pool, so the level's final guard is the one encounter the player arrives
+  // at with a devour in hand if they want it.
+  kit.mawMote("concourseMaw", -17, -22);
   kit.guard([[-10, -25], [10, -25]], TUNE.vLast);         // THE LAST WARDEN — the concourse line; the ramp sits in his east reach [KEPT]
   kit.brazier(-11.6, -26.6, { lit: true, light: 3, seed: 81 }); // his watch-pan at the west pause — the post's amenity
 
@@ -468,6 +481,7 @@ export function buildLanternWays() {
       { x0: -3, z0: -6, x1: 3, z1: -4, pad: 0.3 },          // lane door
       { x0: 8.15, z0: 5, x1: 9.85, z1: 9.5, pad: 0.1 },     // the weir walk
       { x: -10, z: -4, r: 1.1 },                            // plazaMaw
+      { x: -5.5, z: 16.2, r: 1.0 },                         // quayMaw, under the north gallery
       { x: 0, z: 11.8, r: 1.3 },                            // checkpoint pad
     ];
     // TABLEAU 3: the span-keeper's count — his crate-desk and supper at the
@@ -563,6 +577,7 @@ export function buildLanternWays() {
       { x0: -26, z0: -16, x1: -22, z1: -13.5, pad: 0.3 }, // basin door lane
       { x0: -3, z0: -16, x1: 3, z1: -13.5, pad: 0.3 },    // lane door lane
       { x: 10, z: -30, r: 1.2 },                          // concourseCache
+      { x: -17, z: -22, r: 1.0 },                         // concourseMaw
       { x: -7, z: -30, r: 1.4 },                          // checkpoint pad
       { x: -11.6, z: -26.6, r: 1.0 },                     // the warden's watch-pan
     ];

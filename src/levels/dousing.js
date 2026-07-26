@@ -294,6 +294,12 @@ export function buildDousing() {
   kit.torch(44, 0, TUNE.greatLantern);    // THE GREAT LANTERN — the master flame on its standard (E4)       [KEPT (44,0)]
 
   // ================= VOID VIAL CACHES ========================================= [KEPT]
+  // NO MAW MOTES HERE, and that is a decision, not an oversight (clarity pass,
+  // game-wide mote rebalance): the yards are index 1 and DEVOUR is taught at
+  // index 2, THE FLESHERS' ROW, whose own first mote is written as "the first
+  // spot of red" in a violet-and-amber world. A mote here would spend that
+  // image early and split this level's single lesson — the vial — in two. Every
+  // level from the teaching level onward carries at least two.
   kit.cache("capB", -25, 4, 2);   // receiving yard, BEFORE the lit tally door — arm, then meet the light
   kit.cache("capU", 17, 5, 1);    // the oil store aisle — a quiet find, no light to spend on
   kit.cache("capF", 29, -4, 2);   // the lighting court — refill before the hall
@@ -583,14 +589,14 @@ export function buildDousing() {
       case "convergence":
         if (bag.stage === 3) {
           bag.stage = 4;
-          game.setObjective("Reach the relic chamber");
+          game.setObjective("Reach the Snuffrod's chamber"); // the relic has a name (bag.relicName) — use it, as the primer does
           p.prompt("Ahead, a vault kept too bright.", 3.5);
         }
         break;
       case "relicRoom":
         if (bag.stage === 4) {
           bag.stage = 5;
-          game.setObjective("Take the relic beyond the light");
+          game.setObjective("Take the Snuffrod beyond the light");
           p.prompt("Douse the great lantern on the guard's turn, then take the relic.", 4);
         }
         break;

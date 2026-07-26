@@ -251,6 +251,12 @@ export function buildVault() {
   wainscot(6.4, 1.8, 2.4, DECK + 1.1, 33.72);           // polished panel behind the rift — it doubles there
   kit.torch(0, 28, TUNE.gateLamp);                      // the gate-ward's lamp over the door junction
   kit.guard([[-3.5, 28.5], [3.5, 28.5]], TUNE.vGate);   // GATE-WARD — keeps the descent doors, facing each way down [KEPT]
+  // CLARITY PASS (supply, not rules): the finale had ONE mote for ten wardens,
+  // and it sat at the far end of the crypts. Hush is meant to arrive here at
+  // full accumulated power (bag.startVials 4) — the maw should agree. This one
+  // lies between the ramp's foot and the sealed-stair door, 2.5 m off the
+  // GATE-WARD's west end: the kind road's first step is also its first meal.
+  kit.mawMote("gmaw", -5.5, 30);
   kit.inscription(0, 3.35, 26.29, "KEEP THE FIRES FED", "n", "#ffb46a"); // [KEPT] the liturgy over the tempting way
 
   // ======================= B · THE PROCESSION (x -3..3, z 14..26) ============
@@ -458,7 +464,12 @@ export function buildVault() {
   ];
   const zSeq = [28, 24, 20, 16, 10, 4, -4, -12];
   CELLAR_LINES.forEach((line, i) => kit.inscription(-23.76, 1.7, zSeq[i], line, "e", "#9a86d8"));
-  kit.mawMote("rmaw", -20, -14);                        // [KEPT] the starved thing circles the old blood
+  kit.mawMote("rmaw", -20, -14);                        // [KEPT] the starved thing circles the old blood — and, carried through the keepers' passage, the EMBER-WARD's charge
+  // …and the crypts' own. The pit-blink lands you at (-13,30) and the aisle runs
+  // south past the FIRST KEEPER, who dozes at each end of it: this sits 3.7 m
+  // off his north post, on the walking line down from the pit landing, clear of
+  // the dead priors' sarcophagi and the urn rank.
+  kit.mawMote("cmaw", -16.8, 28.8);
   kit.cache("rc1", -20, 12, 2);                         // [KEPT]
   kit.cache("rc2", -16, 0, 2);                          // [KEPT]
   // the keepers' rounds [KEPT specs] — and the thing the Vigil doesn't roster
@@ -489,6 +500,7 @@ export function buildVault() {
       { x0: -7, z0: 28, x1: -5, z1: 31, pad: 0.3 },     // stair door lane
       { x0: -3.5, z0: 27.7, x1: 3.5, z1: 29.3, pad: 0.3 }, // the gate-ward's line
       { x0: 4.4, z0: 26.6, x1: 6.7, z1: 31.4, pad: 0.2 }, // the ramp
+      { x: -5.5, z: 30, r: 1.0 },                       // gmaw — the gate floor's mote
       { x: 0, z: 28, r: 1.2 },                          // the gate lamp
       { x: 0, z: 30, r: 1.4 },                          // checkpoint pad
     ];
@@ -589,6 +601,7 @@ export function buildVault() {
       { x: -20, z: 12, r: 1.2 },                               // rc1
       { x: -16, z: 0, r: 1.2 },                                // rc2
       { x: -20, z: -14, r: 1.1 },                              // rmaw
+      { x: -16.8, z: 28.8, r: 1.0 },                           // cmaw — the crypt aisle's mote
       { x: -18, z: 24, r: 1.0 },                               // the drowned standards
       { x: -18, z: -2, r: 1.0 },
       { x: -18, z: 26, r: 1.4 },                               // checkpoint pads

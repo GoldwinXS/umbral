@@ -71,7 +71,13 @@ const TUNE = {
   // (direction) — either one moves the meter. Only moonBoost/moonHue are free.
   moon: 0.9,                                        // METER intensity — DO NOT CHANGE (feeds detection; keep ≥ 0.9 primer floor)
   moonHue: 0x8ea0cc,                                // moon colour hue (cool moon-blue)
-  moonBoost: 2.7,                                   // RENDER-only brightness × on the hue — meter never sees colour, safe to raise
+  // 3.6 (was 2.7) — CLARITY PASS: real players' first complaint about the primer
+  // was "I can't see anything, it's too dark." This knob is the render-only half
+  // of the moon (colour × intensity); the meter reads `moon` ONLY, so raising it
+  // brightens the night the player SEES without moving a single detection
+  // reading. Raised on THE ASHWAY alone — the primer must be legible; the later
+  // levels have earned their dark.
+  moonBoost: 3.6,                                   // RENDER-only brightness × on the hue — meter never sees colour, safe to raise
   moonFrom: [-26, 13, 9],                           // WNW, ~25° up → shadows ~2.1× wall height, raking east — DO NOT CHANGE (meter LOS)
   towerN: { intensity: 10, range: 9, scale: 1.7 },  // the shrine's great flame, SHRINE COURT
   towerS: { intensity: 6, range: 7 },               // the lesser walk-lamp
@@ -139,6 +145,39 @@ export function buildTutorial() {
   kit.pier(-12.5, 2.45, 1.0, 0.24);
   const fogA = kit.fogWall(-34, 1.5, 2.6, { rot: Math.PI / 2, h: 3.0 }); // the barred west
   kit.fogPatch(-34, 0, -8, 3, { density: 0.04 });         // (volumetrics on: the blades become visible shafts)
+  // CLARITY PASS — "why can't I go this way?". The burnt-to-the-sill runs above
+  // (h ≈ 1.0–1.1) are still colliders — Hush is knee-high and there is no vault
+  // verb — but a knee-high wall READS as hoppable, so players walked into them
+  // and called it a bug. Heap the fallen course along the sill line and the eye
+  // reads "choked with debris" instead. Same language as the court's collapse at
+  // z −9 (kit.rubble at −3.3/−1.5, straddling the wall line ±0.2), so the level
+  // says "impassable" the same way twice.
+  // DISCIPLINE: every heap rides the wall line (z ≈ 3, the run spans 2.8..3.2)
+  // with a SMALL radius — kit.rubble pushes a collider cylinder of r = radius×
+  // 0.75, and the walking strip (the clear band z 0.9..2.1) must not be pinched.
+  // At radius 0.6 the cylinder reaches z ≈ 2.55: cover unchanged, route unchanged.
+  kit.rubble(-40.2, 3.12, { radius: 0.6, seed: 121 });    // the west breach (beyond the mist — skyline only, but the language must be consistent)
+  kit.rubble(-38.8, 2.86, { radius: 0.55, seed: 122 });
+  kit.rubble(-17.0, 3.10, { radius: 0.6, seed: 123 });    // the long moonlit breach on the lane — the one the player actually walks past
+  kit.rubble(-16.0, 2.84, { radius: 0.55, seed: 124 });
+  kit.rubble(-15.2, 3.14, { radius: 0.6, seed: 125 });
+  // CLARITY PASS — THE ASHWAY'S FIRST PICKUP. The primer shipped with nothing to
+  // pick up at all, so the player reached MISSION 2 never having seen the goal
+  // colour on something they could TAKE. This cache sits ON the walking strip
+  // (z 1.5 — the middle of the lane, not tucked beside it) in the long burnt
+  // breach, the one stretch where the frontage drops to knee height and the
+  // lane opens to the sky. Unmissable is the point: the pickup radius is 1.2
+  // and the walking strip the dressing keeps clear is 1.2 wide.
+  // (Measured, for the record: the meter reads litness 0 the whole length of
+  // this lane — the tall survivor at x −27..−20 shadows the breach at this
+  // moon angle — so a pickup standing in the open here costs the player
+  // nothing in exposure. The primer hides you everywhere, by design.)
+  // bag.startVials stays 0 — the CACHE is the grant, and it is in the path.
+  // And NO maw mote here, deliberately: DEVOUR is taught by THE FLESHERS' ROW,
+  // and a primer mote would hand the player a verb this level gives no target
+  // for (the keeper's man and the two tally-men are the whole roster, and the
+  // primer's lesson is HIDE, not eat).
+  const laneCache = kit.cache("laneCache", -16, 1.5, 2);
 
   // --- THE SHRINE COURT (x -8..10, z -9..12) — the shrine-keeper's charge;
   // --- the ONE place the Vigil still lights on this street. The fire glassed
@@ -201,6 +240,13 @@ export function buildTutorial() {
   kit.wall(34, 3, 34, 12, { h: 2.7, piers: false });      // east wall, north of the carters' gate
   kit.wall(34, -9, 34, 0, { h: 2.7, piers: false });      // east wall, south of it
   kit.pier(17.15, -5.6, 1.15, 0.24);                      // stump of the yard's old lamp-arcade
+  // …and the same answer on the yard's collapsed south stretch (h 1.1): heaped
+  // on the sill line so it reads as choked, not vaultable. Kept to r 0.55–0.6
+  // (collider r ≈ 0.42) hard against the wall, so the laid-glass bands the
+  // player leaps are untouched — only the wall's own dead strip is used.
+  kit.rubble(26.2, -9.12, { radius: 0.6, seed: 126 });
+  kit.rubble(27.8, -8.88, { radius: 0.55, seed: 127 });
+  kit.rubble(29.3, -9.15, { radius: 0.6, seed: 128 });
   kit.fogPatch(16, -9, 34, 12, { density: 0.02 });
 
   // --- THE CARTERS' GATE (x 34..38, z 0..3) — the loading gap where the
@@ -421,6 +467,21 @@ export function buildTutorial() {
   bag.update = (t, dt, game) => {
     for (const tc of bag.torches) {
       if (!tc.doused) tc.light.intensity = tc.baseIntensity * (0.9 + 0.1 * Math.sin(t * 7 + tc.x));
+    }
+    // THE LANE CACHE'S ONE LINE. Said the moment the vials are actually in hand,
+    // once, and never again (the cache refills after 15s — the flag, not the
+    // cache, is what makes this a one-shot).
+    // WORDING: deliberately NOT the mechanics. THE DOUSING YARDS already teaches
+    // the throw at the moment it first matters ("Torchlight pins the door — press
+    // Q to douse it"), and doubling that here would spend the lesson on a level
+    // with only two flames and no door to open. So the primer names the noun and
+    // points it at the only flames it has; M2 keeps the verb.
+    // main.js's cache loop runs BEFORE level.update in _step, so this lands in
+    // the same frame as the generic "+2 void vials" and replaces it — the player
+    // sees one line, and it is the one that means something.
+    if (laneCache.taken && !bag.vialsTaught) {
+      bag.vialsTaught = true;
+      game.hud.prompt("<b>Void vials</b> — the shrine's flames will fear them.", 4);
     }
   };
 

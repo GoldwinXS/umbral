@@ -178,6 +178,14 @@ export function buildSpire() {
   kit.statue(0, 36.5, { h: 2.9, rot: Math.PI, seed: 3 });
   vigilShrine(kit, 0, 36.5, { gap: 1.6, urnScale: 0.85, dir: Math.PI / 2, seed: 4 });
   kit.guard([[-7, 30.2], [7, 30.2]], TUNE.vPorter);     // THE PORTER — walks the door walk, pauses at the passage doors
+  // CLARITY PASS (supply, not rules): the ascent had two motes for eleven
+  // wardens, both past the halfway point. This one lies on the garth — the dark
+  // unwalked lawn the spawn-to-stair-door diagonal already crosses — 3 m short
+  // of THE PORTER's walk. The house's first guard becomes a choice instead of a
+  // wait. (Ground level, like every mote: main.js re-seats each one at y 0.55
+  // every frame and its pickup test is 2D, so a mote under a deck would be
+  // eaten from the planks above — motes never ride the tiers.)
+  kit.mawMote("garthMaw", -6.2, 33.5);
 
   // ======================= B · THE STAIR-FOOT HALL (x -16..-6, z 19..28) =====
   // --- Where the procession forms up before the climb: the west range's
@@ -191,6 +199,13 @@ export function buildSpire() {
   kit.wall(-6, 7, -6, 28, { h: 4.6 });                  // the core wall: stair hall | refectory + scriptorium (owns (-6,7),(-6,28))
   kit.torch(-11, 20.2, TUNE.stairFoot);                 // the lower station lamp — douseable: dark buys the flight
   kit.guard([[-14, 24.5], [-8, 24.5], [-11, 20.8], [-8, 24.5]], TUNE.vStairLow); // LOWER STAIR-WARD — hall round with the hour-call pause at the flight's foot
+  // The LIT route's devour charge — the mirror of hoistMaw on the dark route, so
+  // both climbs are provisioned the same. It sits in the hall's north-east
+  // pocket at the core wall, the first dark step off the cloister door, 2.5 m
+  // clear of the ward's boxed round: douse the station lamp and the same corner
+  // that hides you also feeds you. Carried up the flight it is equally the
+  // charge for the UPPER STAIR-WARD at the head.
+  kit.mawMote("stairMaw", -8.6, 27.2);
 
   // ======================= C · THE PROCESSIONAL FLIGHT (x -16..-6, z 7..19) ==
   // --- The grand stair itself: one shallow ceremonial ramp the full width of
@@ -443,6 +458,7 @@ export function buildSpire() {
       { x0: 6.8, z0: 27, x1: 10, z1: 30, pad: 0.3 },      // dorter door lane
       { x0: -2.2, z0: 42.5, x1: 2.2, z1: 44, pad: 0.3 },  // the barred gate
       { x: 0, z: 36.5, r: 2.6 },                          // the founder's garth shrine
+      { x: -6.2, z: 33.5, r: 1.0 },                       // garthMaw — keep the lawn pickup clean
       { x: 0, z: 29.3, r: 1.2 },                          // the liturgy lamp
     ];
     // TABLEAU 1: the returned procession — the evening's route-lanterns ranked
@@ -464,6 +480,7 @@ export function buildSpire() {
       { x0: -14.6, z0: 20.2, x1: -7.4, z1: 25.1, pad: 0.35 }, // the lower stair-ward's round (boxed)
       { x0: -12.5, z0: 26.5, x1: -9.5, z1: 28, pad: 0.3 },    // cloister door lane
       { x0: -15.6, z0: 7, x1: -6.4, z1: 19.6, pad: 0.2 },     // the flight itself
+      { x: -8.6, z: 27.2, r: 1.0 },                           // stairMaw — the hall's NE pocket
       { x: -11, z: 20.2, r: 1.3 },                            // the lower station lamp
       { x: -11, z: 24, r: 1.4 },                              // checkpoint pad
     ];

@@ -305,8 +305,16 @@ export function buildMission1() {
   kit.cache("c1", 12, -12.5, 2);          // parade square, east verge — beside the serjeant's water store
   kit.cache("c2", -31, 14, 2);            // barracks row — tucked along the cot lane
   kit.cache("c3", -9, -33.5, 2);          // the hall's dark west aisle
-  kit.mawMote("m1", -13, -1);             // DEVOUR alt — the west verge's darkest pocket
+  kit.mawMote("m1", -13, -1);             // DEVOUR alt — the west verge's darkest pocket (the square-serjeant's west turn, 4.5 m off)
   kit.mawMote("m2", 9, -33.5);            // DEVOUR alt — behind the colors ward's box
+  // CLARITY PASS (supply, not rules): two motes across a district with six
+  // wardens meant the verb was never worth planning a route around. Two added,
+  // each on a flank the level already asks you to walk, each in true dark.
+  // NOTE on darkness in this level: the eight parade standards sit at x ±4.4
+  // with range 7, so any point east of x ≈ 11.5 on the square is out of every
+  // pool — that is why m4 sits where it does rather than nearer the porch.
+  kit.mawMote("m3", 21.4, 20.3);          // the armory walk's head, just inside the outer wicket, in the inner wall's long shade — the charge for the WALL-WARD before his 24 m lane
+  kit.mawMote("m4", 13, -7.5);            // the east verge, on the line from the inner wicket down to the porch — 4 m off the SQUARE-SERJEANT's east turn, 11 m before the PORCH-WARD's beat
 
   // ================= THE DAY WATCH (Law of the Watch — posts are jobs) ======== [KEPT paths/specs]
   kit.guard([[-4, 10], [4, 10]], TUNE.vGate);      // the OUT-WARD: paces the gate front facing the barred road; pauses at the toll desk (E) and the queue rail (W)
@@ -382,6 +390,7 @@ export function buildMission1() {
       { x: 30, z: -6, r: 1.5 },                           // south tower base
       { x: 32, z: 10, r: 1.4 },                           // north tower base
       { x: 27, z: 0, r: 1.4 },                            // the whetting trough
+      { x: 21.4, z: 20.3, r: 1.0 },                       // m3 mote — the walk's head
     ];
     // the arms chests, ranked along the curtain wall — issued steel, counted
     // and squared (a rank because soldiers stack in ranks)
@@ -439,6 +448,7 @@ export function buildMission1() {
     const clearP = [
       { x0: 16, z0: -8, x1: 20, z1: -4 },                 // the wicket lane (keep it readable)
       { x0: -10, z0: -5, x1: 10, z1: -5, pad: 0.7 },      // the square-serjeant's line
+      { x: 13, z: -7.5, r: 1.0 },                         // m4 mote — keep the wicket-side pickup clean
     ];
     kit.flank(14, -6, { prop: "urn", opts: { scale: 0.9 } },
       { dir: 0, gap: 1.9, face: "in", clear: clearP, seed: 81 }); // offering urns at the wicket jambs
@@ -460,6 +470,7 @@ export function buildMission1() {
       { x0: -2, z0: -15, x1: 2, z1: 1, pad: 0.5 },        // the N–S crossing lane — keep it legible
       { x: 0, z: -7, r: 1.6 },                            // the cistern
       { x: -13, z: -1, r: 1.0 },                          // m1 pocket
+      { x: 13, z: -7.5, r: 1.0 },                         // m4 pocket (east verge)
       { x: 12, z: -12.5, r: 1.0 },                        // c1 cache
       { x: -8, z: -3, r: 1.3 },                           // stele W
       { x: -3, z: -10, r: 1.4 },                          // stele S

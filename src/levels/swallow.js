@@ -262,8 +262,27 @@ export function buildSwallow() {
   kit.fogPatch(54, -6, 62, 6, { density: 0.018 });
 
   // ================= crimson maw motes — charge the devour =====================
-  kit.mawMote("maw1", -13, -1);  // the first spot of red, at the dock's exit threshold where Hush wakes (reachable before the flesher's aisle)
+  // CLARITY PASS (supply, not rules): the devour verb was reading as "never
+  // worth using" because its ammunition was too scarce to plan around. This is
+  // the TEACHING level, so its motes are placed hardest of all.
+  // maw1 MOVED (-13,-1) → (-10,0): the hook walk. At the old spot, on the dock
+  // floor beside the exit lane, a player hugging the north wall passed 2 m off
+  // it and reached the flesher's aisle with an empty maw — having been told "a
+  // crimson mote waits ahead" by the start trigger. The hook walk is 3 m wide
+  // between hard walls and is the ONLY way east; at z 0, with the pickup radius
+  // 1.2 and the blob's own radius holding it inside |z| ≈ 1.1, the first mote of
+  // the campaign cannot be walked past. First mouthful guaranteed.
+  kit.mawMote("maw1", -10, 0);   // the hook walk — the corridor the route cannot avoid; 6 m before the night-flesher's aisle head
   kit.mawMote("maw2", 31, 7);    // [KEPT] the shut stall's mouth — the one black bay in the mid-row's line of pans
+  // …and the render-watch's SOUTHERN approach. maw2 serves him from the lit
+  // north side (14 m across the mess-pan's pool); this one sits in the last
+  // black bay of the meat end, 3 m off his west post and 9 m before the east
+  // pause where he stands out of the Listener's earshot — the exact spot LESSON
+  // 2 says the second swallow belongs. Moss, unlit, and clear of the vats.
+  kit.mawMote("maw3", 27.2, -5.5);
+  // (no fourth: the row has exactly TWO devourable wardens — the Listener and
+  // the Pharos are the level's whole point about what you cannot eat — and a
+  // mote with no target is the same mistake as a primer mote.)
 
   // ================= GUARDS — exactly three enemy TYPES ========================
   // [KEPT] roster + specs; the paths are the same beats walked as market jobs.
@@ -287,7 +306,7 @@ export function buildSwallow() {
     const clearDock = [
       { x: -17, z: 0, r: 2.0 },                             // spawn — Hush wakes here
       { x0: -21, z0: -1.5, x1: -12, z1: 1.5, pad: 0.4 },   // the exit route east (dock → hook walk)
-      { x: -13, z: -1, r: 0.9 },                            // maw1 — the first red, keep it reachable
+      { x: -10, z: 0, r: 0.9 },                             // maw1 — the first red, now in the hook walk; keep the throat clean
     ];
     kit.cart(-16.2, 3.3, { rot: 0.5, seed: 81 });          // the night-cart, halted mid-tip against the north wall
     kit.sack(-16.8, 2.3, { seed: 82 });                    //   …its load slid off toward the wake
@@ -349,6 +368,7 @@ export function buildSwallow() {
       { x0: 30, z0: -7, x1: 36, z1: -7, pad: 0.7 },          // the render-watch's vat line
       { x0: 18, z0: -1.5, x1: 38, z1: 1.5, pad: 0.3 },       // through lane
       { x: 31, z: 7, r: 1.0 },                               // maw2 — the shut stall's mouth
+      { x: 27.2, z: -5.5, r: 1.0 },                          // maw3 — the render-watch's south approach
       { x: 20, z: 8, r: 0.9 },                               // checkpoint pads
       { x: 34, z: -9, r: 0.9 },
     ];
@@ -499,7 +519,7 @@ export function buildSwallow() {
       case "pharosZone":
         if (bag.stage === 3) {
           bag.stage = 4;
-          game.setObjective("Take the relic beneath the Eye");
+          game.setObjective("Take the Marrowlight beneath the Eye"); // the relic has a name (bag.relicName) — use it, as the primer does
           p.prompt("The <b>Pharos</b> can't be doused, lured, or eaten. Read its sweep and cross.", 4.5);
         }
         break;
