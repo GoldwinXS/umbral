@@ -347,7 +347,19 @@ export function buildVault() {
   kit.platform(-13, -5.6, -10.7, 7.4, { y: DECK, mat: kit.mats.stone, surface: "moss", support: false }); // north edge receded 1.0m for the lengthened ramp below
   kit.ramp(-12.9, 7.3, -10.8, 13.6, { axis: "z", y0: 2.5, y1: 0, mat: kit.mats.stone, surface: "moss" }); // run 6.3m (~21.6°), 0.1 lap into the platform
   kit.railing(-10.7, -4.6, -10.7, 7.4, { y: DECK, h: 0.85, mat: kit.mats.pillar }); // east lip — with the drop-gap at the south end
-  for (const pz of [-4.5, -1.5, 1.5, 4.5, 7.0]) kit.pillar(0.32, DECK + 0.06, -11.0, pz); // the colonnade carrying the lip (tucked under the deck — the nave lane beside it stays a warden's walk)
+  // The colonnade carrying the lip (tucked under the deck — the nave lane
+  // beside it stays a warden's walk). RE-BAYED (ramp audit): kit.pillar
+  // registers an UNBANDED cylinder, so a post that reads as "under the deck"
+  // also stands in the way of anyone walking ON it, and the deck is only 2.3 m
+  // wide — 1.19 m of it usable between the parapet wall and the east railing.
+  // A post eats the east 0.55 m of that; the prior's tableau against the
+  // parapet eats the west side; where the two met, the gallery was PINCHED
+  // SHUT (measured: zero passable centre positions across z 6.40..7.36, i.e.
+  // the ramp head and the desk bay), which killed E2's authored alternate
+  // route. The posts now march at the same ~2.9 m rhythm but stop short of the
+  // north end, leaving the prior's bay — his station AND the ramp's landing —
+  // open; the tableau below sits in it, clear of every post by >1.3 m.
+  for (const pz of [-4.5, -1.6, 1.3, 4.2]) kit.pillar(0.32, DECK + 0.06, -11.0, pz);
   // the Pharos, hanging in the shrine arch, sweeping the nave [KEPT exactly]
   kit.greatEye(0, -6.4, TUNE.pharos);
 
@@ -526,6 +538,9 @@ export function buildVault() {
       { x0: -9.65, z0: 1.7, x1: -3.35, z1: 8.3, pad: 0.25 },  // west pool + curbs
       { x0: 3.35, z0: 1.7, x1: 9.65, z1: 8.3, pad: 0.25 },    // east pool + curbs
       { x0: -13, z0: 7.2, x1: -10.7, z1: 13.7, pad: 0.2 },    // the overwalk ramp
+      { x0: -12.1, z0: -5.6, x1: -10.7, z1: 7.4, pad: 0.1 },  // the overwalk's WALKING LANE — the gallery is 1.19m of usable
+                                                              // width and E2's alternate route runs down it; anything dropped
+                                                              // here re-pinches it (see the colonnade note above)
       { x: 0, z: 9, r: 1.6 },                                 // checkpoint pad
       { x: -6.8, z: 10.6, r: 1.1 },                           // pool-head lamps
       { x: 6.8, z: 10.6, r: 1.1 },
@@ -547,9 +562,17 @@ export function buildVault() {
     // TABLEAU 4 · ON THE OVERWALK: the prior's crate-desk and supper, pan
     // cold, keys gone with him. (The gallery is the climb route — the story
     // sits ON it, against the parapet wall.)
-    lift(kit.crate(-12.35, 6.6, { size: 0.8, rot: 0.06, seed: 31 }));
-    lift(kit.sack(-12.3, 5.75, { r: 0.3, seed: 32 }));
-    lift(kit.brazier(-12.4, 7.0, { lit: false, seed: 33 }).group); // held clear of the ramp's receded platform edge (7.4)
+    // PUSHED FLUSH TO THE PARAPET + 0.4 m south (ramp audit): the gallery is a
+    // 1.19 m usable walk and these three sat a body's width out into it, so the
+    // desk's collider and the old north colonnade post closed the route between
+    // them. Flush against the wall the desk leaves a 0.4 m lane past it, the
+    // station still reads as one group in the prior's bay, and the desk's
+    // collider now clears the ramp head's south edge (7.3) by 0.75 m instead of
+    // straddling it. The desk is 0.7 (was 0.8) — a writing crate, not a cargo
+    // one; the pan carries no collider at all, so it is placed for the read.
+    lift(kit.crate(-12.45, 6.2, { size: 0.7, rot: 0.06, seed: 31 }));
+    lift(kit.sack(-12.5, 5.5, { r: 0.3, seed: 32 }));   // his supper, set down at the desk's foot
+    lift(kit.brazier(-12.45, 6.85, { lit: false, seed: 33 }).group); // the cold hand-pan at the desk's head, clear of the deck's north edge (7.4)
     kit.banner(-3.4, 3.9, 13.76, "s", { w: 1.1, color: 0xffb46a, seed: 34 }); // nave cloth, north wall
     kit.banner(5.2, 3.9, 13.76, "s", { w: 1.0, color: 0xffd76a, seed: 35 });
     kit.fogPatch(-10, 1, 10, 9, { density: 0.028 });    // (volumetrics on: lamp shafts over the water)

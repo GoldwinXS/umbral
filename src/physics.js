@@ -117,11 +117,22 @@ export function circleHits(x, z, r, boxes, cylinders, feetY = undefined, bodyH =
  * it IS reachable), but you may DROP to any lower surface (walk off an edge).
  * With no platforms/ramps this always returns 0 → flat levels are unchanged.
  * `base` is the ground-floor height (usually 0; pass a level's sunken base).
+ *
+ * `reachY` (default: curY) is the height the mover may reach UP FROM, split out
+ * from where its feet actually are so a mover mid-DROP can still re-acquire the
+ * lip it just left (see settleGroundY — that is the only caller that passes it).
+ * THE STEP-UP GATE ITSELF IS UNCHANGED, and it is deliberately the ONLY thing
+ * rejecting a deck the mover is standing UNDER: every candidate here is one the
+ * mover is already horizontally inside (that is what the footprint tests below
+ * decide), so "inside its footprint" cannot be the licence to stand on it —
+ * a blob crossing the undercroft is inside the belfry deck's footprint too, and
+ * must stay on the flagstones. Only the *height* test can tell those apart.
  */
-export function groundHeightAt(x, z, platforms, ramps, curY = 0, stepUp = 0.4, base = 0) {
+export function groundHeightAt(x, z, platforms, ramps, curY = 0, stepUp = 0.4, base = 0, reachY = curY) {
   let ground = base;
+  const reach = Math.max(curY, reachY) + stepUp;
   const consider = (h) => {
-    if (h <= curY + stepUp && h > ground) ground = h; // highest reachable
+    if (h <= reach && h > ground) ground = h; // highest reachable
   };
   consider(base);
   if (platforms) {
@@ -139,6 +150,59 @@ export function groundHeightAt(x, z, platforms, ramps, curY = 0, stepUp = 0.4, b
     }
   }
   return ground;
+}
+
+// How long (seconds) after the ground drops out from under a mover the surface
+// it was standing on stays reachable. Sized to cover a few frames of the drop
+// EASE below (a hairline seam between two footprints is crossed in 2–10 frames
+// at walking speed) while staying far short of a real fall off a catwalk (~0.5s
+// of ease): stepping off an edge must still commit you to the floor.
+export const DROP_GRACE = 0.25;
+
+/**
+ * Settle a mover onto the ground under its feet for one frame, and REMEMBER the
+ * lip it just left while it drops. Owns both halves of the verticality update:
+ * the height query and the snap-up / ease-down that follows it.
+ *
+ * WHY THIS EXISTS (the "collapse" bug): callers used to feed groundHeightAt
+ * their own smoothed groundY as the reachability reference. That value is a
+ * VISUAL ease — on a drop it slides downward over ~0.5s — so the instant a
+ * mover crossed a hairline gap between two footprints (a ramp authored 0.1m
+ * short of the deck it lands on, say) its reference started falling, and by the
+ * next frame the ramp's true surface was more than stepUp above the reference
+ * and became permanently "unreachable". The mover then walked the FLOOR under
+ * the ramp for the rest of the slope, with no way back up: a level-data seam of
+ * a few centimetres turned into a soft-lock. Authoring fixes close the seams we
+ * know about; this closes the class.
+ *
+ * The memory is armed only by an actual drop, holds the lip height for
+ * DROP_GRACE, and is spent the moment the mover stands on anything again — so
+ * it can rescue a mover that fell through a seam, and cannot hand anyone a
+ * deck: a blob walking under a catwalk never drops, never arms it, and is
+ * rejected by the same untouched stepUp gate as before.
+ */
+export function settleGroundY(mover, x, z, platforms, ramps, dt, stepUp = 0.4, base = 0) {
+  const graceY = mover._dropT > 0 ? mover._dropFrom : -Infinity;
+  const g = groundHeightAt(x, z, platforms, ramps, mover.groundY, stepUp, base,
+    Math.max(mover.groundY, graceY));
+  if (g > mover.groundY) {
+    // step UP snaps (a ramp rises only a hair per frame; never sink into it) —
+    // and this is also where a grace-window recovery lands. We are standing on
+    // something again, so the memory is spent.
+    mover.groundY = g;
+    mover._dropT = 0;
+  } else {
+    // DROP eases (a soft fall off a catwalk edge). Arm the memory on the FIRST
+    // frame of the drop only — never re-arm mid-fall, or a long fall would keep
+    // renewing its own window and stay re-attachable all the way down.
+    if (g < mover.groundY - 1e-4 && !(mover._dropT > 0)) {
+      mover._dropFrom = mover.groundY;
+      mover._dropT = DROP_GRACE;
+    }
+    mover.groundY += (g - mover.groundY) * Math.min(1, dt * 10);
+    if (mover._dropT > 0) mover._dropT = Math.max(0, mover._dropT - dt);
+  }
+  return mover.groundY;
 }
 
 export function pointInHole(x, z, holes) {

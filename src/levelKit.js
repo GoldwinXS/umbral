@@ -495,7 +495,8 @@ export function makeKit(scene) {
       const runLen = axis === "x" ? w : d;
       const rise = y1 - y0;
       const slabLen = Math.hypot(runLen, rise);
-      const geo = boxGeo(axis === "x" ? slabLen : w, 0.16, axis === "x" ? d : slabLen);
+      const TH = 0.16;                       // slab thickness (see the sink note below)
+      const geo = boxGeo(axis === "x" ? slabLen : w, TH, axis === "x" ? d : slabLen);
       const m = new THREE.Mesh(geo, mat);
       m.position.set(cx, (y0 + y1) / 2, cz);
       // Pitch sign must match the PHYSICS slope (groundHeightAt: y0 at the
@@ -505,6 +506,17 @@ export function makeKit(scene) {
       // climbed the physics slope (user-reported: "ramps are backwards").
       const ang = Math.atan2(rise, runLen);
       if (axis === "x") m.rotation.z = ang; else m.rotation.x = -ang;
+      // VISUAL vs PHYSICS: groundHeightAt walks the y0→y1 line, but the slab was
+      // CENTRED on that line — so its rendered TOP FACE floated half a thickness
+      // above the surface the blob actually stands on. Measured vertically that
+      // is (TH/2)/cos(angle) — 8.6 cm on a 21.6° ramp, on every ramp in the game
+      // — which read as the blob wading shin-deep up each slope and as a step at
+      // both lips (the low lip stood 8.6 cm proud of the floor it meets).
+      // Drop the MESH by exactly that so the top face LIES ON the physics line.
+      // The mesh moves, never the line: no walk height, deck hand-off or guard
+      // path changes, and both lips now meet floor/deck flush (the slab's tail
+      // simply buries itself under them).
+      m.position.y -= (TH / 2) / Math.cos(ang);
       m.userData.fxOcclude = true;
       scene.add(m);
       bag.occluders.push(m);

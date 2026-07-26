@@ -267,7 +267,19 @@ export function buildSpire() {
   kit.floor(10, 13, 11, 21.5);
   kit.surface(6, 15, 16, 28, "moss");
   kit.wall(16, 7, 16, 28, { h: 3.4, piers: false });    // east range wall ((16,28) owned by the cloister range; (16,7) by the belfry's east wall)
-  kit.wall(9.4, 15, 16, 15, { h: 3.3 });                // dorter | hoist wall, east of the walk door (owns (9.4,15),(16,15))
+  // dorter | hoist wall, east of the walk door — SPLIT at the hoist-way's foot.
+  // One run to x16 buried the ramp's low mouth (the ramp lands at z15 across
+  // x 12.2..15.2 and the wall box spans z 14.8..15.2): the servants' way ended
+  // in a wall face, and anything coming down it had to side-step off the slope
+  // to get out. Same treatment as the rift-dais skirt in lanternways — two runs
+  // with a gap the ramp's width, endpoints pulled back 0.4 so the wall boxes
+  // (th/2 overshoot) and their piers clear the slope by ~0.1 either side, the
+  // spacing already used at the ramp bay's jamb below. Piers: (9.4,15) and
+  // (16,15) keep the owners they had, the two new mouth jambs get their own —
+  // still one pier per corner. The dorter's south bay now opens onto the ramp
+  // foot, which is what the dressing keep-clear box (z→15.6) already assumed.
+  kit.wall(9.4, 15, 11.8, 15, { h: 3.3 });              // …west of the hoist-way mouth (owns (9.4,15) + the mouth's west jamb)
+  kit.wall(15.6, 15, 16, 15, { h: 3.3 });               // …east of it (owns the mouth's east jamb + (16,15))
   // the cell fronts (x 10.2) — low walls with a door gap per bay, so the moon
   // over the west range leaves the bays in their own shadow: dark, as sleep is
   kit.wall(10.2, 15.2, 10.2, 16.65, { h: 2.6, piers: false });
@@ -368,7 +380,18 @@ export function buildSpire() {
   // --- purpose: a muster floor offers nothing to hide behind but its dark.
   kit.floor(34, 5, 0, -2.5);
   kit.surface(-16, -5, 16, 0, "obsidian");
-  kit.ramp(-15.5, -5, -12.5, 1.3, { axis: "z", y0: 0, y1: 2.5, mat: kit.mats.block, surface: "obsidian" }); // THE WARDEN'S DESCENT — run 6.3m (~21.6°), 0.1 lap into the west arm
+  // THE WARDEN'S DESCENT — run 5.4m (~25°), 0.1 lap into the west arm.
+  // The foot was authored AT z-5, i.e. inside the span-gate wall's box
+  // (z -5.2..-4.8): the ramp's bottom 0.7 m was unusable and the descent ended
+  // against a wall face. The wall CANNOT be split at the mouth the way the
+  // hoist-way's was — south of z-5 at this x is the crown chasm (kit.hole
+  // -15.8,-21 → -2,-5), so a gap there would open a fall-death straight off the
+  // ramp's foot; this run is the chasm's parapet, not a partition. So the MOUTH
+  // moves instead: pulled 0.9 m north of the wall, which buys the descent a real
+  // landing on the forecourt and costs 3° of extra pitch. Head authored at the
+  // west arm's own 2.52 (see the lanternways hand-off note) so the lapped tail
+  // meets the deck flush.
+  kit.ramp(-15.5, -4.1, -12.5, 1.3, { axis: "z", y0: 0, y1: 2.52, mat: kit.mats.block, surface: "obsidian" });
   kit.wall(-16, -5, -16, 0, { h: 3.6 });                // west wall (owns (-16,-5),(-16,0))
   kit.wall(-16, -5, -2, -5, { h: 3.6, piers: false });  // span-gate wall, west of the gap
   kit.pier(-2, -5, 3.8);                                // the span gate's jambs

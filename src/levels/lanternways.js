@@ -163,7 +163,11 @@ export function buildLanternWays() {
   // over (height-banded: blocks the ground, clears the gallery walker above)
   kit.railing(2.15, 30, 6, 30, { y: 0, h: 1.9, t: 0.4 });
   // E1 · the first rung: ramp up the east wall, balcony over the fork court
-  kit.ramp(3.4, 31.0, 5.8, 37.4, { axis: "z", y0: 2.5, y1: 0, mat: kit.mats.wood, surface: "moss" });
+  // HAND-OFF (ramp audit): the head laps 0.1 into the deck and is authored at the
+  // DECK'S OWN height, not a round 2.5 — the lapped tail keeps rising past the
+  // deck edge, so lap × gradient is exactly the hop the blob takes stepping off
+  // the planks (0.2 lap at y0 2.5 measured 0.10 m of it; 0.1 at 2.52 is 0.04).
+  kit.ramp(3.4, 31.1, 5.8, 37.4, { axis: "z", y0: 2.52, y1: 0, mat: kit.mats.wood, surface: "moss" }); // run 6.3m (~21.8°), 0.1 lap into the deck
   kit.platform(2.4, 27.6, 5.6, 31.2, { y: 2.52, mat: kit.mats.wood, surface: "moss", support: true });
   kit.railing(2.4, 27.6, 5.6, 27.6, { y: 2.52, h: 0.85, mat: kit.mats.rust }); // south lip — you LOOK over it; the west lip stays open (the drop is a lesson too)
   kit.torch(0, 35.5, TUNE.reveille);                      // the reveille lamp — the muster's one paid flame
@@ -184,7 +188,7 @@ export function buildLanternWays() {
   kit.pier(-14, 26, 3.2);
   // E2 · the third throat: the gallery ramp and its landing deck. The ramp
   // exists because the high lanterns do — lanterns ride up it each dusk.
-  kit.ramp(5.6, 20.4, 11.9, 22.4, { axis: "x", y0: 0, y1: 2.5, mat: kit.mats.wood, surface: "moss" }); // run 6.3m (~21.6°) — foot extended west into open moss floor
+  kit.ramp(5.6, 20.4, 11.9, 22.4, { axis: "x", y0: 0, y1: 2.54, mat: kit.mats.wood, surface: "moss" }); // run 6.3m (~22.0°) — foot extended west into open moss floor; head authored at the DECK's 2.54 (see the muster ramp's hand-off note)
   kit.platform(11.8, 18.0, 13.7, 27.0, { y: 2.54, mat: kit.mats.wood, surface: "moss", support: true });
   kit.railing(11.8, 22.6, 11.8, 27.0, { y: 2.54, h: 0.85, mat: kit.mats.rust }); // west lip, north of the ramp mouth
   kit.railing(11.8, 27.0, 13.7, 27.0, { y: 2.54, h: 0.85, mat: kit.mats.rust }); // north lip
@@ -345,7 +349,13 @@ export function buildLanternWays() {
   // THE DRYING LOFT (the gallery's west leg) + its down-ramp: the high road's
   // last descent — past here the tenders cross the basin by chain-ferry only.
   kit.platform(-27.4, 14.6, -12.9, 17.6, { y: 2.48, mat: kit.mats.wood, surface: "moss", support: true }); // west edge receded 1.4m for the lengthened ramp below
-  kit.ramp(-33.8, 15.0, -27.5, 17.4, { axis: "x", y0: 0, y1: 2.5, mat: kit.mats.wood, surface: "moss" }); // run 6.3m (~21.6°), 0.1 lap into the platform
+  // The head must LAP the deck, not stop against it: at x1 -27.5 against a deck
+  // starting at -27.4 the two footprints left a 0.1 m strip owned by NEITHER, so
+  // groundHeightAt fell to the floor there — climbing popped down 0.42 m at the
+  // crest, and descending fell into the strip and could never re-acquire the
+  // slope (the blob finished the descent walking the floor UNDER its own ramp).
+  // -27.3 puts the tail 0.1 inside the deck, the house pattern (vault/spire).
+  kit.ramp(-33.8, 15.0, -27.3, 17.4, { axis: "x", y0: 0, y1: 2.5, mat: kit.mats.wood, surface: "moss" }); // run 6.5m (~21.0°), 0.1 lap into the platform
   kit.railing(-27.4, 14.6, -22.6, 14.6, { y: 2.48, h: 0.85, mat: kit.mats.rust }); // south lip…
   kit.railing(-20.6, 14.6, -12.9, 14.6, { y: 2.48, h: 0.85, mat: kit.mats.rust }); // …with the devour drop-gap
   kit.railing(-27.4, 17.6, -12.9, 17.6, { y: 2.48, h: 0.85, mat: kit.mats.rust }); // north lip (the slot behind is a fall)

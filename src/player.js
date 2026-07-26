@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { collideCircle, circleHits, pointInHole, groundHeightAt } from "./physics.js";
+import { collideCircle, circleHits, pointInHole, groundHeightAt, settleGroundY } from "./physics.js";
 
 /**
  * The player: an umbral blob — a void-black, morphing creature.
@@ -433,6 +433,7 @@ export class Player {
     this.groundY = v.y > 0.6 ? v.y - PLAYER_R : 0; // spawn on a deck if y is raised
     this.mesh.position.set(v.x, this.groundY + PLAYER_R, v.z);
     this.vel.set(0, 0, 0);
+    this._dropT = 0;      // a fresh spawn is standing, not falling: no drop memory
     this.falling = 0;
     this.frozen = false;
     this.launch = 0;
@@ -475,9 +476,9 @@ export class Player {
           }
         }
       }
-      const gf = groundHeightAt(this.pos.x, this.pos.z, level.platforms, level.ramps, this.groundY);
-      if (gf > this.groundY) this.groundY = gf;
-      else this.groundY += (gf - this.groundY) * Math.min(1, dt * 10);
+      // same settle as walking (snap up / ease down, with the drop-grace memory
+      // that lets a fling flung across a seam re-acquire the surface it left)
+      settleGroundY(this, this.pos.x, this.pos.z, level.platforms, level.ramps, dt);
       this.pos.y = this.groundY + this.radius;
       this.speedFrac += (Math.min(1, speed / SPEEDS.run) - this.speedFrac) * Math.min(1, dt * 8);
       this.facing.set(this.vel.x, this.vel.z);
@@ -539,9 +540,10 @@ export class Player {
     // VERTICALITY: settle onto the surface under our feet. Step UP snaps (a ramp
     // rises only a hair per frame; never sink into it); DROP eases (a soft fall
     // off a catwalk edge). Flat levels have no platforms/ramps → groundY stays 0.
-    const g = groundHeightAt(this.pos.x, this.pos.z, level.platforms, level.ramps, this.groundY);
-    if (g > this.groundY) this.groundY = g;
-    else this.groundY += (g - this.groundY) * Math.min(1, dt * 10);
+    // physics.js owns both halves now (settleGroundY) so the drop-ease can't
+    // corrupt the reachability reference and strand us under a ramp — see the
+    // "collapse" note there.
+    settleGroundY(this, this.pos.x, this.pos.z, level.platforms, level.ramps, dt);
     this.pos.y = this.groundY + this.radius;
 
     // --- footsteps → noise events ---
@@ -592,8 +594,12 @@ export class Player {
     }
     this.pos.x += dx * best;
     this.pos.z += dz * best;
-    // land on the surface under the blob (ramps/drops resolve like a step)
+    // land on the surface under the blob (ramps/drops resolve like a step).
+    // A teleport is NOT a fall: resolve straight off the current foot height
+    // (the step-up gate still forbids blinking up onto a deck) and drop any
+    // grace memory, so a blink can never cash in a lip we left before it.
     this.groundY = groundHeightAt(this.pos.x, this.pos.z, ctx.level.platforms, ctx.level.ramps, this.groundY);
+    this._dropT = 0;
     this.pos.y = this.groundY + this.radius;
     this.blinkCdMax = BLINK_CD * (ctx.blinkCdMul || 1);
     this.blinkCd = this.blinkCdMax;
