@@ -152,7 +152,11 @@ const OVERSCAN_NONE_RS = 0.9; // ...and at/above which it is not bought at all
 // the low-history pixels a turn drags in are precisely what they clean up.
 // Applied as a FLOOR on top of whatever the library's adaptive governor or the
 // settings slider currently wants — see the accessor in _makeRT.
-const SH_DENOISE_FLOOR = 5;
+// Since 0.10.0 the library caps its own denoise spend at GOVERNOR_MAX_DENOISE = 3,
+// and at 0.14.0 its overload brake min's denoiseIterations to 3 — which READS our
+// inflated getter and WRITES our setter, permanently rewriting the base value.
+// A floor of 3 keeps the shoulder-view intent and removes that interaction.
+const SH_DENOISE_FLOOR = 3;
 //
 // Measured (level 0, shoulder camera, 2.4 rad/s turn, perf preset, ANGLE-GL):
 //   temporal flicker      -24%   (0.2287 -> 0.1744)
@@ -1818,6 +1822,18 @@ class Game {
 
     if (this.scene && this.camera && this.rt) {
       this.rt.render(this.scene, this.camera);
+      // ONE-TIME RT DIAGNOSTICS — first successful render only. Since 0.7.0 the
+      // library surfaces usage warnings (stale-geometry, stale-transform,
+      // rtdeforming-not-dynamic, implicit-compile, untraceable-object,
+      // instanced-mesh, transparent-dynamic) on status.warnings and compile
+      // failures on compileError. This upgrade is the first build where they can
+      // fire; they report pre-existing integration state, not new bugs, so they
+      // are logged and must not fail the build.
+      if (!this._rtDiagShown) {
+        this._rtDiagShown = true;
+        if (this.rt.compileError) console.error("[umbral] RT compile error:", this.rt.compileError);
+        if (this.rt.status.warnings.length) console.warn("[umbral] RT warnings:", this.rt.status.warnings);
+      }
       // The ray tracer's raster pass drops transparent overlays (GBufferPass
       // hides opacity < 0.5). So draw the in-world HUD effects — sound rings,
       // reticles, fog barriers, trails — in a plain forward pass over the traced

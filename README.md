@@ -2,7 +2,7 @@
 
 A ray-traced stealth game for the browser. You are the umbral — a void-black
 creature of living shadow. Wardens see **light**, not you: stay dark, and their
-gaze slides off. Slip through three hand-built missions of stealth-puzzle
+gaze slides off. Slip through eight hand-built missions of stealth-puzzle
 infiltration, rendered in real time with [three-realtime-rt](https://www.npmjs.com/package/three-realtime-rt).
 
 ▶ **Play:** https://goldwinxs.github.io/umbral/
