@@ -6,7 +6,7 @@ leave the level?", "I can't see anything, it's too dark." Every one of those
 is a legibility failure, not a difficulty failure. This pass makes the game's
 language explicit — starting with one color that always means the same thing.
 
-Constraints that bind every change below (from three-realtime-rt 0.6.0):
+Constraints that bind every change below (from three-realtime-rt 0.14.0):
 - Runtime emissive changes DO NOT propagate to the NEE emitter table; any mesh
   whose glow must animate at runtime must be `rtExclude` (raster/glow-only).
 - Light intensity/color are per-frame uniforms — always safe to animate.

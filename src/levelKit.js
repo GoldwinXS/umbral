@@ -955,7 +955,9 @@ export function makeKit(scene) {
      * rooftops from anywhere in the level. main.js drives the wake; this builds
      * the pieces and owns `setLit`.
      *
-     * RENDER CONTRACT (three-realtime-rt 0.6.0) — every clause here is load-bearing:
+     * RENDER CONTRACT (three-realtime-rt 0.14.0) — every clause here is load-bearing:
+     *   (Re-verified still true at 0.14.0: the two binding rules — emissive is
+     *   frozen at compile time, and the meter reads intensity, not colour.)
      *  - Runtime emissive changes do NOT propagate to the NEE emitter table, so
      *    every animated-glow piece is rtExclude. This adds ZERO NEE emitters:
      *    four levels (Lantern-Ways, Chandlery, Spire, Reliquary) already sit
