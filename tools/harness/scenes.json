@@ -1,0 +1,97 @@
+[
+  {
+    "level": 3,
+    "name": "brightward-gate",
+    "lights": 20,
+    "emissiveTris": 234,
+    "diagonal": 97,
+    "directional": 1,
+    "ambientLights": [
+      {
+        "color": "#25324a",
+        "intensity": 0.4
+      }
+    ],
+    "warnings": [],
+    "compileError": null,
+    "coreFailure": null,
+    "canvas": [
+      767,
+      431
+    ],
+    "motionVectorsSupported": true
+  },
+  {
+    "level": 4,
+    "name": "lantern-ways",
+    "lights": 25,
+    "emissiveTris": 256,
+    "diagonal": 109,
+    "directional": 1,
+    "ambientLights": [],
+    "warnings": [],
+    "compileError": null,
+    "coreFailure": null,
+    "canvas": [
+      767,
+      431
+    ],
+    "motionVectorsSupported": true
+  },
+  {
+    "level": 5,
+    "name": "chandlery",
+    "lights": 22,
+    "emissiveTris": 256,
+    "diagonal": 96,
+    "directional": 1,
+    "ambientLights": [
+      {
+        "color": "#2c3a55",
+        "intensity": 0.42
+      }
+    ],
+    "warnings": [],
+    "compileError": null,
+    "coreFailure": null,
+    "canvas": [
+      767,
+      431
+    ],
+    "motionVectorsSupported": true
+  },
+  {
+    "level": 6,
+    "name": "spire",
+    "lights": 27,
+    "emissiveTris": 256,
+    "diagonal": 98,
+    "directional": 1,
+    "ambientLights": [],
+    "warnings": [],
+    "compileError": null,
+    "coreFailure": null,
+    "canvas": [
+      767,
+      431
+    ],
+    "motionVectorsSupported": true
+  },
+  {
+    "level": 7,
+    "name": "reliquary",
+    "lights": 24,
+    "emissiveTris": 256,
+    "diagonal": 77,
+    "directional": 1,
+    "ambientLights": [],
+    "warnings": [],
+    "compileError": null,
+    "coreFailure": null,
+    "canvas": [
+      767,
+      431
+    ],
+    "motionVectorsSupported": true
+  }
+]

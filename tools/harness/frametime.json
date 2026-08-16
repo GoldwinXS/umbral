@@ -1,0 +1,54 @@
+[
+  {
+    "level": 0,
+    "name": "ashway",
+    "preset": "perf",
+    "cfgBefore": {
+      "renderScale": 0.55,
+      "canvas": [
+        767,
+        431
+      ],
+      "denoise": 2,
+      "volumetric": false,
+      "reflections": false
+    },
+    "cfgAfter": {
+      "renderScale": 0.55,
+      "canvas": [
+        767,
+        431
+      ],
+      "denoise": 2,
+      "volumetric": false,
+      "reflections": false
+    },
+    "beforeMs": [
+      24.1,
+      29.4,
+      21.1,
+      89.3,
+      30.5
+    ],
+    "afterMs": [
+      27,
+      33.5,
+      99.1,
+      45.05,
+      32.55
+    ],
+    "beforeMedian": 29.4,
+    "afterMedian": 33.5,
+    "beforeSpread": 68.2,
+    "afterSpread": 72.1,
+    "ratios": [
+      1.12,
+      1.139,
+      4.697,
+      0.504,
+      1.067
+    ],
+    "ratioMedian": 1.12,
+    "ratioSpread": 4.192
+  }
+]

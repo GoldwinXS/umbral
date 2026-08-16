@@ -1,0 +1,45 @@
+{
+  "build": {
+    "status": 0,
+    "stdout": "\u001b[36mvite v5.4.21 \u001b[32mbuilding for production...\u001b[36m\u001b[39m\ntransforming...\n\u001b[32m✓\u001b[39m 95 modules transformed.\nrendering chunks...\ncomputing gzip size...\n\u001b[2mdist/\u001b[22m\u001b[32mindex.html                \u001b[39m\u001b[1m\u001b[2m   29.25 kB\u001b[22m\u001b[1m\u001b[22m\u001b[2m │ gzip:   8.39 kB\u001b[22m\n\u001b[2mdist/\u001b[22m\u001b[36massets/index-yTpfPcPy.js  \u001b[39m\u001b[1m\u001b[2m1,084.38 kB\u001b[22m\u001b[1m\u001b[22m\u001b[2m │ gzip: 326.63 kB\u001b[22m\n\u001b[32m✓ built in 2.53s\u001b[39m\n",
+    "stderr": ""
+  },
+  "dist": {
+    "url": "http://localhost:4182/",
+    "state": {
+      "booted": true,
+      "state": "playing",
+      "compileError": null,
+      "warnings": [],
+      "audit": {
+        "tier": "high",
+        "tierOptions": {
+          "renderScale": 0.5,
+          "denoiseIterations": 3,
+          "stochasticLights": false,
+          "adaptiveQuality": true
+        },
+        "unknown": [],
+        "ignored": []
+      },
+      "ambient": false,
+      "motionVectors": true,
+      "bootHidden": true
+    },
+    "consoleErrors": [],
+    "ignored": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ],
+    "shot": "C:\\ClaudeSessions\\umbral-wt\\rt015\\tools\\harness\\shots\\dist-L0-ashway.png"
+  },
+  "fallback": {
+    "rtSupported": false,
+    "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+    "prompt": {
+      "text": "Ray tracing is not supported on this device — running flat-lighting fallback.",
+      "visible": true
+    },
+    "shot": "C:\\ClaudeSessions\\umbral-wt\\rt015\\tools\\harness\\shots\\fallback-disable-gpu-L0.png",
+    "launchArgs": "--disable-gpu (SwiftShader)"
+  }
+}

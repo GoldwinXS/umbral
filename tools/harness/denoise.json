@@ -1,0 +1,10 @@
+{
+  "tacticalAfterWrite2": 2,
+  "shoulderReadsFloor": 3,
+  "baseAfterGovernorWrite": 2,
+  "shoulderAfterBrake": 3,
+  "tacticalAfterBrake": 2,
+  "shoulderWithZero": 0,
+  "tacticalWithZero": 2,
+  "governorMaxDenoise": 3
+}

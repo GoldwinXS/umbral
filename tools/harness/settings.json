@@ -1,0 +1,250 @@
+{
+  "reset": {
+    "before": {
+      "preset": "perf",
+      "renderScale": 0.55,
+      "volumetric": false,
+      "gi": false,
+      "reflections": false,
+      "restirClampRel": 2,
+      "rtClamp": 2,
+      "rtGi": false
+    },
+    "changed": {
+      "preset": "custom",
+      "renderScale": 0.9,
+      "volumetric": true,
+      "gi": true,
+      "reflections": true,
+      "restirClampRel": 0,
+      "rtClamp": 0,
+      "rtGi": true,
+      "rtRenderScale": 0.9,
+      "rtMCap": 40,
+      "saved": "{\"v\":3,\"preset\":\"custom\",\"renderScale\":0.9,\"junk\":1}"
+    },
+    "after": {
+      "preset": "perf",
+      "renderScale": 0.55,
+      "volumetric": false,
+      "gi": false,
+      "reflections": false,
+      "restirClampRel": 2,
+      "rtClamp": 2,
+      "rtGi": false,
+      "rtRenderScale": 0.55,
+      "rtMCap": 16,
+      "rtAmbient": false,
+      "rtDispersion": 0.12,
+      "libDefaultsWrong": [
+        [
+          "reflections",
+          true,
+          false
+        ]
+      ],
+      "uiWrong": [],
+      "savedAfterReset": null,
+      "presetSelected": true
+    }
+  },
+  "migration": {
+    "v2 named preset": {
+      "seeded": {
+        "v": 2,
+        "preset": "perf",
+        "renderScale": 0.55,
+        "resolution": 0.6,
+        "taa": true,
+        "denoise": 2,
+        "volumetric": false,
+        "reflections": false,
+        "stochastic": true,
+        "adaptive": true,
+        "targetFps": 50,
+        "sound": true,
+        "overlayOpacity": 0.2,
+        "touch": false,
+        "view3p": false,
+        "autoFollow": true,
+        "gi": false
+      },
+      "got": {
+        "v": 3,
+        "preset": "perf",
+        "renderScale": 0.55,
+        "resolution": 0.6,
+        "denoise": 2,
+        "taa": true,
+        "volumetric": false,
+        "reflections": false,
+        "refraction": true,
+        "adaptive": true,
+        "targetFps": 50,
+        "gi": false,
+        "view3p": false,
+        "autoFollow": true,
+        "overlayOpacity": 0.2,
+        "stochasticPresent": false,
+        "libKnobs": {
+          "restirClampRel": 2,
+          "restirDirectionalBypass": true,
+          "restirReprojectionRescue": true,
+          "restirCandidateImportance": true,
+          "motionVectors": true
+        },
+        "libKnobsMatchLibrary": true,
+        "rtStochastic": false,
+        "savedBlob": "{\"v\":3,\"preset\":\"perf\",\"renderScale\":0.55,\"resolution\":0.6,\"taa\":true,\"denoise\":2,\"volumetric\":false,\"reflections\":false,\"refraction\":true,\"adaptive\":true,\"targetFps\":50,\"restirClampRel\":2,\"restirDirectionalBypass\":true,\"restirReprojectionRescue\":true,\"restirCandidateImportance\":true,\"motionVectors\":true,\"sound\":true,\"overlayOpacity\":0.2,\"touch\":false,\"view3p\":false,\"autoFollow\":true,\"gi\":false}"
+      }
+    },
+    "v2 custom": {
+      "seeded": {
+        "v": 2,
+        "preset": "custom",
+        "renderScale": 0.85,
+        "resolution": 0.9,
+        "taa": false,
+        "denoise": 4,
+        "volumetric": true,
+        "reflections": true,
+        "stochastic": true,
+        "adaptive": false,
+        "targetFps": 60,
+        "sound": false,
+        "overlayOpacity": 0.3,
+        "touch": false,
+        "view3p": true,
+        "autoFollow": false,
+        "gi": true
+      },
+      "got": {
+        "v": 3,
+        "preset": "custom",
+        "renderScale": 0.85,
+        "resolution": 0.9,
+        "denoise": 4,
+        "taa": false,
+        "volumetric": true,
+        "reflections": true,
+        "refraction": true,
+        "adaptive": false,
+        "targetFps": 60,
+        "gi": true,
+        "view3p": true,
+        "autoFollow": false,
+        "overlayOpacity": 0.3,
+        "stochasticPresent": false,
+        "libKnobs": {
+          "restirClampRel": 2,
+          "restirDirectionalBypass": true,
+          "restirReprojectionRescue": true,
+          "restirCandidateImportance": true,
+          "motionVectors": true
+        },
+        "libKnobsMatchLibrary": true,
+        "rtStochastic": false,
+        "savedBlob": "{\"v\":3,\"preset\":\"custom\",\"renderScale\":0.85,\"resolution\":0.9,\"taa\":false,\"denoise\":4,\"volumetric\":true,\"reflections\":true,\"refraction\":true,\"adaptive\":false,\"targetFps\":60,\"restirClampRel\":2,\"restirDirectionalBypass\":true,\"restirReprojectionRescue\":true,\"restirCandidateImportance\":true,\"motionVectors\":true,\"sound\":false,\"overlayOpacity\":0.3,\"touch\":false,\"view3p\":true,\"autoFollow\":false,\"gi\":true}"
+      }
+    },
+    "v1 custom (no version field)": {
+      "seeded": {
+        "preset": "custom",
+        "renderScale": 0.4,
+        "resolution": 0.6,
+        "taa": true,
+        "denoise": 3,
+        "volumetric": false,
+        "reflections": false,
+        "stochastic": true,
+        "adaptive": true,
+        "targetFps": 50,
+        "sound": true,
+        "overlayOpacity": 1,
+        "touch": false,
+        "view3p": false,
+        "autoFollow": true,
+        "gi": false
+      },
+      "got": {
+        "v": 3,
+        "preset": "custom",
+        "renderScale": 0.65,
+        "resolution": 0.6,
+        "denoise": 3,
+        "taa": true,
+        "volumetric": false,
+        "reflections": false,
+        "refraction": true,
+        "adaptive": true,
+        "targetFps": 50,
+        "gi": false,
+        "view3p": false,
+        "autoFollow": true,
+        "overlayOpacity": 0.2,
+        "stochasticPresent": false,
+        "libKnobs": {
+          "restirClampRel": 2,
+          "restirDirectionalBypass": true,
+          "restirReprojectionRescue": true,
+          "restirCandidateImportance": true,
+          "motionVectors": true
+        },
+        "libKnobsMatchLibrary": true,
+        "rtStochastic": false,
+        "savedBlob": "{\"v\":3,\"preset\":\"custom\",\"renderScale\":0.65,\"resolution\":0.6,\"taa\":true,\"denoise\":3,\"volumetric\":false,\"reflections\":false,\"refraction\":true,\"adaptive\":true,\"targetFps\":50,\"restirClampRel\":2,\"restirDirectionalBypass\":true,\"restirReprojectionRescue\":true,\"restirCandidateImportance\":true,\"motionVectors\":true,\"sound\":true,\"overlayOpacity\":0.2,\"touch\":false,\"view3p\":false,\"autoFollow\":true,\"gi\":false}"
+      }
+    }
+  },
+  "phone": {
+    "geomClosed": {
+      "scrollHeight": 1017,
+      "clientHeight": 329,
+      "scrollable": true,
+      "minTouchH": 16,
+      "boxes": [
+        {
+          "tag": "prePerf",
+          "w": 156,
+          "h": 33
+        },
+        {
+          "tag": "preBal",
+          "w": 156,
+          "h": 33
+        },
+        {
+          "tag": "preBeauty",
+          "w": 156,
+          "h": 33
+        },
+        {
+          "tag": "setReset",
+          "w": 264,
+          "h": 30
+        },
+        {
+          "tag": "SUMMARY",
+          "w": 480,
+          "h": 28
+        },
+        {
+          "tag": "set_renderScale",
+          "w": 150,
+          "h": 16
+        }
+      ]
+    },
+    "geomOpen": {
+      "scrollHeight": 1482,
+      "clientHeight": 329,
+      "scrolledTo": 1152.4862060546875,
+      "bottomReached": true
+    },
+    "shots": [
+      "C:\\ClaudeSessions\\umbral-wt\\rt015\\tools\\harness\\shots\\settings-phone-landscape-closed.png",
+      "C:\\ClaudeSessions\\umbral-wt\\rt015\\tools\\harness\\shots\\settings-phone-landscape-open-bottom.png",
+      "C:\\ClaudeSessions\\umbral-wt\\rt015\\tools\\harness\\shots\\settings-phone-landscape-open-top.png"
+    ]
+  }
+}
