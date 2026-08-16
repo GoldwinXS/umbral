@@ -1,0 +1,43 @@
+[
+  {
+    "level": 5,
+    "name": "chandlery",
+    "directional": [
+      {
+        "intensity": 3,
+        "color": "#fff1cf",
+        "pos": [
+          6,
+          34,
+          -26
+        ]
+      }
+    ],
+    "versions": [
+      "pre-0.15 (no DEFAULTS)",
+      "0.15.x (has DEFAULTS)"
+    ],
+    "crossBuild": {
+      "meanAbsDiff": 0.772,
+      "floorBefore": 0.593,
+      "floorAfter": 0.172,
+      "beforeMean": 19.08,
+      "afterMean": 19.29,
+      "beforeP05": 0,
+      "afterP05": 0,
+      "beforeFlicker": 0.219,
+      "afterFlicker": 0.114
+    },
+    "bypassAlone": {
+      "meanAbsDiff": 0.368,
+      "offMean": 19.35,
+      "onMean": 19.29,
+      "offP05": 0,
+      "onP05": 0,
+      "offP95": 83.59,
+      "onP95": 81.59,
+      "offFlicker": 0.223,
+      "onFlicker": 0.105
+    }
+  }
+]

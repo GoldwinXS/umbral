@@ -1,0 +1,62 @@
+[
+  {
+    "level": 5,
+    "name": "chandlery",
+    "authored": [
+      {
+        "color": "#2c3a55",
+        "authored": 0.42,
+        "now": 0.42
+      }
+    ],
+    "beforeScene": {
+      "lights": [
+        {
+          "color": "#2c3a55",
+          "intensity": 0.42
+        }
+      ],
+      "hasAmbientOption": "undefined"
+    },
+    "versions": [
+      "pre-0.15 (no DEFAULTS)",
+      "0.15.x (has DEFAULTS)"
+    ],
+    "before": {
+      "mean": 19.12,
+      "p05": 0,
+      "p25": 0,
+      "p50": 6.43,
+      "p95": 85.73,
+      "meter": 0.06,
+      "png": "C:\\ClaudeSessions\\umbral-wt\\rt015\\tools\\harness\\shots\\ambient-before-L5-chandlery.png"
+    },
+    "off": {
+      "mean": 19.25,
+      "p05": 0,
+      "p25": 0,
+      "p50": 6.43,
+      "p95": 81.52,
+      "meter": 0.06,
+      "png": "C:\\ClaudeSessions\\umbral-wt\\rt015\\tools\\harness\\shots\\ambient-off-L5-chandlery.png"
+    },
+    "x010": {
+      "mean": 19.73,
+      "p05": 1.07,
+      "p25": 1.14,
+      "p50": 6.49,
+      "p95": 81.59,
+      "meter": 0.06,
+      "png": "C:\\ClaudeSessions\\umbral-wt\\rt015\\tools\\harness\\shots\\ambient-amb010-L5-chandlery.png"
+    },
+    "full": {
+      "mean": 21.19,
+      "p05": 2.93,
+      "p25": 4.15,
+      "p50": 7.43,
+      "p95": 81.88,
+      "meter": 0.06,
+      "png": "C:\\ClaudeSessions\\umbral-wt\\rt015\\tools\\harness\\shots\\ambient-ambfull-L5-chandlery.png"
+    }
+  }
+]

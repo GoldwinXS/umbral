@@ -343,12 +343,24 @@ class Game {
     if (this.rt) this.rt.dispose();
     const tier = RealtimeRaytracer.detectTier(this.renderer);
     const opts = RealtimeRaytracer.recommendedOptions(tier);
-    this.rt = new RealtimeRaytracer(this.renderer, {
+    const rtOpts = {
       ...opts,
       gi: false,               // direct light + emissive NEE is the look (and the budget)
       emissiveNEE: true,       // trims/studs light the scene for free
       restir: true,            // flat cost in light count — many-light scenes stay cheap
       maxHistory: 48,
+      // AMBIENT (new in 0.15.0, library default TRUE). Two levels build a
+      // THREE.AmbientLight as a "visual-only sky fill the light meter never
+      // reads" (mission1.js, chandlery.js), authored when the engine IGNORED
+      // ambient lights entirely. On 0.15.0 the compiler honours them as an
+      // unoccluded flat term on EVERY surface, which is exactly the thing this
+      // game must not have: the eye gem is an analytic meter (_computePlayerVis)
+      // and it does not read those lights, so darkness the meter calls 0.06
+      // would stop LOOKING dark. false is bit-for-bit the pre-0.15 handling
+      // (the shader adds the uniform unconditionally; off uploads zeros). If it
+      // is ever turned on, the two authored intensities (0.40, 0.42) are far too
+      // strong. See docs/RT-0.15-REPORT.md for the measured three-arm A/B.
+      ambient: false,
       // ART PASS — cool moonlit-night backdrop. VISUAL fill only; the stealth
       // meter is analytic (VIS_ENV) and never reads this. NOTE for future tuners:
       // with gi:false this env lights the visible SKY + reflections/glass, not
@@ -372,10 +384,29 @@ class Game {
       volumetric: { enabled: true, density: 0 },
       overscan: OVERSCAN_TACTICAL, // per-view from here on — see _applyViewTuning
       overloadProtection: true,
-    });
+    };
+    this.rt = new RealtimeRaytracer(this.renderer, rtOpts);
+    // OPTION AUDIT (0.15.0 upgrade). A renamed or removed library option is a
+    // SILENT no-op: the constructor takes any object, so a stale key just sits
+    // there doing nothing and the game looks subtly wrong with no error. Assert
+    // instead: every key we pass must exist on the instance, and every scalar we
+    // pass must have survived construction. Cheap (once per level load) and it
+    // fails loudly in the console rather than in the picture.
+    if (this.rt.supported) {
+      const unknown = Object.keys(rtOpts).filter((k) => !(k in this.rt));
+      const ignored = Object.entries(rtOpts).filter(([k, v]) => {
+        if (!(k in this.rt)) return false;
+        const t = typeof v;
+        if (t !== "boolean" && t !== "number" && t !== "string") return false; // objects/Colors compare by identity
+        return this.rt[k] !== v;
+      });
+      if (unknown.length) console.error("[umbral] RT options not present on this library build:", unknown);
+      if (ignored.length) console.warn("[umbral] RT options that did not stick:", ignored);
+      this._rtOptionAudit = { tier, tierOptions: opts, unknown, ignored: ignored.map(([k, v]) => [k, v, this.rt[k]]) };
+    }
     // DENOISE FLOOR (see SH_DENOISE_FLOOR). THREE separate writers own
     // rt.denoiseIterations: Settings.apply() (the slider), the library's adaptive
-    // governor (_qualityFor picks 3..5 from renderScale) and its overload brake.
+    // governor (_qualityFor picks 2..3 from renderScale) and its overload brake.
     // Pinning a constant here would be clobbered by whichever of them ran last;
     // pinning it from setViewMode would silently override the governor's own
     // tuning. So intercept the property instead — every writer still owns the
@@ -913,7 +944,11 @@ class Game {
     click("btnPlay", () => { hideAll(); this.loadLevel(Math.min(this.progress.unlocked, LEVELS.length - 1)); });
     click("btnLevels", () => { hideAll(); this._refreshLevels(); show("levels"); });
     click("btnHow", () => { hideAll(); show("how"); });
-    click("btnSettings", () => { this._settingsReturn = "title"; hideAll(); show("settings"); });
+    // refresh() before showing: the panel now displays values the GAME owns
+    // (the overscan readout, the motion-vector support state) as well as the
+    // player's, and the governor may have moved some of them since it was last
+    // open. A control that lies about the renderer is worse than no control.
+    click("btnSettings", () => { this._settingsReturn = "title"; this.settings.refresh(); hideAll(); show("settings"); });
     click("howBack", () => { hideAll(); show("title"); });
     click("lvBack", () => { hideAll(); show("title"); });
     click("setBack", () => {
@@ -932,7 +967,7 @@ class Game {
     // START of this level exactly as I entered it — so they re-apply _levelCarry,
     // NOT _carry (which by then holds the END-of-level snapshot taken on the win).
     click("btnRestart", () => { hideAll(); this.loadLevel(this.levelIndex, this._levelCarry); });
-    click("btnPauseSettings", () => { this._settingsReturn = "pause"; hideAll(); show("settings"); });
+    click("btnPauseSettings", () => { this._settingsReturn = "pause"; this.settings.refresh(); hideAll(); show("settings"); });
     click("btnQuit", () => this._toTitle());
     click("btnNext", () => {
       hideAll();
